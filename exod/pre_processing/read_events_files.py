@@ -2,10 +2,12 @@ from astropy.table import Table, vstack
 from scipy.stats import binned_statistic_dd
 from astropy.io import fits
 import numpy as np
+import os
 from exod.utils.path import data_processed
 
-def read_EPIC_events_file(size_arcsec, time_interval):
+def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False):
     """Reads the EPIC events files.
+    :argument obsid of the target observation
     :argument size_arcsec is the size in arseconds of the final spatial grid onto which data is binned,
     :argument time_interval is the same but for temporal dimension"""
 
@@ -13,7 +15,15 @@ def read_EPIC_events_file(size_arcsec, time_interval):
     extent = 70000 #Temporary extent of the cube in DetX DetY values
     nb_pixels = int(extent/pixel_size)
 
-    data_pn = Table(fits.open(f'{data_processed}PN_pattern_clean.fits')[1].data)['X','Y','TIME','RAWX','RAWY','CCDNR']
+    if gti_only:
+        pn_file = os.path.join(data_processed,obsid,'PN_clean.fits')
+        m1_file = os.path.join(data_processed,obsid,'M1_clean.fits')
+        m2_file = os.path.join(data_processed,obsid,'M2_clean.fits')
+    else:
+        pn_file = os.path.join(data_processed,obsid,'PN_pattern_clean.fits')
+        m1_file = os.path.join(data_processed,obsid,'M1_pattern_clean.fits')
+        m2_file = os.path.join(data_processed,obsid,'M2_pattern_clean.fits')
+    data_pn = Table(fits.open(pn_file)[1].data)['X','Y','TIME', 'RAWX','RAWY','CCDNR']
 
     # Bad rows in Struder et al. 2001b
     data_pn = data_pn[~((data_pn['CCDNR']==4)&(data_pn['RAWX']==12))&
@@ -23,8 +33,8 @@ def read_EPIC_events_file(size_arcsec, time_interval):
     data_pn = data_pn[~(data_pn['RAWX']==0)&~(data_pn['RAWX']==64)&
                       ~(data_pn['RAWY']==0)&~(data_pn['RAWY']==200)]
 
-    data_M1 = Table(fits.open(f'{data_processed}M1_pattern_clean.fits')[1].data)['X','Y','TIME']
-    data_M2 = Table(fits.open(f'{data_processed}M2_pattern_clean.fits')[1].data)['X','Y','TIME']
+    data_M1 = Table(fits.open(m1_file)[1].data)['X','Y','TIME']
+    data_M2 = Table(fits.open(m2_file)[1].data)['X','Y','TIME']
     data_EPIC = vstack((data_pn,data_M1,data_M2))
 
     #Create the data cube
@@ -37,4 +47,13 @@ def read_EPIC_events_file(size_arcsec, time_interval):
                                         bins=(np.linspace(0,extent, nb_pixels+1),
                                               np.linspace(0,extent, nb_pixels+1),
                                               time_windows))[0]
+
+    # Crop the cube
+    indices_image = np.where(np.sum(cube_EPIC, axis=2) > 0)
+    cube_EPIC = cube_EPIC[np.min(indices_image[0]) - box_size:np.max(indices_image[0]) + 1 + box_size,
+                          np.min(indices_image[1]) - box_size:np.max(indices_image[1]) + 1 + box_size]
+    #cube_EPIC[np.where(np.sum(cube_EPIC, axis=2) < 1)] = np.full(len(time_windows) - 1, np.nan)
+
     return cube_EPIC
+
+cube = read_EPIC_events_file('0831790701', 20, 1000)
