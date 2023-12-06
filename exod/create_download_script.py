@@ -7,15 +7,12 @@ def read_observation_ids(file_path):
         obs_ids = [line.strip() for line in file.readlines()]
     return obs_ids
 
-# Get the absolute path of the script
 script_path = Path(__file__).resolve()
 
-# Define other paths relative to the script location
 obs_list_path = script_path.parent.parent / 'data' / 'observations.txt'
 output_sh_path = script_path.parent.parent / 'data' / 'download_obs.sh'
 save_dir = script_path.parent.parent / 'data' / 'observations'
 
-# Log the script and other paths
 logger.info(f'Script Path: {script_path}')
 logger.info(f'Observations List Path: {obs_list_path}')
 logger.info(f'Download Script Path: {output_sh_path}')
@@ -24,11 +21,6 @@ logger.info(f'Save Directory: {save_dir}')
 logger.info(f'Reading observations from {obs_list_path}')
 observation_ids = read_observation_ids(obs_list_path)
 logger.info(f'Found {len(observation_ids)} observations ids')
-
-
-
-
-
 
 lines = []
 for obs in observation_ids:
@@ -43,7 +35,6 @@ for obs in observation_ids:
 
 # Add newline and & for running concuirrently
 lines = [o+'& \n' for o in lines]
-
 
 # Hack to get Ctrl + C to kill all processes
 killcmd = """
