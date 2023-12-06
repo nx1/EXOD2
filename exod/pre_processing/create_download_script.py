@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from logger import logger
+from exod.utils.logger import logger
 
 def read_observation_ids(file_path):
     with open(file_path, 'r') as file:

@@ -22,9 +22,9 @@ EXOD2/
 │   └── results_logs/
 """
 from pathlib import Path
-from logger import logger 
+from exod.utils.logger import logger
 
-module         = Path(__file__).parent            # contains all .py files : /EXOD2/exod
+module         = Path(__file__).parent.parent            # contains all .py files : /EXOD2/exod
 base           = module.parent             # Top level directory    : /EXOD2/
 data           = base / 'data'      # Data Path              : /EXOD2/data
 data_raw       = data / 'raw'              # This should point to folder with observations eg raw/0001730201
