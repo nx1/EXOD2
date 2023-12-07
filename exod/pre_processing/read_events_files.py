@@ -6,7 +6,7 @@ import os
 from exod.utils.path import data_processed
 
 def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False):
-    """Reads the EPIC events files.
+    """Reads the EPIC events files. Returns the cube and the coordinates_XY (used for WCS conversion)
     :argument obsid of the target observation
     :argument size_arcsec is the size in arseconds of the final spatial grid onto which data is binned,
     :argument time_interval is the same but for temporal dimension"""
@@ -50,10 +50,13 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
 
     # Crop the cube
     indices_image = np.where(np.sum(cube_EPIC, axis=2) > 0)
-    cube_EPIC = cube_EPIC[np.min(indices_image[0]) - box_size:np.max(indices_image[0]) + 1 + box_size,
-                          np.min(indices_image[1]) - box_size:np.max(indices_image[1]) + 1 + box_size]
+    cropping_angles = (np.min(indices_image[0]) - box_size, np.max(indices_image[0]) + 1 + box_size,
+                       np.min(indices_image[1]) - box_size, np.max(indices_image[1]) + 1 + box_size)
+    cube_EPIC = cube_EPIC[cropping_angles[0]:cropping_angles[1],cropping_angles[2]:cropping_angles[3]]
+    coordinates_XY = (np.linspace(0,extent, nb_pixels+1)[cropping_angles[0]:cropping_angles[1]],
+                   np.linspace(0,extent, nb_pixels+1)[cropping_angles[2]:cropping_angles[3]])
     #cube_EPIC[np.where(np.sum(cube_EPIC, axis=2) < 1)] = np.full(len(time_windows) - 1, np.nan)
 
-    return cube_EPIC
+    return cube_EPIC, coordinates_XY
 
-cube = read_EPIC_events_file('0831790701', 20, 1000)
+cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 1000)

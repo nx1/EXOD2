@@ -26,17 +26,17 @@ if __name__=='__main__':
     import os
 
     fig, (ax1,ax2) = plt.subplots(1,2)
-    cube = read_EPIC_events_file('0831790701', 2, 1000,3, gti_only=False)
-    m1=ax1.imshow(compute_pixel_variability(cube), norm=LogNorm())
+    cube,coordinates_XY = read_EPIC_events_file('0831790701', 2, 1000,3, gti_only=False)
+    m1=ax1.imshow(compute_pixel_variability(cube).T,origin='lower',interpolation='none', norm=LogNorm())
     plt.colorbar(mappable=m1, ax=ax1)
-    m2=ax2.imshow(convolve_variability(cube, box_size=3), norm=LogNorm())
+    m2=ax2.imshow(convolve_variability(cube, box_size=3).T,origin='lower',interpolation='none', norm=LogNorm())
     plt.colorbar(mappable=m2, ax=ax2)
     plt.savefig(os.path.join(data_processed,'0831790701', "plot_test.png"))
 
     fig, (ax1,ax2) = plt.subplots(1,2)
-    cube = read_EPIC_events_file('0831790701', 2, 1000,3, gti_only=True)
-    m1=ax1.imshow(compute_pixel_variability(cube), norm=LogNorm())
+    cube,coordinates_XY = read_EPIC_events_file('0831790701', 2, 1000,3, gti_only=True)
+    m1=ax1.imshow(compute_pixel_variability(cube).T,origin='lower',interpolation='none', norm=LogNorm())
     plt.colorbar(mappable=m1, ax=ax1)
-    m2=ax2.imshow(convolve_variability(cube, box_size=3), norm=LogNorm())
+    m2=ax2.imshow(convolve_variability(cube, box_size=3).T,origin='lower',interpolation='none', norm=LogNorm())
     plt.colorbar(mappable=m2, ax=ax2)
     plt.savefig(os.path.join(data_processed,'0831790701', "plot_test_gti.png"))
