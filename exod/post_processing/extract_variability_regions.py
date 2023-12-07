@@ -2,6 +2,8 @@ from skimage.measure import label, regionprops
 import numpy as np
 
 def extract_variability_regions(variability_map, threshold):
+    """Labels the contiguous regions above the threshold times the median variability, then extracts the
+    center of mass and bounding box of the corresponding pixel regions"""
     variable_pixels = (variability_map > threshold*np.median(variability_map)).astype(int)
     labeled_variability_map = label(variable_pixels)
 
@@ -16,7 +18,7 @@ def extract_variability_regions(variability_map, threshold):
 
 def plot_variability_with_regions(variability_map, threshold, outfile):
     fig, ax = plt.subplots()
-    m1=ax.imshow(variability_map, norm=LogNorm())
+    m1=ax.imshow(variability_map, norm=LogNorm(), interpolation='none')
     plt.colorbar(mappable=m1, ax=ax)
     centers, bboxes = extract_variability_regions(variability_map, threshold)
     for center, bbox in zip(centers, bboxes):
@@ -43,12 +45,12 @@ if __name__=='__main__':
     import matplotlib
     matplotlib.use('Agg')
     from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.processing.variability_computation import compute_pixel_variability
+    from exod.processing.variability_computation import compute_pixel_variability, convolve_variability
     from matplotlib.colors import LogNorm
     import os
     from exod.utils.path import data_processed
 
-    cube = read_EPIC_events_file('0831790701', 3, 100,3, gti_only=True)
-    variability_map = compute_pixel_variability(cube)
+    cube = read_EPIC_events_file('0831790701', 5, 500,3, gti_only=True)
+    variability_map = convolve_variability(cube, box_size=3)
     plot_variability_with_regions(variability_map, 8,
                                   os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
