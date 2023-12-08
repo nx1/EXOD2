@@ -1,0 +1,1 @@
+#TODO: KS and Chi2 tests on lightcurves extracted from the source regions
