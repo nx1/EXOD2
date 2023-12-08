@@ -59,4 +59,5 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
 
     return cube_EPIC, coordinates_XY
 
-cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 1000)
+if __name__ == "__main__":
+    cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 1000)
