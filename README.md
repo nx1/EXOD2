@@ -4,10 +4,10 @@ See Github Projects page for more information
 https://github.com/users/nx1/projects/2
 
 # Installation
-
-for example:
 `git clone https://github.com/nx1/EXOD2`
+
 `cd EXOD`
+
 `pip install .`
 
 Then set the 'EXOD' enviroment in your .bashrc to point to this repo i.e.
