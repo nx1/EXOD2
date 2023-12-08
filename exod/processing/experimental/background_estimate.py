@@ -30,11 +30,14 @@ def create_fake_burst(cubeshape, time_interval, time_peak_fraction, position, wi
     #peak_data = convolve(peak_data, np.ones((3,3,1), dtype=np.int64),mode='constant', cval=0.0)
     return peak_data
 
-size_arcsec=20
-time_interval=100
-cube, coordinates_XY = read_EPIC_events_file('0831790701', size_arcsec, time_interval, gti_only=False)
 
-def run_computation(cube):
+def run_computation(cube_raw, with_peak=False):
+    if with_peak:
+        cube = cube_raw+create_fake_burst(cube_raw.shape, 1000, time_peak_fraction=0.05,
+                                       position=(0.41*cube_raw.shape[0],0.36*cube_raw.shape[1]),
+                                       width_time=1000, amplitude=1e-1, size_arcsec=20)
+    else:
+        cube = cube_raw
     image = np.sum(cube, axis=2)
     threshold=np.nanpercentile(image.flatten(), 99)
     condition = np.where(image>threshold)
@@ -47,6 +50,8 @@ def run_computation(cube):
     maxi = max(np.nanmax(image), np.nanmax(no_source_image))
     mini = min(np.nanmin(image), np.nanmin(no_source_image))
     mini=max(mini,1)
+    maxi_value = 3*np.sum(cube)/(cube.shape[0]*cube.shape[1]*cube.shape[2])
+
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
     m1 = ax1.imshow(image.T, origin='lower', interpolation='none', norm=LogNorm(mini, maxi))
@@ -62,24 +67,23 @@ def run_computation(cube):
     plt.figure()
     plt.plot(lightcurve_no_source_image)
     plt.savefig(os.path.join(data_processed, '0831790701', "lightcurve_background_test.png"))
-    extrapolated_images = [normalized_background*image_value + source_only_image/(cube.shape[2])
-                           for image_value in lightcurve_no_source_image]
+    extrapolated_images = [normalized_background*frame_value + source_only_image/(cube.shape[2])
+                           for frame_value in lightcurve_no_source_image]
 
     for ind, extrapolated_image in zip(range(len(extrapolated_images)), extrapolated_images):
         true_image = cube[:,:,ind]
-        maxi = max(np.nanmax(true_image), np.nanmax(extrapolated_image))
-        mini = min(np.nanmin(true_image), np.nanmin(extrapolated_image))
-        mini = max(mini, 1)
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        m1 = ax1.imshow(true_image.T, origin='lower', interpolation='none', norm=LogNorm(mini, maxi))
+        fig.set_figheight(5)
+        fig.set_figwidth(15)
+        m1 = ax1.imshow(extrapolated_image.T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
         plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
-        ax1.set_title("True image")
+        ax1.set_title("Expected image")
         ax1.axis('off')
-        m2 = ax2.imshow(extrapolated_image.T, origin='lower', interpolation='none', norm=LogNorm(mini, maxi))
+        m2 = ax2.imshow(true_image.T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
         plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
-        ax2.set_title("Extrapolated image")
+        ax2.set_title("True image")
         ax2.axis('off')
-        m3= ax3.imshow(-poisson.logpmf(true_image, extrapolated_image).T, origin='lower', interpolation='none', norm=LogNorm())
+        m3= ax3.imshow(-poisson.logpmf(true_image, extrapolated_image).T, origin='lower', interpolation='none', norm=LogNorm(1,1e2))
         plt.colorbar(mappable=m3, ax=ax3,fraction=0.046, pad=0.04)
         ax3.set_title("Poisson likelihood")
         ax3.axis('off')
@@ -92,6 +96,7 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     tab_percentiles = []
     tab_counts = []
     percentiles = (50,84,95,99,99.99)
+    tab_background_of_peak=[]
     plt.figure()
     for amplitude in tqdm(tab_amplitude):
         cube_end = cube_raw + create_fake_burst(cube_raw.shape, time_interval, time_peak_fraction=time_peak_fraction,
@@ -119,6 +124,7 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
                                                 percentiles, axis=(0,1)))
         tab_likelihoods_peak.append(log_likelihoods[int(time_peak_fraction*cube.shape[2])])
         plt.plot(log_likelihoods, label=amplitude)
+        tab_background_of_peak.append(extrapolated_images[x,y,int(time_peak_fraction*cube.shape[2])])
     tab_percentiles=np.array(tab_percentiles)
     plt.yscale('log')
     plt.legend()
@@ -133,9 +139,21 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     ax1.set_ylabel('Peak likelihood')
     ax1.legend()
     ax2.plot(tab_amplitude, tab_counts)
+    ax2.plot(tab_amplitude, tab_background_of_peak, c='k',ls='--')
     ax2.loglog()
     plt.savefig(os.path.join(data_processed, '0831790701', f"Calibration_peak.png"))
 
+
+size_arcsec=20
+time_interval=1000
+cube, coordinates_XY = read_EPIC_events_file('0831790701', size_arcsec, time_interval, gti_only=False)
+# cube_peak = cube+create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
+#                                        position=(0.21*cube.shape[0],0.26*cube.shape[1]),
+#                                        width_time=5000, amplitude=1e2, size_arcsec=20)
+# plt.figure(figsize=(15,15))
+# plt.imshow(np.nansum(cube_peak, axis=2), norm=LogNorm(), interpolation='none')
+# plt.savefig(os.path.join(data_processed, '0831790701', f"TestBurst.png"))
+# run_computation(cube, with_peak=True)
 
 calibrate_result_amplitude(np.geomspace(1e-2,1e1,25),
                            cube, time_interval,0.5,500, (25,25))
