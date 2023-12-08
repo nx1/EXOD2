@@ -117,6 +117,6 @@ def filter_events_file_gti_only(obs, min_energy=0.2, max_energy=10.):
          f' ximagebinsize=80 yimagebinsize=80 -V 0')
     os.system(cmd)
 
-
-#filter_events_file('0831790701', min_energy=0.2, max_energy=10.)
-filter_events_file_gti_only('0831790701', min_energy=0.2, max_energy=10.)
+if __name__ == "__main__":
+    #filter_events_file('0831790701', min_energy=0.2, max_energy=10.)
+    filter_events_file_gti_only('0831790701', min_energy=0.2, max_energy=10.)

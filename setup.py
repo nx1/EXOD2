@@ -11,7 +11,9 @@ setup(
 
     # Define project dependencies
     install_requires=[
-        # Add your dependencies here
+        'astropy==6.0.0',
+        'numpy==1.26.2',
+        'scipy==1.11.4',
     ],
 
     # Include additional files like data files, package data, etc.
