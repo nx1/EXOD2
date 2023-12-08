@@ -1,5 +1,11 @@
 from skimage.measure import label, regionprops
+from astropy.wcs import WCS
+from astropy.io import fits
+from scipy.interpolate import interp1d
 import numpy as np
+import os
+from exod.utils.path import data_processed
+
 
 def extract_variability_regions(variability_map, threshold):
     """Labels the contiguous regions above the threshold times the median variability, then extracts the
@@ -18,13 +24,13 @@ def extract_variability_regions(variability_map, threshold):
 
 def plot_variability_with_regions(variability_map, threshold, outfile):
     fig, ax = plt.subplots()
-    m1=ax.imshow(variability_map, norm=LogNorm(), interpolation='none')
+    m1=ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower')
     plt.colorbar(mappable=m1, ax=ax)
     centers, bboxes = extract_variability_regions(variability_map, threshold)
     for center, bbox in zip(centers, bboxes):
         min_error = 10
-        width= bbox[3]-bbox[1]
-        height =  bbox[2]-bbox[0]
+        width= bbox[2]-bbox[0]
+        height =  bbox[3]-bbox[1]
         shiftx=0
         shifty=0
         if width<min_error:
@@ -33,11 +39,36 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
         if height < min_error:
             shifty = min_error - height
             height = min_error
-        rect = patches.Rectangle((bbox[1]-1-shiftx/2, bbox[0]-1-shifty/2), width, height, linewidth=1, edgecolor='r',
+        rect = patches.Rectangle((bbox[0]-1-shifty/2,bbox[1]-1-shiftx/2), width, height, linewidth=1, edgecolor='r',
                                  facecolor='none')
         ax.add_patch(rect)
     plt.savefig(outfile)
 
+def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
+    if "PN_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
+        datapath = os.path.join(data_processed,obsid,"PN_image.fits")
+    elif "M1_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
+        datapath = os.path.join(data_processed, obsid, "M1_image.fits")
+    elif "M2_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
+        datapath = os.path.join(data_processed, obsid, "M2_image.fits")
+    else:
+        raise FileNotFoundError('No suitable EPIC processed data found !')
+    f=fits.open(datapath)
+    header = f[0].header
+    w=WCS(header)
+    #Watch out for this move: to know the EPIC X and Y coordinates of the variable sources, we use the final coordinates
+    #in the variability map, which are not integers. To know to which X and Y correspond to this, we interpolate the
+    #values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
+    #compared to X and Y values
+    interpX = interp1d(range(len(coordinates_XY[0])), coordinates_XY[0]/80)
+    interpY = interp1d(range(len(coordinates_XY[1])), coordinates_XY[1]/80)
+    tab_ra = []
+    tab_dec = []
+    for (end_x,end_y) in tab_centersofmass:
+        pos = w.pixel_to_world(interpX(end_x),interpY(end_y))
+        tab_ra.append(pos.ra.value)
+        tab_dec.append(pos.dec.value)
+    return tab_ra, tab_dec
 
 if __name__=='__main__':
     import matplotlib.patches as patches
@@ -47,10 +78,11 @@ if __name__=='__main__':
     from exod.pre_processing.read_events_files import read_EPIC_events_file
     from exod.processing.variability_computation import compute_pixel_variability, convolve_variability
     from matplotlib.colors import LogNorm
-    import os
-    from exod.utils.path import data_processed
 
-    cube = read_EPIC_events_file('0831790701', 5, 500,3, gti_only=True)
-    variability_map = convolve_variability(cube, box_size=3)
+    cube,coordinates_XY = read_EPIC_events_file('0831790701', 10, 100,3, gti_only=False)
+    variability_map = compute_pixel_variability(cube)
     plot_variability_with_regions(variability_map, 8,
-                                  os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
+                                   os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
+    tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
+    tab_ra, tab_dec=get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY)
+    print(tab_ra, tab_dec)

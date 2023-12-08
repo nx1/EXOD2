@@ -1,0 +1,1 @@
+#TODO: Match the candidate transients with Simbad and archival X-ray catalogs (from STONKS?)

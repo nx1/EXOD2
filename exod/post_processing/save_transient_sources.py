@@ -1,0 +1,1 @@
+#TODO: Use position, amplitude, time, KS and Chi2, match XMM and Simbad of the transient candidates, and save all of that
