@@ -4,6 +4,9 @@ from astropy.io import fits
 from scipy.interpolate import interp1d
 import numpy as np
 import os
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.colors import LogNorm
 from exod.utils.path import data_processed
 
 
@@ -85,4 +88,3 @@ if __name__=='__main__':
                                    os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
     tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
     tab_ra, tab_dec=get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY)
-    print(tab_ra, tab_dec)

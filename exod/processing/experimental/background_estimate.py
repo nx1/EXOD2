@@ -1,41 +1,45 @@
-from astropy.table import Table, vstack
-from scipy.stats import binned_statistic_dd
-from astropy.io import fits
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
 import os
 from exod.pre_processing.read_events_files import read_EPIC_events_file
 from exod.utils.path import data_processed
-from cv2 import inpaint, INPAINT_NS
+from exod.utils.synthetic_data import create_fake_burst
+from cv2 import inpaint, INPAINT_NS, filter2D
 from scipy.stats import poisson
+from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
+from photutils.detection import DAOStarFinder
 
 import logging
 logging.getLogger('matplotlib.font_manager').disabled = True
 
-def create_fake_burst(cubeshape, time_interval, time_peak_fraction, position, width_time, amplitude, size_arcsec):
-    time = np.arange(0, cubeshape[-1])
-    peak_data = np.zeros(cubeshape, dtype=int)
-    time_peak = time_peak_fraction*len(time)
-    width_bins = width_time / time_interval
+def compute_background(cube):
+    image = np.sum(cube, axis=2)
+    threshold=np.nanpercentile(image.flatten(), 99)
+    condition = np.where(image>threshold)
+    mask = np.zeros(image.shape)
+    mask[condition]=1
+    mask=np.uint8(mask[:,:,np.newaxis])
+    no_source_image = inpaint(image.astype(np.float32)[:,:,np.newaxis], mask, 5, flags=INPAINT_NS)
+    source_only_image = image-no_source_image
 
-    #Poissonian PSF
-    sigma_2d = (6.6 / size_arcsec)# * 2.355  # 6.6" FWHM, 4.1" per pixel, so (6.6/4.1) pixel FWHM, 2.355 to convert FWHM in sigma
-    for x in range(int(position[0]-10*sigma_2d), int(position[0]+10*sigma_2d)):
-        for y in range(int(position[1]-10*sigma_2d), int(position[1]+10*sigma_2d)):
-            sqdist = (x-position[0])**2+(y-position[1])**2
-            psf = (1/(2*np.pi*np.sqrt(sigma_2d)))*np.exp(-(sqdist)/(2*(sigma_2d**2)))
-            peak_data[x,y]+=np.random.poisson(psf*(amplitude*time_interval)*np.exp(-(time-time_peak)**2/(2*(width_bins**2))))
-    #peak_data = convolve(peak_data, np.ones((3,3,1), dtype=np.int64),mode='constant', cval=0.0)
-    return peak_data
+    normalized_background = no_source_image/np.nansum(no_source_image)
 
+    lightcurve_no_source_image = [np.sum(np.where(image<threshold, cube[:,:,i],0), axis=(0,1)) for i in range(cube.shape[2])]
+    background_images = [normalized_background*frame_value
+                           for frame_value in lightcurve_no_source_image]
+    background_images=np.array(background_images).transpose(1, 2, 0)
+    background_withsource = [normalized_background*frame_value + source_only_image/(cube.shape[2])
+                           for frame_value in lightcurve_no_source_image]
+    background_withsource=np.array(background_withsource).transpose(1, 2, 0)
+    return background_images, background_withsource
 
-def run_computation(cube_raw, with_peak=False):
+def run_computation(cube_raw, with_peak=False, size_arcsec=15):
     if with_peak:
         cube = cube_raw+create_fake_burst(cube_raw.shape, 1000, time_peak_fraction=0.05,
                                        position=(0.41*cube_raw.shape[0],0.36*cube_raw.shape[1]),
-                                       width_time=1000, amplitude=1e-1, size_arcsec=20)
+                                       width_time=50, amplitude=1e1, size_arcsec=size_arcsec)
     else:
         cube = cube_raw
     image = np.sum(cube, axis=2)
@@ -50,7 +54,7 @@ def run_computation(cube_raw, with_peak=False):
     maxi = max(np.nanmax(image), np.nanmax(no_source_image))
     mini = min(np.nanmin(image), np.nanmin(no_source_image))
     mini=max(mini,1)
-    maxi_value = 3*np.sum(cube)/(cube.shape[0]*cube.shape[1]*cube.shape[2])
+    maxi_value = np.max(np.sum(cube, axis=(0,1)))/(cube.shape[0]*cube.shape[1])
 
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -61,9 +65,7 @@ def run_computation(cube_raw, with_peak=False):
     plt.savefig(os.path.join(data_processed, '0831790701', "background_test.png"))
 
     normalized_background = no_source_image/np.nansum(no_source_image)
-    print(np.where(image<threshold, cube[:,:,3],0).shape)
     lightcurve_no_source_image = [np.sum(np.where(image<threshold, cube[:,:,i],0), axis=(0,1)) for i in range(cube.shape[2])]
-    print(lightcurve_no_source_image)
     plt.figure()
     plt.plot(lightcurve_no_source_image)
     plt.savefig(os.path.join(data_processed, '0831790701', "lightcurve_background_test.png"))
@@ -83,7 +85,10 @@ def run_computation(cube_raw, with_peak=False):
         plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
         ax2.set_title("True image")
         ax2.axis('off')
-        m3= ax3.imshow(-poisson.logpmf(true_image, extrapolated_image).T, origin='lower', interpolation='none', norm=LogNorm(1,1e2))
+        likelihood_map = -poisson.logpmf(true_image, extrapolated_image).T
+        sigma= 1
+        blurred_variability = gaussian_filter(likelihood_map,sigma)#, mode='constant',cval=0)
+        m3= ax3.imshow(blurred_variability, origin='lower', interpolation='none', norm=LogNorm(1,10))
         plt.colorbar(mappable=m3, ax=ax3,fraction=0.046, pad=0.04)
         ax3.set_title("Poisson likelihood")
         ax3.axis('off')
@@ -143,19 +148,19 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     ax2.loglog()
     plt.savefig(os.path.join(data_processed, '0831790701', f"Calibration_peak.png"))
 
+if __name__=="__main__":
+    size_arcsec=10
+    time_interval=50
+    cube, coordinates_XY = read_EPIC_events_file('0831790701', size_arcsec, time_interval, gti_only=False)
+    # cube_peak = cube+create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
+    #                                        position=(0.21*cube.shape[0],0.26*cube.shape[1]),
+    #                                        width_time=5000, amplitude=1e2, size_arcsec=20)
+    # plt.figure(figsize=(15,15))
+    # plt.imshow(np.nansum(cube_peak, axis=2), norm=LogNorm(), interpolation='none')
+    # plt.savefig(os.path.join(data_processed, '0831790701', f"TestBurst.png"))
+    run_computation(cube, with_peak=True, size_arcsec=size_arcsec)
 
-size_arcsec=20
-time_interval=1000
-cube, coordinates_XY = read_EPIC_events_file('0831790701', size_arcsec, time_interval, gti_only=False)
-# cube_peak = cube+create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
-#                                        position=(0.21*cube.shape[0],0.26*cube.shape[1]),
-#                                        width_time=5000, amplitude=1e2, size_arcsec=20)
-# plt.figure(figsize=(15,15))
-# plt.imshow(np.nansum(cube_peak, axis=2), norm=LogNorm(), interpolation='none')
-# plt.savefig(os.path.join(data_processed, '0831790701', f"TestBurst.png"))
-# run_computation(cube, with_peak=True)
-
-calibrate_result_amplitude(np.geomspace(1e-2,1e1,25),
-                           cube, time_interval,0.5,500, (25,25))
+    # calibrate_result_amplitude(np.geomspace(1e-2,1e1,25),
+    #                            cube, time_interval,0.5,500, (25,25))
 
 

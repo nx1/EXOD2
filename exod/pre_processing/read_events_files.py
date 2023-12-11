@@ -5,7 +5,7 @@ import numpy as np
 import os
 from exod.utils.path import data_processed
 
-def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False):
+def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False, emin=0.2, emax=10):
     """Reads the EPIC events files. Returns the cube and the coordinates_XY (used for WCS conversion)
     :argument obsid of the target observation
     :argument size_arcsec is the size in arseconds of the final spatial grid onto which data is binned,
@@ -16,13 +16,13 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     nb_pixels = int(extent/pixel_size)
 
     if gti_only:
-        pn_file = os.path.join(data_processed,obsid,'PN_clean.fits')
-        m1_file = os.path.join(data_processed,obsid,'M1_clean.fits')
-        m2_file = os.path.join(data_processed,obsid,'M2_clean.fits')
+        pn_file = os.path.join(data_processed,obsid,f'PN_clean_{emin}_{emax}.fits')
+        m1_file = os.path.join(data_processed,obsid,f'M1_clean_{emin}_{emax}.fits')
+        m2_file = os.path.join(data_processed,obsid,f'M2_clean_{emin}_{emax}.fits')
     else:
-        pn_file = os.path.join(data_processed,obsid,'PN_pattern_clean.fits')
-        m1_file = os.path.join(data_processed,obsid,'M1_pattern_clean.fits')
-        m2_file = os.path.join(data_processed,obsid,'M2_pattern_clean.fits')
+        pn_file = os.path.join(data_processed,obsid,f'PN_pattern_clean_{emin}_{emax}.fits')
+        m1_file = os.path.join(data_processed,obsid,f'M1_pattern_clean_{emin}_{emax}.fits')
+        m2_file = os.path.join(data_processed,obsid,f'M2_pattern_clean_{emin}_{emax}.fits')
     data_pn = Table(fits.open(pn_file)[1].data)['X','Y','TIME', 'RAWX','RAWY','CCDNR']
 
     # Bad rows in Struder et al. 2001b
@@ -35,7 +35,15 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
 
     data_M1 = Table(fits.open(m1_file)[1].data)['X','Y','TIME']
     data_M2 = Table(fits.open(m2_file)[1].data)['X','Y','TIME']
+
+    # Save starting and ending time for each of them
+    start_M1, end_M1 = np.min(data_M1['TIME']), np.max(data_M1['TIME'])
+    start_M2, end_M2 = np.min(data_M2['TIME']), np.max(data_M2['TIME'])
+    start_pn, end_pn = np.min(data_pn['TIME']), np.max(data_pn['TIME'])
+
     data_EPIC = vstack((data_pn,data_M1,data_M2))
+    data_EPIC = data_EPIC[(max(start_M1,start_M2,start_pn)<data_EPIC['TIME']) &
+                          (data_EPIC['TIME']<min(end_M1,end_M2,end_pn))]
 
     #Create the data cube
     n_bins = int(np.ceil((np.max(data_EPIC['TIME']) - np.min(data_EPIC['TIME'])) / time_interval))
