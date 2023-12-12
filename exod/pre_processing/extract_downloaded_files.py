@@ -21,7 +21,7 @@ if N_files == 0:
     logger.info('No files found to extract')
     exit()
 
-logger.info(f'.tar.gz files to process: {N_files} press any key to start Ctrl+C to exit')
+logger.info(f'.tar files to process: {N_files} press any key to start Ctrl+C to exit')
 
 for f in tar_gz_files:
     logger.info(f'extracting file: {f} --> {extract_path}')
