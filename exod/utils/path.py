@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 from exod.utils.logger import logger
 
-base            = Path(os.environ['EXOD'])
+#base            = Path(os.environ['EXOD'])
+module         = Path(__file__).parent.parent            # contains all .py files : /EXOD2/exod
+base           = module.parent
 data            = base / 'data'
 data_downloaded = data / 'data_downloaded'
 data_raw        = data / 'raw'

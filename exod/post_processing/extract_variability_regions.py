@@ -4,10 +4,11 @@ from astropy.io import fits
 from scipy.interpolate import interp1d
 import numpy as np
 import os
+import cmasher as cmr
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
-from exod.utils.path import data_processed
+from exod.utils.path import data_processed, data_results
 
 
 def extract_variability_regions(variability_map, threshold):
@@ -27,10 +28,11 @@ def extract_variability_regions(variability_map, threshold):
 
 def plot_variability_with_regions(variability_map, threshold, outfile):
     fig, ax = plt.subplots()
-    m1=ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower')
-    plt.colorbar(mappable=m1, ax=ax)
+    m1=ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower', cmap="cmr.ember")
+    cbar=plt.colorbar(mappable=m1, ax=ax)
+    cbar.set_label("Variability")
     centers, bboxes = extract_variability_regions(variability_map, threshold)
-    for center, bbox in zip(centers, bboxes):
+    for ind, center, bbox in zip(range(len(centers)),centers, bboxes):
         min_error = 10
         width= bbox[2]-bbox[0]
         height =  bbox[3]-bbox[1]
@@ -42,9 +44,11 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
         if height < min_error:
             shifty = min_error - height
             height = min_error
-        rect = patches.Rectangle((bbox[0]-1-shifty/2,bbox[1]-1-shiftx/2), width, height, linewidth=1, edgecolor='r',
+        rect = patches.Rectangle((bbox[0]-1-shifty/2,bbox[1]-1-shiftx/2), width, height, linewidth=1, edgecolor='w',
                                  facecolor='none')
+        plt.text(bbox[0]-1-shifty/2+width+3,bbox[1]-1-shiftx/2+height+3, ind, c='w')
         ax.add_patch(rect)
+    plt.axis('off')
     plt.savefig(outfile)
 
 def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
@@ -67,11 +71,17 @@ def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
     interpY = interp1d(range(len(coordinates_XY[1])), coordinates_XY[1]/80)
     tab_ra = []
     tab_dec = []
+    tab_X = []
+    tab_Y = []
     for (end_x,end_y) in tab_centersofmass:
-        pos = w.pixel_to_world(interpX(end_x),interpY(end_y))
+        X = interpX(end_x)
+        Y = interpY(end_y)
+        tab_X.append(X)
+        tab_Y.append(Y)
+        pos = w.pixel_to_world(X,Y)
         tab_ra.append(pos.ra.value)
         tab_dec.append(pos.dec.value)
-    return tab_ra, tab_dec
+    return tab_ra, tab_dec, tab_X, tab_Y
 
 if __name__=='__main__':
     import matplotlib.patches as patches
@@ -85,6 +95,6 @@ if __name__=='__main__':
     cube,coordinates_XY = read_EPIC_events_file('0831790701', 10, 100,3, gti_only=False)
     variability_map = compute_pixel_variability(cube)
     plot_variability_with_regions(variability_map, 8,
-                                   os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
+                                   os.path.join(data_results,'0831790701','Variability_Regions.png'))
     tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
-    tab_ra, tab_dec=get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY)
+    tab_ra, tab_dec, tab_X, tab_Y=get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY)

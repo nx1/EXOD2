@@ -14,12 +14,12 @@ def compute_pixel_variability(cube):
 def convolve_variability(cube, box_size=3):
     V_mat = compute_pixel_variability(cube)
     #Old version
-    # k = np.ones((box_size,box_size))/(box_size**2)
-    # convolved = convolve(V_mat, k)
+    k = np.ones((box_size,box_size))/(box_size**2)
+    convolved = convolve(V_mat, k)
 
-    #New version
-    convolved = gaussian_filter(V_mat, 1)
-    convolved = np.where(V_mat>0, convolved, 0)
+    # #New version
+    # convolved = gaussian_filter(V_mat, 1)
+    # convolved = np.where(V_mat>0, convolved, 0)
     return convolved
 
 

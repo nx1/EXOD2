@@ -13,6 +13,8 @@ logger.info(f'Extraction_path: {extract_path}')
 wildcard = f'{dl_path}/*.tar'
 
 tar_gz_files = glob(wildcard)
+tar_gz_files=tar_gz_files[1:]
+print(tar_gz_files)
 
 N_files = len(tar_gz_files)
 if N_files == 0:
