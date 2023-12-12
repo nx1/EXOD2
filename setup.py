@@ -14,6 +14,7 @@ setup(
         'astropy==6.0.0',
         'numpy==1.26.2',
         'scipy==1.11.4',
+        'requests==2.31.0'
     ],
 
     # Include additional files like data files, package data, etc.
