@@ -14,7 +14,7 @@ def read_observation_ids(file_path):
         obs_ids = [line.strip() for line in file.readlines()]
     return obs_ids
 
-def download_observation_events(observation_id, save_dir, clobber=False):
+def download_observation_events(observation_id, clobber=False):
     """
     Download the post-processed event lists for PN, M1 and M2.
     """
@@ -55,8 +55,7 @@ if __name__ == "__main__":
     
     obs_list_path  = path.data / 'observations.txt'
     output_sh_path = path.data / 'download_obs.sh'
-    save_dir = path.data_downloaded
-    
+
     logger.info(f'Observations List Path: {obs_list_path}')
     logger.info(f'Download Script Path: {output_sh_path}')
     logger.info(f'Save Directory: {save_dir}')
@@ -66,5 +65,5 @@ if __name__ == "__main__":
     logger.info(f'Found {len(observation_ids)} observations ids')
     
     for obs in observation_ids:
-        download_observation_events(observation_id=obs, save_dir=save_dir, clobber=clobber)
+        download_observation_events(observation_id=obs, clobber=clobber)
 
