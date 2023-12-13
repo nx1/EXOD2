@@ -90,7 +90,8 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     indices_timebinsleft_gtistop = np.searchsorted(time_windows, time_windows_gti[bti_stop])
     rejected = [list(range(start, end + 1)) for (start, end) in
                 zip(indices_timebinsleft_gtistart, indices_timebinsleft_gtistop)]
-    rejected+=[list(range(indices_timebinsleft_gtistart[len(indices_timebinsleft_gtistop)], len(time_windows)))]
+    if len(indices_timebinsleft_gtistop)<len(indices_timebinsleft_gtistart): #If you have remaining BTIs at the end
+        rejected+=[list(range(indices_timebinsleft_gtistart[len(indices_timebinsleft_gtistop)], len(time_windows)))]
     rejected = list(set([index - 1 for bti in rejected for index in bti]))
     for ind in rejected:
         plt.axvspan(time_windows[ind],time_windows[ind+1],facecolor='r',alpha=0.2)
@@ -109,7 +110,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
 
 
 if __name__ == "__main__":
-    cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 250,gti_only=True)
+    cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 500,gti_only=True)
     # for frame_ind in range(cube.shape[2]):
     #     frame = cube[:,:,frame_ind]
     #     plt.imshow(frame)
