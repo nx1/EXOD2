@@ -1,5 +1,5 @@
 import os
-
+import subprocess
 import requests
 
 from exod.utils import path
@@ -26,7 +26,6 @@ def download_observation_events(observation_id, clobber=False):
             'M1':url_M1,
             'M2':url_M2}
     for inst, download_url in urls.items():
-        # Use requests to download the file
         response = requests.get(download_url)
         logger.info(response)
         if response.status_code == 200:
@@ -46,6 +45,14 @@ def download_observation_events(observation_id, clobber=False):
                 with open(file_path, 'wb') as file:
                     file.write(response.content)
                 logger.info(f'Downloaded: {file_path}')
+
+                # Deal with GUEST.tar files (these show up if you have multiple eventlists in an obs)
+                if 'GUEST' in filename:
+                    logger.info(f'GUEST tar file found! Extracting to current dir!')
+                    cmd = f'tar -xvf {file_path} -C {obs_path} --strip-components=2'
+                    logger.info(f'Executing: {cmd}')
+                    subprocess.run(cmd, shell=True)
+
         else:
             logger.warning(f'Failed to download event files for: {obs} {inst}')
 
@@ -58,8 +65,7 @@ if __name__ == "__main__":
 
     logger.info(f'Observations List Path: {obs_list_path}')
     logger.info(f'Download Script Path: {output_sh_path}')
-    logger.info(f'Save Directory: {save_dir}')
-    
+
     logger.info(f'Reading observations from {obs_list_path}')
     observation_ids = read_observation_ids(obs_list_path)
     logger.info(f'Found {len(observation_ids)} observations ids')
