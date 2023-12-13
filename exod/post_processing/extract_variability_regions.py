@@ -46,9 +46,10 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
             height = min_error
         rect = patches.Rectangle((bbox[0]-1-shifty/2,bbox[1]-1-shiftx/2), width, height, linewidth=1, edgecolor='w',
                                  facecolor='none')
-        plt.text(bbox[0]-1-shifty/2+width+3,bbox[1]-1-shiftx/2+height+3, ind, c='w')
+        plt.text(bbox[0]-1-shifty/2+width,bbox[1]-1-shiftx/2+height, ind, c='w')
         ax.add_patch(rect)
     plt.axis('off')
+    # plt.gcf().set_facecolor("k")
     plt.savefig(outfile)
 
 def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):

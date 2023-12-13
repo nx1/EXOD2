@@ -20,13 +20,13 @@ def plot_lightcurve_alerts(cube, tab_boundingboxes, time_interval):
     for ind,source in enumerate(tab_boundingboxes):
         legend_plots=[]
         legend_labels=[]
-        lc = np.sum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
+        lc = np.nansum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
         lc_generated = np.random.poisson(lc,(5000,len(lc)))
         lc_percentiles = np.nanpercentile(lc_generated, (16,84),axis=0)
         plt.figure()
-        p1=plt.step(range(len(lc)),lc, c=color, where="mid")
+        p1=plt.step(range(len(lc)+1),list(lc)+[lc[-1]], c=color, where="post")
         p2=plt.fill(np.NaN, np.NaN, facecolor=color, alpha=0.4)
-        plt.fill_between(range(len(lc)),lc_percentiles[0],lc_percentiles[1],alpha=0.4, facecolor=color, step="mid")
+        plt.fill_between(range(len(lc)),lc_percentiles[0],lc_percentiles[1],alpha=0.4, facecolor=color, step="post")
         legend_plots.append((p1[0],p2[0]))
         legend_labels.append("Source+background")
         plt.legend(legend_plots,legend_labels)
@@ -147,7 +147,7 @@ if __name__=='__main__':
     #                                    width_time=100, amplitude=1e0, size_arcsec=10)
     # plot_variability_with_regions(variability_map, 8,
     #                                os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
-    # plot_lightcurve_alerts(cube, bboxes)
+    plot_lightcurve_alerts(cube, bboxes)
     # print(get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY))
     # cube_background, cube_background_withsource =compute_background(cube)
     # plot_lightcurve_alerts_with_background(cube, cube_background,cube_background_withsource,bboxes)

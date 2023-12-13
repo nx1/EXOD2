@@ -15,8 +15,6 @@ def save_list_transients(obsid, tab_ra, tab_dec, tab_X, tab_Y,tab_p_values,time_
     names=['AlertID','ObsID','RA','DEC','X','Y','KS_p_value','4XMM_IAUNAME','4XMM_SCVARFLAG','4XMM_AngSep',
            'Simbad_Name','Simbad_PreciseType','Simbad_GeneralType','Simbad_AngSep']
     data = np.transpose(data)
-    print(data.shape)
-    print(len(names))
     t=Table(data, names=names)
     t.write(os.path.join(data_results,obsid,f'{time_interval}s','EXOD_Alerts.fits'), overwrite=True)
 
