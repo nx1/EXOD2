@@ -30,7 +30,6 @@ def download_observation_events(observation_id, save_dir, clobber=False):
         response = requests.get(download_url)
         logger.info(response)
         if response.status_code == 200:
-            logger.info(f'Response 200')
             # Get the filename from the response header
             cd = response.headers.get('content-disposition')
             filename = cd.split('filename=')[1].strip('";')
@@ -42,11 +41,11 @@ def download_observation_events(observation_id, save_dir, clobber=False):
             file_path = obs_path / f'{filename}'
             if file_path.is_file() and not clobber:
                 logger.info(f'Skipping {file_path}. File already exists.')
-
-            logger.info(f'Response 200, downloading to {file_path}')
-            with open(file_path, 'wb') as file:
-                file.write(response.content)
-            logger.info(f'Downloaded: {file_path}')
+            else:
+                logger.info(f'Response 200, downloading to {file_path}')
+                with open(file_path, 'wb') as file:
+                    file.write(response.content)
+                logger.info(f'Downloaded: {file_path}')
         else:
             logger.warning(f'Failed to download event files for: {obs} {inst}')
 
