@@ -1,10 +1,13 @@
+"""
+Requires having pre-set 'setsas' and 'export CCFPATH=' in the terminal.
+"""
 import os
 import shlex
 import subprocess
 from exod.utils.path import data_raw, data_processed
 
 def filter_events_file(obs, min_energy=0.2, max_energy=12.):
-    """Filtering scripts for all EPIC data. Requires having pre-set 'setsas' and 'export CCFPATH=' in the terminal.
+    """Filtering scripts for all EPIC data.
     Takes the energy range in keV and observation name as arguments"""
 
     print(f'Filtering observation {obs}...')
