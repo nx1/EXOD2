@@ -1,3 +1,5 @@
+import os
+
 import requests
 
 from exod.utils import path
@@ -24,21 +26,29 @@ def download_observation_events(observation_id, save_dir, clobber=False):
             'M1':url_M1,
             'M2':url_M2}
     for inst, download_url in urls.items():
-        file_path = save_dir / f'{obs}_{inst}.tar'
+        # Use requests to download the file
+        response = requests.get(download_url)
+        logger.info(response)
+        if response.status_code == 200:
+            logger.info(f'Response 200')
+            # Get the filename from the response header
+            cd = response.headers.get('content-disposition')
+            filename = cd.split('filename=')[1].strip('";')
 
-        if file_path.is_file() and not clobber:
-            logger.info(f'Skipping {file_path}. File already exists.')
+            # Create the folder to save to
+            obs_path  = path.data_raw / f'{obs}'
+            os.makedirs(obs_path, exist_ok=True)
+
+            file_path = obs_path / f'{filename}'
+            if file_path.is_file() and not clobber:
+                logger.info(f'Skipping {file_path}. File already exists.')
+
+            logger.info(f'Response 200, downloading to {file_path}')
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            logger.info(f'Downloaded: {file_path}')
         else:
-            # Use requests to download the file
-            response = requests.get(download_url)
-            logger.info(response)
-            if response.status_code == 200:
-                logger.info(f'Response 200, downloading to {file_path}')
-                with open(file_path, 'wb') as file:
-                    file.write(response.content)
-                logger.info(f'Downloaded: {file_path}')
-            else:
-                logger.warning(f'Failed to download: {file_path}')
+            logger.warning(f'Failed to download event files for: {obs} {inst}')
 
 
 if __name__ == "__main__":
