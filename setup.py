@@ -22,7 +22,7 @@ setup(
         'cmasher==1.6.3',
         'statsmodels==0.14.0',
         'opencv-python==4.8.1.78',
-        'photutils-1.10.0',
+        'photutils==1.10.0',
         'astroquery==0.4.6'
     ],
 
