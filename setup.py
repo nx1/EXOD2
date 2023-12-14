@@ -4,9 +4,9 @@ setup(
     name='exod',
     version='0.1.0',
     description='X-ray Outburst Detector',
-    author='Norman Khan',
-    author_email='Norman.Khan@irap.omp.eu',
-    url='https://github.com/nx1/xod',
+    authors=['Norman Khan', 'Erwan Quintin'],
+    author_emails=['Norman.Khan@irap.omp.eu', 'Erwan.Quintin@irap.omp.eu'],
+    url='https://github.com/nx1/EXOD2',
     packages=find_packages(),  # Automatically discover and include all packages in the project
 
     # Define project dependencies
@@ -16,7 +16,8 @@ setup(
         'scipy==1.11.4',
         'requests==2.31.0',
         'tqdm==4.66.1',
-        'scikit-image==0.22.0'
+        'scikit-image==0.22.0',
+        'pandas==2.1.4'
     ],
 
     # Include additional files like data files, package data, etc.
