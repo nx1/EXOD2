@@ -18,7 +18,9 @@ setup(
         'requests==2.31.0',
         'tqdm==4.66.1',
         'scikit-image==0.22.0',
-        'pandas==2.1.4'
+        'pandas==2.1.4',
+        'cmasher==1.6.3',
+        'statsmodels==0.14.0'
     ],
 
     # Include additional files like data files, package data, etc.
