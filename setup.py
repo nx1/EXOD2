@@ -11,9 +11,10 @@ setup(
 
     # Define project dependencies
     install_requires=[
-        'astropy==6.0.0',
         'numpy==1.26.2',
         'scipy==1.11.4',
+        'matplotlib==3.8.2',
+        'astropy==6.0.0',
         'requests==2.31.0',
         'tqdm==4.66.1',
         'scikit-image==0.22.0',
