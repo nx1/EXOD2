@@ -20,7 +20,9 @@ setup(
         'scikit-image==0.22.0',
         'pandas==2.1.4',
         'cmasher==1.6.3',
-        'statsmodels==0.14.0'
+        'statsmodels==0.14.0',
+        'opencv-python==4.8.1.78',
+        'photutils-1.10.0'
     ],
 
     # Include additional files like data files, package data, etc.
