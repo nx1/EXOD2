@@ -1,7 +1,7 @@
+import os
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import numpy as np
-import os
 from exod.pre_processing.read_events_files import read_EPIC_events_file
 from exod.utils.path import data_processed
 from exod.utils.synthetic_data import create_fake_burst
@@ -12,8 +12,6 @@ from tqdm import tqdm
 import cmasher as cmr
 from photutils.detection import DAOStarFinder
 
-import logging
-logging.getLogger('matplotlib.font_manager').disabled = True
 
 def compute_background(cube):
     image = np.sum(cube, axis=2)
@@ -22,7 +20,11 @@ def compute_background(cube):
     mask = np.zeros(image.shape)
     mask[condition]=1
     mask=np.uint8(mask[:,:,np.newaxis])
-    no_source_image = inpaint(image.astype(np.float32)[:,:,np.newaxis], mask, 5, flags=INPAINT_NS)
+    no_source_image = inpaint(src=image.astype(np.float32)[:,:,np.newaxis],
+                              inpaintMask=mask,
+                              inpaintRadius=5,
+                              flags=INPAINT_NS)
+    inpaint()
     source_only_image = image-no_source_image
 
     normalized_background = no_source_image/np.nansum(no_source_image)

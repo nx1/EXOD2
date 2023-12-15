@@ -101,7 +101,7 @@ def filter_observation_events(obs, min_energy=0.2, max_energy=12.):
             f['function'](obs, min_energy=min_energy, max_energy=max_energy)
             filter_result[f['name']] = 'Success'
         except IndexError as e:
-            logger.info(f'Could not process {f["name"]} event file for obs={obs} {e}')
+            logger.warning(f'Could not process {f["name"]} event file for obs={obs} {e}')
             filter_result[f['name']] = 'IndexError'
 
     return filter_result
