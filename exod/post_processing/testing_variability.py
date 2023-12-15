@@ -132,8 +132,8 @@ if __name__=='__main__':
     from exod.utils.synthetic_data import create_fake_burst
     from matplotlib.colors import LogNorm
 
-    cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 100,3,
-                                                gti_only=True, emin=0.2, emax=2)
+    cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 100, 3,
+                                                 gti_only=True, min_energy=0.2, max_energy=2)
     cube += create_fake_burst(cube.shape, 100, time_peak_fraction=0.05,
                                        position=(0.41*cube.shape[0],0.36*cube.shape[1]),
                                        width_time=100, amplitude=1e0, size_arcsec=10)
@@ -141,7 +141,7 @@ if __name__=='__main__':
     tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
     print(compute_proba_constant(cube, bboxes))
     # cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 1000,3,
-    #                                             gti_only=True, emin=0.2, emax=2)
+    #                                             gti_only=True, min_energy=0.2, max_energy=2)
     # cube += create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
     #                                    position=(0.41*cube.shape[0],0.36*cube.shape[1]),
     #                                    width_time=100, amplitude=1e0, size_arcsec=10)

@@ -2,7 +2,10 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from astropy.convolution import convolve
 
+from exod.utils.logger import logger
+
 def compute_pixel_variability(cube):
+    logger.info('Computing Variability')
     image_max = np.nanmax(cube, axis=2)
     image_min = np.nanmin(cube, axis=2)
     image_median = np.median(cube, axis=2)
@@ -11,42 +14,69 @@ def compute_pixel_variability(cube):
                      image_max)
     return V_mat
 
-def convolve_variability(cube, box_size=3):
-    V_mat = compute_pixel_variability(cube)
+def convolve_variability(V_mat, box_size=3):
+    logger.info('Convolving Variability')
+
     #Old version
-    k = np.ones((box_size,box_size))/(box_size**2)
-    convolved = convolve(V_mat, k)
+    k = np.ones((box_size, box_size)) / box_size**2
+    V_conv = convolve(V_mat, k)
 
     # #New version
     # convolved = gaussian_filter(V_mat, 1)
     # convolved = np.where(V_mat>0, convolved, 0)
-    return convolved
+    return V_conv 
 
 
 if __name__=='__main__':
+    import os
     import matplotlib.pyplot as plt
     import matplotlib
-    matplotlib.use('Agg')
-    from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.utils.path import data_processed
     from matplotlib.colors import LogNorm
-    import os
+    import pandas as pd
 
-    fig, (ax1,ax2) = plt.subplots(1,2)
-    cube,coordinates_XY = read_EPIC_events_file('0831790701', 15, 10000,3,
-                                                gti_only=True, emin=0.2, emax=12)
-    m1=ax1.imshow(compute_pixel_variability(cube).T,origin='lower',interpolation='none', norm=LogNorm())
-    plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
-    m2=ax2.imshow(convolve_variability(cube, box_size=3).T,origin='lower',interpolation='none', norm=LogNorm())
-    ax1.axis('off')
-    ax2.axis('off')
-    plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
-    plt.savefig(os.path.join(data_processed,'0831790701', "plot_test.png"))
+    from exod.pre_processing.download_observations import read_observation_ids
+    from exod.pre_processing.read_events_files import read_EPIC_events_file
+    from exod.utils.path import data, data_processed
 
-    fig, (ax1,ax2) = plt.subplots(1,2)
-    cube,coordinates_XY = read_EPIC_events_file('0831790701', 2, 1000,3, gti_only=True)
-    m1=ax1.imshow(compute_pixel_variability(cube).T,origin='lower',interpolation='none', norm=LogNorm())
-    plt.colorbar(mappable=m1, ax=ax1)
-    m2=ax2.imshow(convolve_variability(cube, box_size=3).T,origin='lower',interpolation='none', norm=LogNorm())
-    plt.colorbar(mappable=m2, ax=ax2)
-    plt.savefig(os.path.join(data_processed,'0831790701', "plot_test_gti.png"))
+
+    obsids = read_observation_ids(data / 'observations.txt')
+
+    for obsid in obsids[1:]:
+        args = {'obsid':obsid,
+                'size_arcsec':15,
+                'time_interval':10000,
+                'box_size':3,
+                'gti_only':True,
+                'min_energy':0.2,
+                'max_energy':12}
+    
+        cube, coordinates_XY = read_EPIC_events_file(**args)
+        V_mat  = compute_pixel_variability(cube)
+        V_conv = convolve_variability(V_mat, box_size=3)
+    
+        fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,5))
+        fig.suptitle(str(args))
+        ax1.set_title('Variability Score')
+        ax2.set_title('Convolved')
+    
+        m1 = ax1.imshow(V_mat, origin='lower', interpolation='none', norm=LogNorm())
+        m2 = ax2.imshow(V_conv, origin='lower',interpolation='none', norm=LogNorm())
+        plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
+        plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
+        plt.savefig(os.path.join(data_processed, obsid, "plot_test.png"))
+        plt.show()
+    
+        args['size_arcsec'] = 2
+        args['time_interval'] = 1000
+    
+        cube,coordinates_XY = read_EPIC_events_file(**args)
+        V_mat  = compute_pixel_variability(cube)
+        V_conv = convolve_variability(V_mat, box_size=3)
+    
+        fig, (ax1,ax2) = plt.subplots(1,2)
+        m1 = ax1.imshow(V_mat, origin='lower', interpolation='none', norm=LogNorm())
+        m2 = ax2.imshow(V_conv, origin='lower', interpolation='none', norm=LogNorm())
+        plt.colorbar(mappable=m1, ax=ax1)
+        plt.colorbar(mappable=m2, ax=ax2)
+        plt.savefig(os.path.join(data_processed, obsid, "plot_test_gti.png"))
+        plt.show()

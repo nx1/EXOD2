@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
 from exod.utils.path import data_processed, data_results
+from exod.utils.logger import  logger
 
 
 def extract_variability_regions(variability_map, threshold):
@@ -28,9 +29,10 @@ def extract_variability_regions(variability_map, threshold):
 
 def plot_variability_with_regions(variability_map, threshold, outfile):
     fig, ax = plt.subplots()
-    m1=ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower', cmap="cmr.ember")
-    cbar=plt.colorbar(mappable=m1, ax=ax)
-    cbar.set_label("Variability")
+    logger.info(f'{variability_map.min()} | {variability_map.max()}')
+    m1 = ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower', cmap="cmr.ember")
+    # cbar = plt.colorbar(mappable=m1, ax=ax)
+    # cbar.set_label("Variability")
     centers, bboxes = extract_variability_regions(variability_map, threshold)
     for ind, center, bbox in zip(range(len(centers)),centers, bboxes):
         min_error = 10
@@ -50,7 +52,8 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
         ax.add_patch(rect)
     plt.axis('off')
     # plt.gcf().set_facecolor("k")
-    plt.savefig(outfile)
+    # plt.savefig(outfile)
+    plt.show()
 
 def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
     if "PN_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):

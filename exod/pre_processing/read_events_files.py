@@ -8,7 +8,7 @@ from astropy.table import Table, vstack
 from exod.utils.logger import logger
 from exod.utils.path import data_processed,data_results
 
-def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False, min_energy=0.2, max_energy=12, instr=["pn","M1","M2"]):
+def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False, min_energy=0.2, max_energy=12.0, instr=["pn","M1","M2"]):
     """
     Reads the EPIC events files. Returns the cube and the coordinates_XY (used for WCS conversion)
     :argument obsid of the target observation
@@ -92,7 +92,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     logger.info('Calculating GTI Table')
     gti_tab = (lc_HE<threshold_GTI).astype(int)
 
-    logger.info(f'Filtering Grouped Events list by energy emin={min_energy} emax={max_energy}')
+    logger.info(f'Filtering Grouped Events list by energy min_energy={min_energy} max_energy={max_energy}')
     data_EPIC = data_EPIC[(min_energy * 1000 < data_EPIC['PI']) & (data_EPIC['PI'] < max_energy * 1000)]
 
     logger.info(f'Creating the data cube')
