@@ -1,13 +1,15 @@
-from skimage.measure import label, regionprops
-from astropy.wcs import WCS
-from astropy.io import fits
-from scipy.interpolate import interp1d
-import numpy as np
 import os
-import cmasher as cmr
+import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import pandas as pd
+import cmasher as cmr
 from matplotlib.colors import LogNorm
+from astropy.wcs import WCS
+from astropy.io import fits
+from skimage.measure import label, regionprops
+
 from exod.utils.path import data_processed, data_results
 from exod.utils.logger import  logger
 
@@ -16,11 +18,12 @@ def extract_variability_regions(variability_map, threshold):
     """Labels the contiguous regions above the threshold times the median variability, then extracts the
     center of mass and bounding box of the corresponding pixel regions"""
     variable_pixels = (variability_map > threshold*np.median(variability_map)).astype(int)
+
     labeled_variability_map = label(variable_pixels)
 
     tab_centersofmass=[]
     tab_boundingboxes=[]
-    for source in range(1,np.max(labeled_variability_map)):
+    for source in range(1, np.max(labeled_variability_map)):
         source_properties = regionprops(label_image=(labeled_variability_map==source).astype(int),
                                         intensity_image=variability_map)
         tab_centersofmass.append(source_properties[0].weighted_centroid)
@@ -28,18 +31,18 @@ def extract_variability_regions(variability_map, threshold):
     return tab_centersofmass, tab_boundingboxes
 
 def plot_variability_with_regions(variability_map, threshold, outfile):
+    centers, bboxes = extract_variability_regions(variability_map, threshold)
+
     fig, ax = plt.subplots()
-    logger.info(f'{variability_map.min()} | {variability_map.max()}')
     m1 = ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower', cmap="cmr.ember")
     # cbar = plt.colorbar(mappable=m1, ax=ax)
     # cbar.set_label("Variability")
-    centers, bboxes = extract_variability_regions(variability_map, threshold)
     for ind, center, bbox in zip(range(len(centers)),centers, bboxes):
         min_error = 10
-        width= bbox[2]-bbox[0]
-        height =  bbox[3]-bbox[1]
-        shiftx=0
-        shifty=0
+        width  = bbox[2] - bbox[0]
+        height = bbox[3] - bbox[1]
+        shiftx = 0
+        shifty = 0
         if width<min_error:
             shiftx = min_error-width
             width = min_error
@@ -56,42 +59,48 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
     plt.show()
 
 def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
-    if "PN_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
-        datapath = os.path.join(data_processed,obsid,"PN_image.fits")
-    elif "M1_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
-        datapath = os.path.join(data_processed, obsid, "M1_image.fits")
-    elif "M2_pattern_clean.fits" in os.listdir(os.path.join(data_processed,obsid)):
-        datapath = os.path.join(data_processed, obsid, "M2_image.fits")
-    else:
-        raise FileNotFoundError('No suitable EPIC processed data found !')
-    f=fits.open(datapath)
+    logger.info('Getting sky positions of regions')
+    path_processed_obs = data_processed / f'{obsid}'
+    datapath = path_processed_obs / "PN_image.fits"
+    datapath = path_processed_obs / "M1_image.fits"
+    datapath = path_processed_obs / "M2_image.fits"
+
+    logger.info(f'Opening fits file: {datapath}')
+    f = fits.open(datapath)
+
+    logger.info('Creating WCS from header')
     header = f[0].header
-    w=WCS(header)
+    w = WCS(header)
+    logger.info(w)
+
     #Watch out for this move: to know the EPIC X and Y coordinates of the variable sources, we use the final coordinates
     #in the variability map, which are not integers. To know to which X and Y correspond to this, we interpolate the
     #values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
     #compared to X and Y values
     interpX = interp1d(range(len(coordinates_XY[0])), coordinates_XY[0]/80)
     interpY = interp1d(range(len(coordinates_XY[1])), coordinates_XY[1]/80)
-    tab_ra = []
-    tab_dec = []
-    tab_X = []
-    tab_Y = []
-    for (end_x,end_y) in tab_centersofmass:
+
+    all_res = []
+    for (end_x ,end_y) in tab_centersofmass:
+        logger.info(f'Interpolating X, and Y end_x={end_x} end_y={end_y}')
         X = interpX(end_x)
         Y = interpY(end_y)
-        tab_X.append(X)
-        tab_Y.append(Y)
         pos = w.pixel_to_world(X,Y)
-        tab_ra.append(pos.ra.value)
-        tab_dec.append(pos.dec.value)
-    return tab_ra, tab_dec, tab_X, tab_Y
 
+
+        res = {'X'       : X,
+               'Y'       : Y,
+               'tab_ra'  : pos.ra.value,
+               'tab_dec' : pos.dec.value}
+        all_res.append(res)
+            
+
+    df = pd.DataFrame(all_res)
+    logger.info(df)
+    return df 
 if __name__=='__main__':
     import matplotlib.patches as patches
     import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use('Agg')
     from exod.pre_processing.read_events_files import read_EPIC_events_file
     from exod.processing.variability_computation import compute_pixel_variability, convolve_variability
     from matplotlib.colors import LogNorm
