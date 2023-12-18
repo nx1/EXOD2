@@ -30,14 +30,21 @@ def extract_variability_regions(variability_map, threshold):
         tab_boundingboxes.append(source_properties[0].bbox)
     return tab_centersofmass, tab_boundingboxes
 
-def plot_variability_with_regions(variability_map, threshold, outfile):
-    centers, bboxes = extract_variability_regions(variability_map, threshold)
-
+def plot_variability_with_regions(centers, bboxes, variability_map, outfile):
+    logger.info('Plotting Variability map with source regions')
     fig, ax = plt.subplots()
-    m1 = ax.imshow(variability_map.T, norm=LogNorm(), interpolation='none', origin='lower', cmap="cmr.ember")
-    # cbar = plt.colorbar(mappable=m1, ax=ax)
-    # cbar.set_label("Variability")
-    for ind, center, bbox in zip(range(len(centers)),centers, bboxes):
+    
+    # Plot variability Image
+    m1 = ax.imshow(variability_map.T,
+                   norm=LogNorm(),
+                   interpolation='none',
+                   origin='lower',
+                   cmap="cmr.ember")
+
+    cbar = plt.colorbar(mappable=m1, ax=ax)
+    cbar.set_label("Variability")
+
+    for ind, (center, bbox) in enumerate(zip(centers, bboxes)):
         min_error = 10
         width  = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
@@ -49,14 +56,20 @@ def plot_variability_with_regions(variability_map, threshold, outfile):
         if height < min_error:
             shifty = min_error - height
             height = min_error
-        rect = patches.Rectangle((bbox[0]-1-shifty/2,bbox[1]-1-shiftx/2), width, height, linewidth=1, edgecolor='w',
+        xpos = bbox[0]-1-shifty/2
+        ypos = bbox[1]-1-shiftx/2
+        rect = patches.Rectangle((xpos, ypos),
+                                 width,
+                                 height,
+                                 linewidth=1,
+                                 edgecolor='w',
                                  facecolor='none')
-        plt.text(bbox[0]-1-shifty/2+width,bbox[1]-1-shiftx/2+height, ind, c='w')
+
+        plt.text(xpos+width, ypos+height, str(ind), c='w')
         ax.add_patch(rect)
-    plt.axis('off')
-    # plt.gcf().set_facecolor("k")
+    #plt.gcf().set_facecolor("k")
     # plt.savefig(outfile)
-    plt.show()
+    # plt.show()
 
 def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
     logger.info('Getting sky positions of regions')
@@ -88,15 +101,15 @@ def get_regions_sky_position(obsid, tab_centersofmass, coordinates_XY):
         pos = w.pixel_to_world(X,Y)
 
 
-        res = {'X'       : X,
-               'Y'       : Y,
-               'tab_ra'  : pos.ra.value,
-               'tab_dec' : pos.dec.value}
+        res = {'X'   : X,
+               'Y'   : Y,
+               'ra'  : pos.ra.value,
+               'dec' : pos.dec.value}
         all_res.append(res)
             
 
     df = pd.DataFrame(all_res)
-    logger.info(df)
+    logger.info(f'df:\n{df}')
     return df 
 if __name__=='__main__':
     import matplotlib.patches as patches
