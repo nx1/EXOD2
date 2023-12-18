@@ -9,28 +9,41 @@ from statsmodels.tsa.stattools import adfuller
 from exod.utils.path import data_processed, data_results
 from exod.processing.experimental.background_estimate import compute_background
 
-def plot_lightcurve_alerts(cube, tab_boundingboxes, time_interval):
+def plot_lightcurve_alerts(cube, tab_boundingboxes, time_interval, obsid):
     """
     This function creates a single panel lightcurve of the source region (source + background)
     :param cube: full data cube
     :param tab_boundingboxes: bounding boxes of variable objects, as obtained from extract_variability_regions.py
     :return: nothing, but saves the lightcurve of each source
     """
-    color=cmr.take_cmap_colors('cmr.ocean',N=1,cmap_range=(0.3,0.3))[0]
-    for ind,source in enumerate(tab_boundingboxes):
+    color = cmr.take_cmap_colors('cmr.ocean',N=1,cmap_range=(0.3,0.3))[0]
+    for ind, source in enumerate(tab_boundingboxes):
         legend_plots=[]
         legend_labels=[]
         lc = np.nansum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
-        lc_generated = np.random.poisson(lc,(5000,len(lc)))
-        lc_percentiles = np.nanpercentile(lc_generated, (16,84),axis=0)
-        plt.figure()
-        p1=plt.step(range(len(lc)+1),list(lc)+[lc[-1]], c=color, where="post")
-        p2=plt.fill(np.NaN, np.NaN, facecolor=color, alpha=0.4)
-        plt.fill_between(range(len(lc)),lc_percentiles[0],lc_percentiles[1],alpha=0.4, facecolor=color, step="post")
+        lc_generated = np.random.poisson(lc, (5000,len(lc)))
+        lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
+
+        plt.figure(figsize=(5,3))
+        plt.title(f'obsid={obsid} | src={ind}')
+        p1 = plt.step(range(len(lc)+1),list(lc)+[lc[-1]], c=color, where="post")
+        p2 = plt.fill(np.NaN, np.NaN, facecolor=color, alpha=0.4)
+
+        # Plot Error regions
+        plt.fill_between(range(len(lc)),
+                lc_percentiles[0],
+                lc_percentiles[1],
+                alpha=0.4,
+                facecolor=color,
+                step="post", label='16 and 84 percentiles')
+
         legend_plots.append((p1[0],p2[0]))
         legend_labels.append("Source+background")
+        plt.ylabel('Variability')
+        plt.xlabel('Frame Number')
+
         plt.legend(legend_plots,legend_labels)
-        plt.savefig(os.path.join(data_results,'0831790701',f'{time_interval}s',f'Lightcurve_Alert{ind}.png'))
+        # plt.savefig(data_results / f'{obsid}' / f'{time_interval}' / f'lc_{ind}.png')
 
 def plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, tab_boundingboxes):
     """
@@ -106,10 +119,9 @@ def compute_proba_constant(cube, tab_boundingboxes):
     This function computes a simple KS test for being constant
     :param cube: full data cube
     :param tab_boundingboxes: bounding boxes of variable objects, as obtained from extract_variability_regions.py
-    :return: nothing, but saves the lightcurve of each source
     """
     tab_p_values=[]
-    for ind,source in enumerate(tab_boundingboxes):
+    for ind, source in enumerate(tab_boundingboxes):
         lc = np.sum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
         result = kstest(lc, [np.nanmean(lc)]*len(lc))
         # Define the Poisson distribution with the constant mean
