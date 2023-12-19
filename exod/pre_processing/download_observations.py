@@ -26,7 +26,7 @@ def download_observation_pps(observation_id, save_dir, clobber=False):
         response = requests.get(download_url)
         logger.info(response)
         if response.status_code == 200:
-            logger.info('Response 200, downloading to {file_path}')
+            logger.info(f'Response 200, downloading to {file_path}')
             with open(file_path, 'wb') as file:
                 file.write(response.content)
             logger.info(f'Downloaded: {file_path}')

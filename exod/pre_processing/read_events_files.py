@@ -13,8 +13,8 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     :argument size_arcsec is the size in arseconds of the final spatial grid onto which data is binned,
     :argument time_interval is the same but for temporal dimension"""
 
-    if f'{time_interval}s' not in os.listdir(os.path.join(data_results,obsid)):
-        os.makedirs(os.path.join(data_results,obsid,f'{time_interval}s'))
+    if f'{int(time_interval)}s' not in os.listdir(os.path.join(data_results,obsid)):
+        os.makedirs(os.path.join(data_results,obsid,f'{int(time_interval)}s'))
 
     threshold_GTI = 1.5
     pixel_size = size_arcsec / 0.05  # Size of a end pixel in DetX DetY values
@@ -24,7 +24,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     pn_file = os.path.join(data_processed,obsid,f'PN_pattern_clean.fits')
     m1_file = os.path.join(data_processed,obsid,f'M1_pattern_clean.fits')
     m2_file = os.path.join(data_processed,obsid,f'M2_pattern_clean.fits')
-    data_pn = Table(fits.open(pn_file)[1].data)['X','Y','TIME', 'RAWX','RAWY','CCDNR','PI']
+    data_pn = Table(fits.open(pn_file)[1].data)['X','Y','TIME','RAWX','RAWY','CCDNR','PI']
 
     # Bad rows in Struder et al. 2001b
     data_pn = data_pn[~((data_pn['CCDNR']==4)&(data_pn['RAWX']==12))&
@@ -54,11 +54,13 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     data_EPIC = data_EPIC[(max(start_M1,start_M2,start_pn)<data_EPIC['TIME']) &
                           (data_EPIC['TIME']<min(end_M1,end_M2,end_pn))]
 
-    n_bins = int(np.ceil((np.max(data_EPIC['TIME']) - np.min(data_EPIC['TIME'])) / time_interval))
+    n_bins = int(((np.max(data_EPIC['TIME']) - np.min(data_EPIC['TIME'])) / time_interval))
     stop_time = np.min(data_EPIC['TIME']) + n_bins * time_interval
     start_time = np.min(data_EPIC['TIME'])
     time_windows = np.arange(start_time, stop_time+1, time_interval)
 
+    #Get the GTIs by extraction the high energy 100s lightcurve (10-12 keV) and keeping only the windows where this rate
+    #is lower than an arbitrary threshold, default value being 1.5 cts/s
     time_windows_gti = np.arange(start_time, stop_time+1, 100)
     lc_HE = (np.histogram(np.array(data_EPIC['TIME'][(data_EPIC['PI']>10000)&(data_EPIC['PI']<12000)]),
                               bins=time_windows_gti)[0]/100)
@@ -97,7 +99,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
         plt.axvspan(time_windows[ind],time_windows[ind+1],facecolor='r',alpha=0.2)
     plt.yscale('log')
     # plt.xlim(time_windows_gti[200],time_windows_gti[700])
-    plt.savefig(os.path.join(data_results,'0831790701',f'{time_interval}s',f'Lightcurve_HighEnergy.png'))
+    plt.savefig(os.path.join(data_results,'0831790701',f'{int(time_interval)}s',f'Lightcurve_HighEnergy.png'))
     plt.close()
 
     #Drop BTI if necessary
@@ -106,11 +108,11 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
         nan_image[:] = np.nan
         cube_EPIC[:,:,rejected]=nan_image
 
-    return cube_EPIC, coordinates_XY
+    return cube_EPIC, coordinates_XY, rejected
 
 
 if __name__ == "__main__":
-    cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 500,gti_only=True)
+    cube,coordinates_XY,rejected = read_EPIC_events_file('0831790701', 20, 500,gti_only=True)
     # for frame_ind in range(cube.shape[2]):
     #     frame = cube[:,:,frame_ind]
     #     plt.imshow(frame)

@@ -16,7 +16,7 @@ def save_list_transients(obsid, tab_ra, tab_dec, tab_X, tab_Y,tab_p_values,time_
            'Simbad_Name','Simbad_PreciseType','Simbad_GeneralType','Simbad_AngSep']
     data = np.transpose(data)
     t=Table(data, names=names)
-    t.write(os.path.join(data_results,obsid,f'{time_interval}s','EXOD_Alerts.fits'), overwrite=True)
+    t.write(os.path.join(data_results,obsid,f'{int(time_interval)}s','EXOD_Alerts.fits'), overwrite=True)
 
 if __name__=='__main__':
     import matplotlib

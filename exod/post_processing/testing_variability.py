@@ -32,7 +32,7 @@ def plot_lightcurve_alerts(cube, tab_boundingboxes, time_interval):
         plt.legend(legend_plots,legend_labels)
         plt.savefig(os.path.join(data_results,'0831790701',f'{time_interval}s',f'Lightcurve_Alert{ind}.png'))
 
-def plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, tab_boundingboxes):
+def plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, tab_boundingboxes,time_interval):
     """
     This function creates the multi-panel lightcurve of the transient object. It will retrieve the background,
     and use it to compare the (source+background) to the background, and compute the likelihood in each frame
@@ -97,9 +97,9 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
                          alpha=0.4, facecolor=color,step='mid')
         legend_plots_ax3.append((p1[0],p2[0]))
         legend_labels_ax3.append("Poisson likelihood")
-        ax3.legend(legend_plots_ax2,legend_labels_ax2)
+        ax3.legend(legend_plots_ax3,legend_labels_ax3)
 
-        plt.savefig(os.path.join(data_processed,'0831790701',f'lightcurve_transient_{ind}.png'))
+        plt.savefig(os.path.join(data_results,'0831790701',f'{int(time_interval)}s',f'lightcurve_transient_{ind}.png'))
 
 def compute_proba_constant(cube, tab_boundingboxes):
     """
