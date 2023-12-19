@@ -1,30 +1,30 @@
 import numpy as np
-from scipy.ndimage import gaussian_filter
 from astropy.convolution import convolve
 
 from exod.utils.logger import logger
 
 def compute_pixel_variability(cube):
     logger.info('Computing Variability')
-    image_max = np.nanmax(cube, axis=2)
-    image_min = np.nanmin(cube, axis=2)
+    image_max    = np.nanmax(cube, axis=2)
+    image_min    = np.nanmin(cube, axis=2)
     image_median = np.median(cube, axis=2)
 
-    V_mat = np.where(image_median > 0, np.nanmax((image_max - image_median, image_median - image_min)) / image_median,
-                     image_max)
-    return V_mat
+    condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
 
-def convolve_variability(V_mat, box_size=3):
+    var_img = np.where(image_median > 0,
+                       condition,
+                       image_max)
+    return var_img
+
+def convolve_variability(var_img, box_size=3):
     logger.info('Convolving Variability')
+    kernel = np.ones((box_size, box_size)) / box_size**2
+    var_img_conv = convolve(var_img, kernel)
 
-    #Old version
-    k = np.ones((box_size, box_size)) / box_size**2
-    V_conv = convolve(V_mat, k)
-
-    # #New version
-    # convolved = gaussian_filter(V_mat, 1)
-    # convolved = np.where(V_mat>0, convolved, 0)
-    return V_conv 
+    # New version
+    # convolved = gaussian_filter(var_img, 1)
+    # convolved = np.where(var_img>0, convolved, 0)
+    return var_img_conv
 
 
 if __name__=='__main__':

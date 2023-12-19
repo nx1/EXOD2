@@ -11,7 +11,7 @@ class CustomFormatter(logging.Formatter):
     bold_red = "\x1b[31;1m"
     light_blue = "\x1b[94m"
     reset = "\x1b[0m"
-    format = fmt2
+    format = fmt1
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,

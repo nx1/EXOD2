@@ -23,7 +23,7 @@ def check_eventlist_instrument_and_submode(evt_file):
             raise NotImplementedError(f'submode: {submode} is not supported')
     else:
         raise KeyError(f'instrument: {instrument} is not recognized')
-    return instrument, submode
+    return header
 
 
 def PN_remove_bad_rows(data_pn):
@@ -39,8 +39,27 @@ def PN_remove_borders(data_pn):
                       ~(data_pn['RAWY']==0)&~(data_pn['RAWY']==200)]
     return data_pn
 
+def read_pn_events_list(evt_file, hdu=1, remove_bad_rows=True, remove_borders=True):
+    header = check_eventlist_instrument_and_submode(evt_file=evt_file)
+    header = fits.getheader(evt_file, hdu=hdu)
+    data   = Table(fits.open(evt_file)[hdu].data)
+    if remove_bad_rows:
+        data = PN_remove_bad_rows(data)
+    if remove_borders:
+        data = PN_remove_borders(data)
+    return data, header
+
+
+
+def read_mos_events_list(evt_file, hdu=1):
+    header = check_eventlist_instrument_and_submode(evt_file=evt_file)
+    header = fits.getheader(evt_file, hdu=hdu)
+    tab = Table.read(evt_file, hdu=hdu)
+    return tab, header
+
+
 def get_inner_time_bounds(data_M1, data_M2, data_pn):
-    """Get the Latest start time and the earliest End time across all detectors."""
+    """Get the latest start time and the earliest end time across all detectors."""
     start_M1, end_M1 = np.min(data_M1['TIME']), np.max(data_M1['TIME'])
     start_M2, end_M2 = np.min(data_M2['TIME']), np.max(data_M2['TIME'])
     start_pn, end_pn = np.min(data_pn['TIME']), np.max(data_pn['TIME'])
@@ -95,7 +114,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
                           (data_EPIC['TIME'] <= time_max)]
 
     logger.info('Calculating Time windows')
-    n_bins           = int(np.ceil((time_max - time_min) / time_interval))
+    n_bins           = int(((time_max - time_min) / time_interval))
     time_stop        = time_min + n_bins * time_interval
     time_windows     = np.arange(time_min, time_stop+1, time_interval)
     time_windows_gti = np.arange(time_min, time_stop+1, 100)
@@ -153,9 +172,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     logger.info(f'indices_timebinsleft_gtistart = {indices_timebinsleft_gtistart}')
     logger.info(f'indices_timebinsleft_gtistop = {indices_timebinsleft_gtistop}')
 
-
     logger.info('Calculating rejected_idx BTI Indexs')
-
     rejected_idx = []
     for start, end in zip(indices_timebinsleft_gtistart, indices_timebinsleft_gtistop):
         rejected_idx.extend(range(start, end + 1))
