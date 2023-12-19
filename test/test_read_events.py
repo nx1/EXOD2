@@ -1,20 +1,11 @@
-# Supported SUBMODES
-PN_SUBMODES = {'PrimeFullWindow'         : True,
-               'PrimeFullWindowExtended' : True,
-               'PrimeLargeWindow'        : True,
-               'PrimeSmallWindow'        : True,
-               'FastTiming'              : False,
-               'FastBurst'               : False,
-               'ModifiedTiming'          : False,
-               'Large Offset'            : False}
+0863401101 # EMOS1 PrimeFullWindow
+0304080601 # EMOS1 FastUncompressed
+0306870101 # EMOS1  PrimePartialW2
+0820880501 # EPN BURST
+0153950401 # EPN Timing Mode
+0882110401 # EPN PrimeFullWindow
+0201900201 # EPN PrimeFullWindowExtended
 
-MOS_SUBMODES = {'PrimeFullWindow'  : True,
-                'PrimePartialRFS'  : True,
-                'PrimePartialW2'   : True,
-                'PrimePartialW3'   : True,
-                'PrimePartialW4'   : True,
-                'PrimePartialW5'   : True,
-                'PrimePartialW6'   : True,
-                'FastUncompressed' : True,
-                'FastCompressed'   : True}
+
+
 

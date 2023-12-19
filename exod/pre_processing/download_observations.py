@@ -25,6 +25,7 @@ def download_observation_events(observation_id, clobber=False):
     urls = {'PN':url_PN ,
             'M1':url_M1,
             'M2':url_M2}
+
     for inst, download_url in urls.items():
         response = requests.get(download_url)
         logger.info(response)

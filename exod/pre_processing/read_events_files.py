@@ -7,6 +7,23 @@ from astropy.table import Table, vstack
 
 from exod.utils.logger import logger
 from exod.utils.path import data_processed,data_results
+from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
+
+def check_eventlist_instrument_and_submode(evt_file):
+    logger.info(f'Getting fits header for {evt_file}')
+    header = fits.getheader(evt_file, hdu=1)
+    instrument = header['INSTRUME']
+    submode = header['SUBMODE']
+    logger.info(f'INSTRUME: {instrument} SUBMODE: {submode}')
+    if instrument == 'EPN':
+        if PN_SUBMODES[submode] == False:
+            raise NotImplementedError(f'submode: {submode} is not supported')
+    elif instrument in ['EMOS1', 'EMOS2']:
+        if MOS_SUBMODES[submode] == False:
+            raise NotImplementedError(f'submode: {submode} is not supported')
+    else:
+        raise KeyError(f'instrument: {instrument} is not recognized')
+    return instrument, submode
 
 
 def PN_remove_bad_rows(data_pn):
@@ -39,7 +56,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     :argument time_interval is the same but for temporal dimension
     """
     # Extraction Settings
-    threshold_GTI = 1.5                    #
+    threshold_GTI = 1.5                    # Values above this will be considered BTIs.
     pixel_size    = size_arcsec / 0.05     # Final Pixel size in DetX DetY values
     extent        = 70000                  # Temporary extent of the cube in DetX DetY values
     nb_pixels     = int(extent/pixel_size) #
@@ -174,7 +191,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
 
         fig_savepath = path_time_interval / f'Lightcurve_HighEnergy.png'
         plt.savefig(fig_savepath)
-        plt.show()
+        # plt.show()
 
     plot_lc()
 
@@ -198,10 +215,10 @@ if __name__ == "__main__":
  
     for obs in obsids:
         try:
-            cube,coordinates_XY = read_EPIC_events_file(obsid=obs,
-                    size_arcsec=20,
-                    time_interval=750,
-                    gti_only=True)
+            cube, coordinates_XY = read_EPIC_events_file(obsid=obs,
+                                                         size_arcsec=20,
+                                                         time_interval=750,
+                                                         gti_only=True)
         except Exception as e:
             logger.info(f'Could not read {obs} {e}')
 

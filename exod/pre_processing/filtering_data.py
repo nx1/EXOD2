@@ -59,7 +59,7 @@ def filter_M1_file(obs, min_energy=0.2, max_energy=12.):
 
 def filter_M2_file(obs, min_energy=0.2, max_energy=12.):
     path_raw_obs, path_processed_obs = get_raw_and_processed_obs_path(obs)
-    raw_M2_file        = list(path_raw_obs.glob('*M1*EVLI*'))[0]
+    raw_M2_file        = list(path_raw_obs.glob('*M2*EVLI*'))[0]
     clean_M2_file      = path_processed_obs / f'M2_pattern_clean.fits'
     imageM2            = path_processed_obs / f'M2_image.fits'
 
