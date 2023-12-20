@@ -34,27 +34,27 @@ def get_raw_event_files(obsid):
 def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clobber=False):
     logger.info(f'Filtering PN Events file: \n raw       : {infile} \n processed : {outfile}')
     if outfile.exists() and clobber is False:
-        logger.info(f'File {infile} exists and clobber={clobber}!')
+        logger.info(f'File {outfile} exists and clobber={clobber}!')
     else:
         min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
         cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
              f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
         run_cmd(cmd)
 
-
 def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     logger.info(f'Filtering Events file: \n raw       : {infile} \n processed : {outfile}')
     if outfile.exists() and clobber is False:
-        logger.info(f'File {infile} exists and clobber={clobber}!')
+        logger.info(f'File {outfile} exists and clobber={clobber}!')
     else:
         min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
         cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
              f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
         run_cmd(cmd)
+
 def filter_M2_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     logger.info(f'Filtering Events file: \n raw       : {infile} \n processed : {outfile}')
     if outfile.exists() and clobber is False:
-        logger.info(f'File {infile} exists and clobber={clobber}!')
+        logger.info(f'File {outfile} exists and clobber={clobber}!')
     else:
         min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
         cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
@@ -84,10 +84,10 @@ def create_image_file(infile, outfile, ximagebinsize=80, yimagebinsize=80, clobb
     logger.info(f'Filtering Events file: \n raw       : {infile} \n processed : {outfile}')
     logger.info(f'ximagebinsize = {ximagebinsize} yimagebinsize = {yimagebinsize}')
     if (outfile.exists() and clobber is False):
-        logger.info(f'File {infile} exists and clobber={clobber}!')
+        logger.info(f'File {outfile} exists and clobber={clobber}!')
     else:
         cmd = (f'evselect table={infile} imagebinning=binSize imageset={outfile} withimageset=yes xcolumn=X ycolumn=Y'
-               f' ximagebinsize=80 yimagebinsize=80 -V 0')
+               f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
         run_cmd(cmd)
 
 def create_obsid_images(obsid, ximagebinsize=80, yimagebinsize=80, clobber=False):
