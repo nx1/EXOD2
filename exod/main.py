@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from exod.pre_processing.download_observations import download_observation_events
 from exod.pre_processing.event_filtering import filter_observation_events
 from exod.pre_processing.read_events_files import read_EPIC_events_file
 from exod.processing.experimental.background_estimate import compute_background
-from exod.processing.variability_computation import compute_pixel_variability
+from exod.processing.variability_computation import calc_var_img
 from exod.post_processing.extract_variability_regions import extract_variability_regions, get_regions_sky_position, plot_variability_with_regions
-from exod.post_processing.testing_variability import compute_proba_constant, plot_lightcurve_alerts, plot_lightcurve_alerts_with_background
+from exod.post_processing.testing_variability import calc_KS_probability, plot_lightcurve_alerts, get_region_lightcurves
 from exod.post_processing.save_transient_sources import save_list_transients
 from exod.utils.path import data_results
 from exod.utils.logger import logger
@@ -68,28 +69,28 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
                                                  min_energy=min_energy,
                                                  max_energy=max_energy)
 
-    # Calculate the variability Map
-    variability_map = compute_pixel_variability(cube)
+    var_img = calc_var_img(cube=cube)
 
-    # Save the var_img with regions
+    # Get the dataframe describing the contiguous variable regions
+    df_regions = extract_variability_regions(var_img=var_img, threshold=threshold)
+
+    # Calculate the sky coordinates from the detected regions
+    df_sky = get_regions_sky_position(obsid=obsid, coordinates_XY=coordinates_XY, df_regions=df_regions)
+
+    df_regions = pd.concat([df_regions, df_sky], axis=1)
+    logger.info(f'df_regions:\n{df_regions}')
+
+    lcs = get_region_lightcurves(cube, df_regions)
+
+    for lc in lcs:
+        stat, pval = calc_KS_probability(lc)
+
     plot_outfile = data_results / f'{obsid}' / f'{time_interval}s' / 'VariabilityRegions.png'
-
-    centers, bboxes = extract_variability_regions(var_img=variability_map, threshold=threshold)
-
-    plot_variability_with_regions(centers=centers, bboxes=bboxes, variability_map=variability_map, outfile=plot_outfile)
+    plot_variability_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
     
-    # Calculate the center of masses
-    df_regions = extract_variability_regions(var_img=variability_map, threshold=threshold)
 
-    # Get the coordinates of the regions
-    # TODO CHANGE THE FOLLOWING TO USE DF_REGIONS!!!!!!!!!!!!
-    df_reg = get_regions_sky_position(obsid=obsid,
-                                      tab_centersofmass=xy_centroids,
-                                      coordinates_XY=coordinates_XY)
 
-    tab_p_values = compute_proba_constant(cube, bboxes)
     # save_list_transients(obsid, tab_ra, tab_dec, tab_X, tab_Y, tab_p_values, time_interval)
-    logger.info(f'tab_p_values: {tab_p_values}')
 
     if gti_only and len(df_reg)<20:
        plot_lightcurve_alerts(cube, bboxes, time_interval, obsid)
@@ -116,6 +117,6 @@ if __name__ == "__main__":
                 'max_energy':12}
         try:
             detect_transients(**args, metric='v_score', combine_events=True)
-            detect_transients(**args, metric='l_score', combine_events=True)
+            # detect_transients(**args, metric='l_score', combine_events=True)
         except Exception as e:
             logger.warning(f'Could not process obsid={obsid} {e}')

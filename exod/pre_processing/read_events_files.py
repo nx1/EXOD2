@@ -102,7 +102,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     logger.info(f'Reading M1 events file {m1_file}')
     data_M1 = Table(fits.open(m1_file)[1].data)['X','Y','TIME','PI']
 
-    logger.info(f'Reading M2 events file {m1_file}')
+    logger.info(f'Reading M2 events file {m2_file}')
     data_M2 = Table(fits.open(m2_file)[1].data)['X','Y','TIME','PI']
 
     logger.info('Combining event lists')

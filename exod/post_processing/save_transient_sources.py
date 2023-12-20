@@ -4,7 +4,7 @@ import os
 import numpy as np
 from exod.utils.path import data_results
 from exod.post_processing.match_transient_candidates import xmm_lookup, simbad_lookup
-from exod.post_processing.testing_variability import compute_proba_constant
+from exod.post_processing.testing_variability import calc_KS_probability
 
 def save_list_transients(obsid, tab_ra, tab_dec, tab_X, tab_Y,tab_p_values,time_interval):
     tab_simbad_names, tab_simbad_precise_type,tab_simbad_types, tab_simbad_sep = simbad_lookup(tab_ra, tab_dec)
@@ -23,16 +23,15 @@ if __name__=='__main__':
     matplotlib.use('Agg')
     from exod.utils.path import data_processed
     from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.processing.variability_computation import compute_pixel_variability
+    from exod.processing.variability_computation import calc_var_img
     from exod.post_processing.extract_variability_regions import extract_variability_regions, get_regions_sky_position,plot_variability_with_regions
-    from exod.post_processing.testing_variability import compute_proba_constant, plot_lightcurve_alerts
+    from exod.post_processing.testing_variability import calc_KS_probability, plot_lightcurve_alerts
 
     cube,coordinates_XY = read_EPIC_events_file('0831790701', 10, 100,3, gti_only=True)
-    variability_map = compute_pixel_variability(cube)
-    plot_variability_with_regions(variability_map, 8,
-                                   os.path.join(data_results,'0831790701',f'{100}s','plot_test_varregions.png'))
+    variability_map = calc_var_img(cube)
+    plot_variability_with_regions(os.path.join(data_results, '0831790701', f'{100}s', 'plot_test_varregions.png'), 8, )
     tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
-    tab_ra, tab_dec, tab_X, tab_Y=get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY)
-    tab_p_values = compute_proba_constant(cube, bboxes)
+    tab_ra, tab_dec, tab_X, tab_Y= get_regions_sky_position('0831790701', tab_centersofmass, None)
+    tab_p_values = calc_KS_probability(cube)
     plot_lightcurve_alerts(cube, bboxes,100)
     save_list_transients('0831790701', tab_ra, tab_dec, tab_X, tab_Y, tab_p_values,100)

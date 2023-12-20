@@ -3,7 +3,7 @@ from astropy.convolution import convolve
 
 from exod.utils.logger import logger
 
-def compute_pixel_variability(cube):
+def calc_var_img(cube):
     logger.info('Computing Variability')
     image_max    = np.nanmax(cube, axis=2)
     image_min    = np.nanmin(cube, axis=2)
@@ -51,7 +51,7 @@ if __name__=='__main__':
                 'max_energy':12}
     
         cube, coordinates_XY = read_EPIC_events_file(**args)
-        V_mat  = compute_pixel_variability(cube)
+        V_mat  = calc_var_img(cube)
         V_conv = convolve_variability(V_mat, box_size=3)
     
         fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,5))
@@ -70,7 +70,7 @@ if __name__=='__main__':
         args['time_interval'] = 1000
     
         cube,coordinates_XY = read_EPIC_events_file(**args)
-        V_mat  = compute_pixel_variability(cube)
+        V_mat  = calc_var_img(cube)
         V_conv = convolve_variability(V_mat, box_size=3)
     
         fig, (ax1,ax2) = plt.subplots(1,2)

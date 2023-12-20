@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import cmasher as cmr
 from scipy.stats import poisson, kstest, uniform
 from statsmodels.tsa.stattools import adfuller
+from exod.utils.logger import logger
 from exod.utils.path import data_processed, data_results
 from exod.processing.experimental.background_estimate import compute_background
 
@@ -114,23 +115,42 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
 
         plt.savefig(os.path.join(data_processed,'0831790701',f'lightcurve_transient_{ind}.png'))
 
-def compute_proba_constant(cube, tab_boundingboxes):
+
+
+def get_region_lightcurves(cube, df_regions):
     """
-    This function computes a simple KS test for being constant
-    :param cube: full data cube
-    :param tab_boundingboxes: bounding boxes of variable objects, as obtained from extract_variability_regions.py
+    Extract the lightcurves from the variable regions found.
+
+    Parameters
+    ----------
+    cube
+    df_regions
+
+    Returns
+    -------
+    lcs : List of Lightcurves
     """
-    tab_p_values=[]
-    for ind, source in enumerate(tab_boundingboxes):
-        lc = np.sum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
-        result = kstest(lc, [np.nanmean(lc)]*len(lc))
-        # Define the Poisson distribution with the constant mean
-        mean_of_poisson = np.nanmean(lc)
-        expected_distribution = poisson(mean_of_poisson)
-        # Perform the Kolmogorov-Smirnov test
-        ks_statistic, ks_p_value = kstest(lc, expected_distribution.cdf)
-        tab_p_values.append(ks_p_value)
-    return tab_p_values
+    logger.info("Extracting lightcurves from data cube")
+    lcs = []
+    for i, row in df_regions.iterrows():
+        bbox = row['bbox']
+        lc = np.sum(cube[bbox[0]:bbox[2], bbox[1]:bbox[3]], axis=(0,1))
+        lcs.append(lc)
+    return lcs
+
+def calc_KS_probability(lc):
+    """
+    Calculate the KS Probability assuming the lightcurve was
+    created from a possion distribution with the mean of the lightcurve.
+    """
+    logger.info("Calculating KS Probability, assuming a Poission Distribution")
+    lc_mean = mean_of_poisson = np.nanmean(lc)
+    N_lc = len(lc)
+    result = kstest(lc, [lc_mean] * N_lc)
+    expected_distribution = poisson(mean_of_poisson)
+    ks_statistic, ks_p_value = kstest(lc, expected_distribution.cdf)
+    logger.info(f'lc_mean = {lc_mean}, N_lc = {N_lc}, ks_statistic = {ks_statistic} ks_p_value = {ks_p_value}')
+    return ks_statistic, ks_p_value
 
 
 
@@ -139,7 +159,7 @@ if __name__=='__main__':
     import matplotlib
     matplotlib.use('Agg')
     from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.processing.variability_computation import compute_pixel_variability, convolve_variability
+    from exod.processing.variability_computation import calc_var_img, convolve_variability
     from exod.post_processing.extract_variability_regions import extract_variability_regions,plot_variability_with_regions, get_regions_sky_position
     from exod.utils.synthetic_data import create_fake_burst
     from matplotlib.colors import LogNorm
@@ -149,9 +169,9 @@ if __name__=='__main__':
     cube += create_fake_burst(cube.shape, 100, time_peak_fraction=0.05,
                                        position=(0.41*cube.shape[0],0.36*cube.shape[1]),
                                        width_time=100, amplitude=1e0, size_arcsec=10)
-    variability_map = compute_pixel_variability(cube)
+    variability_map = calc_var_img(cube)
     tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
-    print(compute_proba_constant(cube, bboxes))
+    print(calc_KS_probability(cube))
     # cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 1000,3,
     #                                             gti_only=True, min_energy=0.2, max_energy=2)
     # cube += create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
