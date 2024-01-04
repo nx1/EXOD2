@@ -1,37 +1,7 @@
 #TODO: Match the candidate transients with archival X-ray catalogs (from STONKS?)
 from astropy.coordinates import SkyCoord, Angle, angular_separation
 import astropy.units as u
-from astroquery.simbad import Simbad
-Simbad.add_votable_fields("otype")
 from astroquery.vizier import Vizier
-from exod.utils.classes_Simbad import simbad_classifier
-
-
-def simbad_lookup(tab_ra, tab_dec):
-    tab_names=[]
-    tab_precise_type=[]
-    tab_types=[]
-    tab_sep=[]
-    for (ra, dec) in zip(tab_ra, tab_dec):
-        result_table = Simbad.query_region(SkyCoord(ra, dec, unit=(u.deg, u.deg), frame='icrs'),
-                                           radius=10 * u.arcsec)
-        if result_table is not None:
-            result = result_table[0]
-            tab_names.append(result["MAIN_ID"])
-            tab_precise_type.append(result["OTYPE"])
-            if result["OTYPE"] in simbad_classifier.keys():
-                tab_types.append(simbad_classifier[result["OTYPE"]])
-            else:
-                tab_types.append('Unknown')
-            tab_sep.append(SkyCoord(ra=ra, dec=dec, unit=(u.deg, u.deg), frame='icrs').separation(
-                SkyCoord(ra=result["RA"], dec=result["DEC"], unit=(u.hourangle, u.deg), frame='icrs')
-                                              ).to(u.arcsec).value)
-        else:
-            tab_names.append("")
-            tab_types.append("")
-            tab_precise_type.append("")
-            tab_sep.append("")
-    return tab_names,tab_precise_type, tab_types, tab_sep
 
 def xmm_lookup(tab_ra, tab_dec):
     tab_names=[]
@@ -93,7 +63,6 @@ def Gaia_lookup(tab_ra, tab_dec):
 
 if __name__=='__main__':
     tab_ra, tab_dec = [19.786252, 15, 283.3269], [-34.1923, 0, +33.04672]
-    print(simbad_lookup(tab_ra, tab_dec))
     print(GLADE_lookup(tab_ra, tab_dec))
     print(Gaia_lookup(tab_ra, tab_dec))
     print(xmm_lookup(tab_ra, tab_dec))

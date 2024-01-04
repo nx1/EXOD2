@@ -1,50 +1,11 @@
 #TODO: KS and Chi2 tests on lightcurves extracted from the source regions
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 import cmasher as cmr
-from scipy.stats import poisson, kstest, uniform
-from statsmodels.tsa.stattools import adfuller
-from exod.utils.logger import logger
-from exod.utils.path import data_processed, data_results
-from exod.processing.experimental.background_estimate import compute_background
+from scipy.stats import poisson
+from exod.utils.path import data_processed
 
-def plot_lightcurve_alerts(cube, tab_boundingboxes, time_interval, obsid):
-    """
-    This function creates a single panel lightcurve of the source region (source + background)
-    :param cube: full data cube
-    :param tab_boundingboxes: bounding boxes of variable objects, as obtained from extract_variability_regions.py
-    :return: nothing, but saves the lightcurve of each source
-    """
-    color = cmr.take_cmap_colors('cmr.ocean',N=1,cmap_range=(0.3,0.3))[0]
-    for ind, source in enumerate(tab_boundingboxes):
-        legend_plots=[]
-        legend_labels=[]
-        lc = np.nansum(cube[source[0]:source[2], source[1]:source[3]], axis=(0,1))
-        lc_generated = np.random.poisson(lc, (5000,len(lc)))
-        lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
-
-        plt.figure(figsize=(5,3))
-        plt.title(f'obsid={obsid} | src={ind}')
-        p1 = plt.step(range(len(lc)+1),list(lc)+[lc[-1]], c=color, where="post")
-        p2 = plt.fill(np.NaN, np.NaN, facecolor=color, alpha=0.4)
-
-        # Plot Error regions
-        plt.fill_between(range(len(lc)),
-                lc_percentiles[0],
-                lc_percentiles[1],
-                alpha=0.4,
-                facecolor=color,
-                step="post", label='16 and 84 percentiles')
-
-        legend_plots.append((p1[0],p2[0]))
-        legend_labels.append("Source+background")
-        plt.ylabel('Variability')
-        plt.xlabel('Frame Number')
-
-        plt.legend(legend_plots,legend_labels)
-        # plt.savefig(data_results / f'{obsid}' / f'{time_interval}' / f'lc_{ind}.png')
 
 def plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, tab_boundingboxes):
     """
@@ -54,7 +15,7 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
     :param cube_background: data cube of de-sourced background estimate
     :param cube_background_withsource: data cube of de-sourced background estimate + constant contribution from the
     sources (i.e. we assume they are constant, take their stacked flux and distribute it over all frames)
-    :param tab_boundingboxes: bounding boxes of variable objects, as obtained from extract_variability_regions.py
+    :param tab_boundingboxes: bounding boxes of variable objects, as obtained from variability.py
     :return: nothing, but saves the lightcurve of each (source+background) and its background, lightcurve of
     background-subtracted source, and lightcurve of likelihood of creating the signal with the background
     """
@@ -117,61 +78,12 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
 
 
 
-def get_region_lightcurves(cube, df_regions):
-    """
-    Extract the lightcurves from the variable regions found.
 
-    Parameters
-    ----------
-    cube
-    df_regions
-
-    Returns
-    -------
-    lcs : List of Lightcurves
-    """
-    logger.info("Extracting lightcurves from data cube")
-    lcs = []
-    for i, row in df_regions.iterrows():
-        bbox = row['bbox']
-        lc = np.sum(cube[bbox[0]:bbox[2], bbox[1]:bbox[3]], axis=(0,1))
-        lcs.append(lc)
-    return lcs
-
-def calc_KS_probability(lc):
-    """
-    Calculate the KS Probability assuming the lightcurve was
-    created from a possion distribution with the mean of the lightcurve.
-    """
-    logger.info("Calculating KS Probability, assuming a Poission Distribution")
-    lc_mean = mean_of_poisson = np.nanmean(lc)
-    N_lc = len(lc)
-    result = kstest(lc, [lc_mean] * N_lc)
-    expected_distribution = poisson(mean_of_poisson)
-    ks_statistic, ks_p_value = kstest(lc, expected_distribution.cdf)
-    logger.info(f'lc_mean = {lc_mean}, N_lc = {N_lc}, ks_statistic = {ks_statistic} ks_p_value = {ks_p_value}')
-    return ks_statistic, ks_p_value
 
 
 
 if __name__=='__main__':
-    import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use('Agg')
-    from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.processing.variability_computation import calc_var_img, convolve_variability
-    from exod.post_processing.extract_variability_regions import extract_variability_regions,plot_variability_with_regions, get_regions_sky_position
-    from exod.utils.synthetic_data import create_fake_burst
-    from matplotlib.colors import LogNorm
-
-    cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 100, 3,
-                                                 gti_only=True, min_energy=0.2, max_energy=2)
-    cube += create_fake_burst(cube.shape, 100, time_peak_fraction=0.05,
-                                       position=(0.41*cube.shape[0],0.36*cube.shape[1]),
-                                       width_time=100, amplitude=1e0, size_arcsec=10)
-    variability_map = calc_var_img(cube)
-    tab_centersofmass, bboxes = extract_variability_regions(variability_map, 8)
-    print(calc_KS_probability(cube))
+    pass
     # cube, coordinates_XY = read_EPIC_events_file('0831790701', 10, 1000,3,
     #                                             gti_only=True, min_energy=0.2, max_energy=2)
     # cube += create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
@@ -179,7 +91,7 @@ if __name__=='__main__':
     #                                    width_time=100, amplitude=1e0, size_arcsec=10)
     # plot_variability_with_regions(var_img, 8,
     #                                os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
-    plot_lightcurve_alerts(cube, bboxes)
+    # plot_region_lightcurves(None, df_regions,,
     # print(get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY))
     # cube_background, cube_background_withsource =compute_background(cube)
     # plot_lightcurve_alerts_with_background(cube, cube_background,cube_background_withsource,bboxes)

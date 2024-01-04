@@ -2,15 +2,17 @@ import logging
 
 
 class CustomFormatter(logging.Formatter):
-    fmt1 = '%(asctime)s - %(levelname)s - %(filename)s:%(funcName)s - %(message)s'
-    fmt2 = '%(levelname)s - %(asctime)s - %(message)s' 
-
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
     bold_red = "\x1b[31;1m"
     light_blue = "\x1b[94m"
     reset = "\x1b[0m"
+
+    # Different logger format options for da whole crew :D (pick one)
+    fmt1 = '%(asctime)s - %(levelname)s - %(filename)s:%(funcName)s - %(message)s'
+    fmt2 = '%(levelname)s - %(asctime)s - %(message)s'
+    fmt3 = '%(message)s'
     format = fmt1
 
     FORMATS = {

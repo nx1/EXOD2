@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from exod.pre_processing.read_events_files import read_EPIC_events_file
+from exod.pre_processing.read_events import read_EPIC_events_file
 from exod.utils.path import data_processed
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D

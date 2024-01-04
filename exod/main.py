@@ -1,15 +1,8 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 
-from exod.pre_processing.download_observations import download_observation_events
-from exod.pre_processing.event_filtering import filter_observation_events
-from exod.pre_processing.read_events_files import read_EPIC_events_file
-from exod.processing.experimental.background_estimate import compute_background
-from exod.processing.variability_computation import calc_var_img
-from exod.post_processing.extract_variability_regions import extract_variability_regions, get_regions_sky_position, plot_variability_with_regions
-from exod.post_processing.testing_variability import calc_KS_probability, plot_lightcurve_alerts, get_region_lightcurves
-from exod.post_processing.save_transient_sources import save_list_transients
-from exod.utils.path import data_results
+from exod.pre_processing.event_filtering import filter_obsid_events
+from exod.processing.variability import extract_var_regions, get_regions_sky_position, \
+    plot_var_with_regions, get_region_lightcurves, calc_KS_poission, plot_region_lightcurves, calc_var_img
 from exod.utils.logger import logger
 
 
@@ -36,7 +29,8 @@ def detect_transients(obsid, metric='v_score', combine_events=True, **kwargs):
                      'gti_only'      : False,
                      'min_energy'    : 0.2,
                      'max_energy'    : 12.0,
-                     'threshold'     : 8}
+                     'threshold'     : 8,
+                     'clobber'       : False}
 
     logger.info('Updating default params from kwargs')
     common_params.update(kwargs)
@@ -54,11 +48,13 @@ def detect_transients_l_score():
 
 def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
                               box_size=3, gti_only=False, min_energy=0.2,
-                              max_energy=12.0, threshold=8):
+                              max_energy=12.0, threshold=8, clobber=False):
 
-
-    # download_observation_events(obsid=obsid, clobber=False)
-    # filter_observation_events(obsid=obsid, clobber=False)
+    # Filter the events files
+    filter_obsid_events(obsid=obsid,
+                        min_energy=min_energy,
+                        max_energy=max_energy,
+                        clobber=clobber)
 
     # Read the event files and create the data cube
     cube, coordinates_XY = read_EPIC_events_file(obsid=obsid,
@@ -72,41 +68,54 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     var_img = calc_var_img(cube=cube)
 
     # Get the dataframe describing the contiguous variable regions
-    df_regions = extract_variability_regions(var_img=var_img, threshold=threshold)
+    df_regions = extract_var_regions(var_img=var_img, threshold=threshold)
 
     # Calculate the sky coordinates from the detected regions
     df_sky = get_regions_sky_position(obsid=obsid, coordinates_XY=coordinates_XY, df_regions=df_regions)
 
+    # Combine the Two
     df_regions = pd.concat([df_regions, df_sky], axis=1)
     logger.info(f'df_regions:\n{df_regions}')
 
     lcs = get_region_lightcurves(cube, df_regions)
 
-    for lc in lcs:
-        stat, pval = calc_KS_probability(lc)
+    ks_results = [calc_KS_poission(lc) for lc in lcs]
+    df_regions['KS_stat'] = [k.statistic for k in ks_results]
+    df_regions['KS_pval'] = [k.pvalue for k in ks_results]
+    df_regions['KS_loc']  = [k.statistic_location for k in ks_results]
+    df_regions['KS_sign'] = [k.statistic_sign for k in ks_results]
+    df_regions['obsid']   = obsid
+    df_regions['time_interval'] = time_interval
+
+    logger.info(f'df_regions:\n{df_regions}')
+    df_regions_savepath = data_results / obsid / 'detected_regions.csv'
+    df_regions.to_csv(df_regions_savepath, index=False)
+
 
     plot_outfile = data_results / f'{obsid}' / f'{time_interval}s' / 'VariabilityRegions.png'
-    plot_variability_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
+    plot_var_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
     
 
-
-    # save_list_transients(obsid, tab_ra, tab_dec, tab_X, tab_Y, tab_p_values, time_interval)
-
-    if gti_only and len(df_reg)<20:
-       plot_lightcurve_alerts(cube, bboxes, time_interval, obsid)
+    if len(df_regions)<20:
+        plot_region_lightcurves(lcs=lcs, df_regions=df_regions, obsid=obsid, time_interval=time_interval)
     #else:
     #    cube_background, cube_background_withsource = compute_background(cube)
     #    plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, bboxes)
 
-    plt.show()
+    # plt.show()
 
 if __name__ == "__main__":
+    import time
     from exod.pre_processing.download_observations import read_observation_ids
-    from exod.pre_processing.read_events_files import read_EPIC_events_file
-    from exod.utils.path import data
+    from exod.pre_processing.read_events import read_EPIC_events_file
+    from exod.utils.path import data, data_results
+    import random
+
+    timestr = time.strftime("%d_%m_%y-%H%M%S")
 
     obsids = read_observation_ids(data / 'observations.txt')
-
+    random.shuffle(obsids)
+    all_res = []
     for obsid in obsids:
         args = {'obsid':obsid,
                 'size_arcsec':15,
@@ -114,9 +123,26 @@ if __name__ == "__main__":
                 'box_size':3,
                 'gti_only':True,
                 'min_energy':0.2,
-                'max_energy':12}
+                'max_energy':12,
+                'threshold':7,
+                'clobber':False}
+
+        res = args.copy()
         try:
             detect_transients(**args, metric='v_score', combine_events=True)
             # detect_transients(**args, metric='l_score', combine_events=True)
+            res['status'] = 'Run'
         except Exception as e:
-            logger.warning(f'Could not process obsid={obsid} {e}')
+            logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occured: {e}')
+            res['status'] = f'{type(e).__name__ }| {e}'
+        all_res.append(res)
+
+    logger.info(f'EXOD Run Completed total observations: {len(obsids)}')
+
+    df_results = pd.DataFrame(all_res)
+    logger.info(f'df_results:\n{df_results}')
+
+    savepath_csv = data_results / f'EXOD_simlist_{timestr}.csv'
+    logger.info(f'Saving EXOD run results to: {savepath_csv}')
+    
+    df_results.to_csv(savepath_csv, index=False)

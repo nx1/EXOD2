@@ -2,11 +2,10 @@
 Requires having pre-set 'setsas' and 'export CCFPATH=' in the terminal.
 """
 import os
-import shlex
-import subprocess
 
-from exod.utils.path import data_raw, data_processed, check_file_exists
+from exod.utils.path import data_raw, data_processed
 from exod.utils.logger import logger
+
 
 def run_cmd(cmd):
     logger.info('Running Command with os.system:')
@@ -18,11 +17,13 @@ def run_cmd(cmd):
     else:
         return ret
 
+
 def get_raw_and_processed_obs_path(obsid):
     path_raw_obs       = data_raw / f'{obsid}'
     path_processed_obs = data_processed / f'{obsid}'
     os.makedirs(path_processed_obs, exist_ok=True)
     return path_raw_obs, path_processed_obs
+
 
 def get_raw_event_files(obsid):
     logger.info(f'Getting raw event files for obsid: {obsid}')
@@ -30,6 +31,7 @@ def get_raw_event_files(obsid):
     event_files = list(path_raw_obs.glob('*EVLI*FTZ'))
     logger.info(f'Found {len(event_files)} files.')
     return event_files
+
 
 def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clobber=False):
     logger.info(f'Filtering PN Events file: \n raw       : {infile} \n processed : {outfile}')
@@ -41,6 +43,7 @@ def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clob
              f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
         run_cmd(cmd)
 
+
 def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     logger.info(f'Filtering Events file: \n raw       : {infile} \n processed : {outfile}')
     if outfile.exists() and clobber is False:
@@ -50,6 +53,7 @@ def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobb
         cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
              f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
         run_cmd(cmd)
+
 
 def filter_M2_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     logger.info(f'Filtering Events file: \n raw       : {infile} \n processed : {outfile}')

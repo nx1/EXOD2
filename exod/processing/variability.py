@@ -1,28 +1,75 @@
 import os
+
+import cmasher as cmr
 import numpy as np
+from astropy.convolution import convolve
+from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import pandas as pd
-import cmasher as cmr
 from matplotlib.colors import LogNorm
 from astropy.wcs import WCS
 from astropy.io import fits
+from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops
 
 from exod.utils.path import data_processed, data_results
 from exod.utils.logger import  logger
 
 
-def extract_variability_regions(var_img, threshold):
+def calc_var_img(cube):
+    """
+    Calculate the variability image from a data cube.
+    """
+
+    logger.info('Computing Variability')
+    image_max    = np.nanmax(cube, axis=2)
+    image_min    = np.nanmin(cube, axis=2)
+    image_median = np.median(cube, axis=2)
+
+    condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
+
+    var_img = np.where(image_median > 0,
+                       condition,
+                       image_max)
+    return var_img
+
+
+def conv_var_img(var_img, box_size=3):
+    """
+    Convolve the variability image with a box kernel.
+
+    Parameters
+    ----------
+    var_img
+    box_size
+
+    Returns
+    -------
+
+    """
+    logger.info('Convolving Variability')
+    kernel = np.ones((box_size, box_size)) / box_size**2
+    var_img_conv = convolve(var_img, kernel)
+
+    # New version
+    # convolved = gaussian_filter(var_img, 1)
+    # convolved = np.where(var_img>0, convolved, 0)
+    return var_img_conv
+
+def extract_var_regions(var_img, threshold):
     """
     Use skimage to obtain the contiguous regions in
     the variability image.
 
     the threshold used is given by:
         threshold * median
+    TODO :I think we should change this to some sort of threshold that is based on the data.
 
-    then extracts the center of mass and bounding box of the corresponding pixel regions
+    We currently used the weighted centroid which calculates a centroid based on
+    both the size of the bounding box and the values of the pixels themselves.
+
     Parameters
     ----------
     var_img : Variability image (2D)
@@ -41,18 +88,19 @@ def extract_variability_regions(var_img, threshold):
     # The result is an array that has the number of the region
     # in the position of the variable regions
     # 0011020
-    # 0010020
+    # 0010220
     # 0000000
     var_img_mask_labelled = label(var_img_mask)
 
-    # Plot the Variable Regions
+    # Plot the labelled variable regions
     plt.figure(figsize=(4,4))
     plt.title('Identified Variable Regions')
-    plt.imshow(var_img_mask_labelled,
+    plt.imshow(var_img_mask_labelled.T,
                cmap='tab20c',
                interpolation='none')
     plt.colorbar()
 
+    # Obtain the region properties for the detected regions.
     regions = regionprops(label_image=var_img_mask_labelled,
                           intensity_image=var_img)
     all_res = []
@@ -71,7 +119,17 @@ def extract_variability_regions(var_img, threshold):
     logger.info(f'Detected Regions:\n{df_regions}')
     return df_regions
 
-def plot_variability_with_regions(var_img, df_regions, outfile):
+
+def plot_var_with_regions(var_img, df_regions, outfile):
+    """
+    Plot the variability image with the bounding boxes of the detected regions.
+
+    Parameters
+    ----------
+    var_img    : np.ndarray : Variability Image  (or Likelihood Image)
+    df_regions : pd.DataFrame : from extract_variability_regions
+    outfile    : str : Path to save the figure to
+    """
     logger.info('Plotting Variability map with source regions')
 
     fig, ax = plt.subplots()
@@ -106,10 +164,30 @@ def plot_variability_with_regions(var_img, df_regions, outfile):
 
         plt.text(x_pos+width, y_pos+height, str(ind), c='w')
         ax.add_patch(rect)
+    logger.info(f'Saving Variability image to: {outfile}')
     plt.savefig(outfile)
-    plt.show()
+    # plt.show()
 
 def get_regions_sky_position(obsid, coordinates_XY, df_regions):
+    """
+    Calculate the sky position of the detected regions.
+
+    Erwan, gonna need you to run me through this one lol.
+
+    One thing I see is that you use the WCS from one of three
+    image files that is already pre-binned to 80 pixels, I feel
+    uneasy about this...
+
+    Parameters
+    ----------
+    obsid : str : Observation ID
+    coordinates_XY :
+    df_regions
+
+    Returns
+    -------
+
+    """
     logger.info('Getting sky positions of regions')
 
     path_processed_obs = data_processed / f'{obsid}'
@@ -152,5 +230,68 @@ def get_regions_sky_position(obsid, coordinates_XY, df_regions):
     logger.info(f'df_sky:\n{df_sky}')
     return df_sky
 
+
+def get_region_lightcurves(cube, df_regions):
+    """
+    Extract the lightcurves from the variable regions found.
+    Returns
+    -------
+    lcs : List of Lightcurves
+    """
+    logger.info("Extracting lightcurves from data cube")
+    lcs = []
+    for i, row in df_regions.iterrows():
+        bbox = row['bbox']
+        lc = np.nansum(cube[bbox[0]:bbox[2], bbox[1]:bbox[3]], axis=(0,1))
+        lcs.append(lc)
+    return lcs
+
+
+def calc_KS_poission(lc):
+    """
+    Calculate the KS Probability assuming the lightcurve was
+    created from a possion distribution with the mean of the lightcurve.
+    """
+    #logger.info("Calculating KS Probability, assuming a Poission Distribution")
+    lc_mean = mean_of_poisson = np.nanmean(lc)
+    N_data = len(lc)
+    result = kstest(lc, [lc_mean] * N_data)
+    expected_distribution = poisson(mean_of_poisson)
+    ks_res = kstest(lc, expected_distribution.cdf)
+    logger.debug(f'KS_prob: lc_mean = {lc_mean}, N_data = {N_data}\nks_res = {ks_res}')
+    return ks_res
+
+
+def plot_region_lightcurves(lcs, df_regions, obsid, time_interval):
+    N_poission_realisations = 5000
+    color = cmr.take_cmap_colors(cmap='cmr.ocean', N=1, cmap_range=(0.3, 0.3))[0]
+    logger.info(f'Plotting regions lightcurves, using {N_poission_realisations} Poission realisations for errors')
+
+    for i, row in df_regions.iterrows():
+        lc = lcs[i]
+        lc_mean = np.nanmean(lc)
+        lc_generated = np.random.poisson(lc, size=(N_poission_realisations, len(lc)))
+        lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
+
+        plt.figure(figsize=(10, 3))
+        plt.title(f'obsid={obsid} | region_number={row["region_number"]}\ntime_interval={time_interval}s')
+
+        plt.step(range(len(lc)), lc, where='post')
+
+        # Plot Error regions
+        plt.fill_between(x=range(len(lc)),
+                         y1=lc_percentiles[0],
+                         y2=lc_percentiles[1],
+                         alpha=0.4,
+                         facecolor=color,
+                         step="post",
+                         label='16 and 84 percentiles')
+
+        plt.xlabel('Window/Frame Number')
+        plt.ylabel('Counts (N)')
+        plt.legend()
+
+
 if __name__=='__main__':
     pass
+

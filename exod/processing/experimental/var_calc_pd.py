@@ -1,4 +1,3 @@
-from re import A
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -10,14 +9,8 @@ from matplotlib.colors import LogNorm
 from exod.utils.path import data_raw, data_processed
 
 # Load Events list
-obsid = '0001730201'
-obsid = '0304080501'
-obsid = '0510010701'
-obsid = '0863401101'
-
-event_file = data_raw / obsid / 'P0001730201PNU002PIEVLI0000.FTZ'
-event_file = data_processed / obsid / 'PN_pattern_clean.fits'
-
+event_file = '../../../data/raw/0001730201/P0001730201M1S001MIEVLI0000.FTZ'
+event_file = '../../../data/raw/0001730201/P0001730201PNU002PIEVLI0000.FTZ'
 
 instrument = fits.open(event_file)[0].header['INSTRUME'] # ['EMOS1', 'EMOS2', 'EPN']
 tab        = Table.read(event_file, hdu=1)
@@ -33,7 +26,7 @@ df['TIME'] = df['TIME'] - df['TIME'].min()
 df = df[['TIME', 'RAWX', 'RAWY', 'PI']]
 print(df)
 
-t_bin_size = 1000
+t_bin_size = 300
 box_size   = 3
 x_max = 69
 y_max = 203
@@ -103,9 +96,3 @@ plt.xlim(0,64)
 plt.ylim(0,200)
 plt.show()
 
-plt.imshow(c_max, norm=LogNorm(), interpolation='none')
-plt.show()
-plt.imshow(c_median, norm=LogNorm(), interpolation='none')
-plt.show()
-plt.imshow(c_min, norm=LogNorm(), interpolation='none')
-plt.show()

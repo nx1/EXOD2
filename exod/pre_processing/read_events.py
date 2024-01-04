@@ -10,6 +10,18 @@ from exod.utils.path import data_processed,data_results
 from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
 
 def check_eventlist_instrument_and_submode(evt_file):
+    """
+    Check to see if the event list is supported by EXOD.
+    e.g reject timing mode observations.
+
+    Parameters
+    ----------
+    evt_file : Path to event file
+
+    Returns
+    -------
+    header : fits header of hdu=1
+    """
     logger.info(f'Getting fits header for {evt_file}')
     header = fits.getheader(evt_file, hdu=1)
     instrument = header['INSTRUME']
@@ -34,6 +46,9 @@ def PN_remove_bad_rows(data_pn):
     return data_pn
 
 def PN_remove_borders(data_pn):
+    """
+    TODO ask Erwan what this does exactly.
+    """
     logger.warning('Ejecting PN Borders **MAY HAVE TO BE ADAPTED FOR OBSERVING MODES**')
     data_pn = data_pn[~(data_pn['RAWX']==0)&~(data_pn['RAWX']==64)&
                       ~(data_pn['RAWY']==0)&~(data_pn['RAWY']==200)]
@@ -48,7 +63,6 @@ def read_pn_events_list(evt_file, hdu=1, remove_bad_rows=True, remove_borders=Tr
     if remove_borders:
         data = PN_remove_borders(data)
     return data, header
-
 
 
 def read_mos_events_list(evt_file, hdu=1):
@@ -69,10 +83,26 @@ def get_inner_time_bounds(data_M1, data_M2, data_pn):
 
 def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False, min_energy=0.2, max_energy=12.0):
     """
-    Reads the EPIC events files. Returns the cube and the coordinates_XY (used for WCS conversion)
-    :argument obsid of the target observation
-    :argument size_arcsec is the size in arseconds of the final spatial grid onto which data is binned,
-    :argument time_interval is the same but for temporal dimension
+    Read the EPIC event files and create the data cube, and the X,Y Coordinates the axial extents of the cube.
+
+    TODO This function is doing way too much imho, I think we should be able to use the algorithm on data that is
+    TODO not pre-binned spatially aswell as for individual cameras, I think we may have to think about this more.
+    TODO I am halfway through re-doing this I think (see above functions)
+
+    Parameters
+    ----------
+    obsid : str : Observation ID
+    size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
+    time_interval : float : temporal window size of data cube binning
+    box_size : This is used to calculate the `cropping angles' which is basically the extents of the image
+    gti_only : bool : If true use only the data found in GTIs (as specified >1.5 CR)
+    min_energy : Minimum Energy for final EPIC data cube (this is already done at the filtering step no?)
+    max_energy : see above.
+
+    Returns
+    -------
+    cube_EPIC : np.ndarray containing the binned eventlist data (x,y,t)
+    coordinates_XY : (X, Y) where X and Y are 1D-arrays describing the extents of the cube.
     """
     # Extraction Settings
     threshold_GTI = 1.5                    # Values above this will be considered BTIs.
@@ -159,6 +189,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     coordinates_XY = (np.linspace(0,extent, nb_pixels+1)[cropping_angles[0]:cropping_angles[1]],
                       np.linspace(0,extent, nb_pixels+1)[cropping_angles[2]:cropping_angles[3]])
     #cube_EPIC[np.where(np.sum(cube_EPIC, axis=2) < 1)] = np.full(len(time_windows) - 1, np.nan)
+    logger.info(f'coordinates_XY:\n{coordinates_XY}')
 
     logger.info('Getting BTI start and stop indexs')
     bti_start_idx = np.where(np.diff(gti_tab) == -1)[0]
@@ -222,8 +253,6 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_onl
     return cube_EPIC, coordinates_XY
 
 if __name__ == "__main__":
-    #cube,coordinates_XY = read_EPIC_events_file('0831790701', 20, 500,gti_only=True)
-
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
     import pandas as pd
@@ -237,12 +266,4 @@ if __name__ == "__main__":
                                                          time_interval=750,
                                                          gti_only=True)
         except Exception as e:
-            logger.info(f'Could not read {obs} {e}')
-
-
-
-    # for frame_ind in range(cube.shape[2]):
-    #     frame = cube[:,:,frame_ind]
-    #     plt.imshow(frame)
-    #     plt.savefig(os.path.join(data_processed,'0831790701',f'TestGTI/Test_{frame_ind}.png'))
-    #     plt.close()
+            logger.warning(f'Could not read {obs} {e}')
