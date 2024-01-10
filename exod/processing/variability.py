@@ -3,7 +3,6 @@ import os
 import cmasher as cmr
 import numpy as np
 from astropy.convolution import convolve
-from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -12,10 +11,11 @@ from matplotlib.colors import LogNorm
 from astropy.wcs import WCS
 from astropy.io import fits
 from scipy.stats import kstest, poisson
-from skimage.measure import label, regionprops
+from skimage.measure import label, regionprops, regionprops_table
 
+from exod.pre_processing.read_events import get_image_files
 from exod.utils.path import data_processed, data_results
-from exod.utils.logger import  logger
+from exod.utils.logger import logger
 
 
 def calc_var_img(cube):
@@ -39,15 +39,6 @@ def calc_var_img(cube):
 def conv_var_img(var_img, box_size=3):
     """
     Convolve the variability image with a box kernel.
-
-    Parameters
-    ----------
-    var_img
-    box_size
-
-    Returns
-    -------
-
     """
     logger.info('Convolving Variability')
     kernel = np.ones((box_size, box_size)) / box_size**2
@@ -58,13 +49,14 @@ def conv_var_img(var_img, box_size=3):
     # convolved = np.where(var_img>0, convolved, 0)
     return var_img_conv
 
+
 def extract_var_regions(var_img, threshold):
     """
-    Use skimage to obtain the contiguous regions in
-    the variability image.
+    Use skimage to obtain the contiguous regions in the variability image.
 
-    the threshold used is given by:
+    The threshold used is given by:
         threshold * median
+
     TODO :I think we should change this to some sort of threshold that is based on the data.
 
     We currently used the weighted centroid which calculates a centroid based on
@@ -93,32 +85,27 @@ def extract_var_regions(var_img, threshold):
     var_img_mask_labelled = label(var_img_mask)
 
     # Plot the labelled variable regions
-    plt.figure(figsize=(4,4))
+    plt.figure(figsize=(8,8))
     plt.title('Identified Variable Regions')
     plt.imshow(var_img_mask_labelled.T,
                cmap='tab20c',
-               interpolation='none')
+               interpolation='none',
+               origin='lower')
     plt.colorbar()
 
     # Obtain the region properties for the detected regions.
-    regions = regionprops(label_image=var_img_mask_labelled,
-                          intensity_image=var_img)
-    all_res = []
-    for i, r in enumerate(regions):
-        # We can pull out a lot from each region here
-        # See: https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops
-        res = {'region_number'     : i,
-               'weighted_centroid' : r.weighted_centroid,
-               'x_centroid'        : r.weighted_centroid[0],
-               'y_centroid'        : r.weighted_centroid[1],
-               'bbox'              : r.bbox,
-               'intensity_mean'    : r.intensity_mean}
-        all_res.append(res)
+    properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area')
+    region_dict = regionprops_table(label_image=var_img_mask_labelled,
+                                    intensity_image=var_img,
+                                    properties=properties_)
+    df_regions = pd.DataFrame(region_dict)
 
-    df_regions = pd.DataFrame(all_res)
-    logger.info(f'Detected Regions:\n{df_regions}')
+    logger.info(f'region_table:\n{df_regions}')
     return df_regions
 
+
+def filter_df_regions(df_regions):
+    return df_regions
 
 def plot_var_with_regions(var_img, df_regions, outfile):
     """
@@ -132,7 +119,7 @@ def plot_var_with_regions(var_img, df_regions, outfile):
     """
     logger.info('Plotting Variability map with source regions')
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8,8))
     cmap = plt.cm.hot
     cmap.set_bad('black')
     m1 = ax.imshow(var_img.T,
@@ -142,15 +129,14 @@ def plot_var_with_regions(var_img, df_regions, outfile):
                    cmap=cmap)
     cbar = plt.colorbar(mappable=m1, ax=ax)
     cbar.set_label("Variability")
-    ax.scatter(df_regions['x_centroid'], df_regions['y_centroid'], marker='+', s=10, color='white')
+    ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color='white')
     for i, row in df_regions.iterrows():
-        ind     = row['region_number']
-        bbox    = row['bbox']
-        x_cen = row['x_centroid']
-        y_cen = row['y_centroid']
+        ind     = row['label']
+        x_cen = row['weighted_centroid-0']
+        y_cen = row['weighted_centroid-1']
 
-        width  = bbox[2] - bbox[0]
-        height = bbox[3] - bbox[1]
+        width  = row['bbox-2'] - row['bbox-0']
+        height = row['bbox-3'] - row['bbox-1']
 
         x_pos = x_cen - width / 2
         y_pos = y_cen - height / 2
@@ -167,6 +153,7 @@ def plot_var_with_regions(var_img, df_regions, outfile):
     logger.info(f'Saving Variability image to: {outfile}')
     plt.savefig(outfile)
     # plt.show()
+
 
 def get_regions_sky_position(obsid, coordinates_XY, df_regions):
     """
@@ -190,14 +177,11 @@ def get_regions_sky_position(obsid, coordinates_XY, df_regions):
     """
     logger.info('Getting sky positions of regions')
 
-    path_processed_obs = data_processed / f'{obsid}'
+    img_files = get_image_files(obsid)
+    img_file = img_files[0] # Use the first image found.
 
-    datapath = path_processed_obs / "PN_image.fits"
-    datapath = path_processed_obs / "M1_image.fits"
-    datapath = path_processed_obs / "M2_image.fits"
-
-    logger.info(f'Opening fits file: {datapath}')
-    f = fits.open(datapath)
+    logger.info(f'Opening fits file: {img_file}')
+    f = fits.open(img_file)
 
     logger.info('Creating WCS from header')
     header = f[0].header
@@ -216,8 +200,8 @@ def get_regions_sky_position(obsid, coordinates_XY, df_regions):
 
     all_res = []
     for i, row in df_regions.iterrows():
-        X = interpX(row['x_centroid'])
-        Y = interpY(row['y_centroid'])
+        X = interpX(row['weighted_centroid-0'])
+        Y = interpY(row['weighted_centroid-1'])
         pos = w.pixel_to_world(X, Y)
 
         res = {'X'   : X,
@@ -241,8 +225,9 @@ def get_region_lightcurves(cube, df_regions):
     logger.info("Extracting lightcurves from data cube")
     lcs = []
     for i, row in df_regions.iterrows():
-        bbox = row['bbox']
-        lc = np.nansum(cube[bbox[0]:bbox[2], bbox[1]:bbox[3]], axis=(0,1))
+        xlo, xhi = row['bbox-0'], row['bbox-2']
+        ylo, yhi = row['bbox-1'], row['bbox-3']
+        lc = np.nansum(cube[xlo:xhi, ylo:yhi], axis=(0,1))
         lcs.append(lc)
     return lcs
 
@@ -262,19 +247,20 @@ def calc_KS_poission(lc):
     return ks_res
 
 
-def plot_region_lightcurves(lcs, df_regions, obsid, time_interval):
+def plot_region_lightcurves(lcs, df_regions, obsid):
     N_poission_realisations = 5000
     color = cmr.take_cmap_colors(cmap='cmr.ocean', N=1, cmap_range=(0.3, 0.3))[0]
     logger.info(f'Plotting regions lightcurves, using {N_poission_realisations} Poission realisations for errors')
 
     for i, row in df_regions.iterrows():
+        label = row['label']
         lc = lcs[i]
         lc_mean = np.nanmean(lc)
         lc_generated = np.random.poisson(lc, size=(N_poission_realisations, len(lc)))
         lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
 
         plt.figure(figsize=(10, 3))
-        plt.title(f'obsid={obsid} | region_number={row["region_number"]}\ntime_interval={time_interval}s')
+        plt.title(f'obsid={obsid} | label={label}')
 
         plt.step(range(len(lc)), lc, where='post')
 
@@ -290,6 +276,9 @@ def plot_region_lightcurves(lcs, df_regions, obsid, time_interval):
         plt.xlabel('Window/Frame Number')
         plt.ylabel('Counts (N)')
         plt.legend()
+        savepath = data_results / f'{obsid}' / f'lc_reg_{label}.png'
+        logger.info(f'Saving lightcurve plot to: {savepath}')
+        plt.savefig(savepath)
 
 
 if __name__=='__main__':

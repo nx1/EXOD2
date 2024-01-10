@@ -1,5 +1,7 @@
+import os
+from pathlib import Path
 import logging
-
+from datetime import datetime
 
 class CustomFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
@@ -28,7 +30,9 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
-
+def get_current_date_string():
+    current_date = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    return current_date
 
 # Configure the logger
 #logging.basicConfig(level=logging.INFO, format=fmt1)
@@ -36,10 +40,18 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# create console handler with a higher log level
+# create console handler
+current_date = get_current_date_string()
+log_filepath = Path(os.environ['EXOD']) / 'logs' / f'exod_{current_date}.log'
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 
+# Create file handler
+fh = logging.FileHandler(log_filepath)
+
+
 ch.setFormatter(CustomFormatter())
+fh.setFormatter(CustomFormatter())
 
 logger.addHandler(ch)
+logger.addHandler(fh)

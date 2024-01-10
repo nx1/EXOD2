@@ -1,15 +1,32 @@
+from exod.utils.path import data_results
+from exod.utils.logger import logger
+from exod.utils.simbad_classes import simbad_classifier
+from exod.pre_processing.read_events import get_PN_image_file
+
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import pandas as pd
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.wcs import WCS
 from astroquery.simbad import Simbad
+from astroquery.vizier import Vizier
 
 from astroquery.exceptions import BlankResponseWarning
 import warnings
 warnings.simplefilter(action='ignore', category=BlankResponseWarning) # Ignore Non-results.
-from exod.utils.path import data_results
-from exod.utils.logger import logger
-from exod.utils.simbad_classes import simbad_classifier
+
+def _get_table_id_col(tab_res):
+    """Get the correct ID column to use for crossmatching from the astropy table."""
+    logger.info('Getting table ID column')
+    if '_q' in tab_res.columns:
+        return '_q'
+    elif 'SCRIPT_NUMBER_ID' in tab_res.columns:
+        return 'SCRIPT_NUMBER_ID'
+    else:
+        raise KeyError('_q or SCRIPT_NUMBER_ID not found in table columns!')
 
 
 def combine_all_region_files():
@@ -34,7 +51,6 @@ def combine_all_region_files():
     return df_all_regions
 
 
-
 def crossmatch_simbad(df_region, radius):
     """
     Crossmatch with a df_region table containing ['ra'] and ['dec']
@@ -46,7 +62,7 @@ def crossmatch_simbad(df_region, radius):
 
     Parameters
     ----------
-    df_region : astropy.Table of pd.DataFrame containing 'ra' and 'dec' in degrees
+    df_region : astropy.Table or pd.DataFrame containing 'ra' and 'dec' in degrees
     radius : astropy.units eg. 2*u.arcmin
 
     Returns
@@ -83,7 +99,32 @@ def crossmatch_simbad(df_region, radius):
     return tab_res
 
 
+def crossmatch_vizier(df_region, radius, catalog):
+    """
+    Crossmatch Vizier catalogue.
+
+    Parameters
+    ----------
+    df_region : astropy.Table or pd.DataFrame containing 'ra' and 'dec' in degrees
+    radius : astropy.units eg. 2*u.arcmin
+    catalog : Vizier Catalogue to query.
+
+    Returns
+    -------
+    tab_res : astropy.table.Table
+    """
+    v = Vizier
+    coords = SkyCoord(ra=df_region['ra'],
+                      dec=df_region['dec'],
+                      unit='deg',
+                      frame='icrs')
+    tab_list = v.query_region(coords, radius=radius, frame='icrs', catalog=catalog)
+    tab_res = tab_list[0]
+    tab_res['_q'] = tab_res['_q'] - 1
+    return tab_res
+
 def get_df_regions_no_crossmatch(df_regions, tab_res):
+
     """
     Get the rows in df_regions containing the regions that did not provide a crossmatch
     with SIMBAD.
@@ -101,8 +142,9 @@ def get_df_regions_no_crossmatch(df_regions, tab_res):
     -------
     df_regions_no_crossmatch : pd.DataFrame All the regions that did not have a successful crossmatch.
     """
+    col = _get_table_id_col(tab_res)
     l1 = df_regions.index
-    l2 = tab_res['SCRIPT_NUMBER_ID']
+    l2 = tab_res[col]
     no_crossmatch_indexes = np.setdiff1d(l1, l2)
     logger.info(f'{len(no_crossmatch_indexes)} / {len(l1)} regions have no counterparts with SIMBAD')
     df_regions_no_crossmatch = df_regions.iloc[no_crossmatch_indexes]
@@ -116,7 +158,7 @@ def get_df_regions_with_crossmatch(df_regions, tab_res):
 
     This function finds all the indexs in the df_regions dataframe that are not in the
     tab_res provided by astropy, it does this by looking at the dataframe index and the
-    SCRIPT_NUMBER_ID (which has been adjusted to use 0 indexing).
+    SCRIPT_NUMBER_ID or _q (which has been adjusted to use 0 indexing).
 
     Parameters
     ----------
@@ -127,8 +169,9 @@ def get_df_regions_with_crossmatch(df_regions, tab_res):
     -------
     df_regions_no_crossmatch : pd.DataFrame All the regions that did not have a successful crossmatch.
     """
+    col = _get_table_id_col(tab_res)
     l1 = np.array(df_regions.index)
-    l2 = np.array(tab_res['SCRIPT_NUMBER_ID'])
+    l2 = np.array(tab_res[col])
     common_idx = np.intersect1d(l1, l2)
     logger.info(f'{len(common_idx)} / {len(l1)} regions have counterparts with SIMBAD')
     df_regions_with_crossmatch = df_regions.iloc[common_idx]
@@ -156,8 +199,90 @@ def classify_simbad_otype(tab_res):
     return tab_res
 
 
+def plot_simbad_crossmatch_image(obsid,
+                                 df_all_regions_no_crossmatch,
+                                 df_all_regions_with_crossmatch,
+                                 tab_res):
+    img_file = get_PN_image_file(obsid=obsid)
+
+    hdul = fits.open(img_file)
+    header = hdul[0].header
+    img_data = hdul[0].data
+    wcs = WCS(header=header)
+
+    fig, ax = plt.subplots(figsize=(12, 12), subplot_kw={'projection': wcs}, facecolor='grey')
+    cmap = plt.cm.hot
+    cmap.set_bad('black')
+
+    m1 = ax.imshow(img_data,
+                   norm=LogNorm(),
+                   interpolation='none',
+                   origin='lower',
+                   cmap=cmap)
+
+    # Plot Detections without a crossmatch
+    df_all_regions_no_crossmatch_obsid = df_all_regions_no_crossmatch[df_all_regions_no_crossmatch['obsid'] == obsid]
+    if len(df_all_regions_no_crossmatch_obsid) > 0:
+        ra = df_all_regions_no_crossmatch_obsid['ra']
+        dec = df_all_regions_no_crossmatch_obsid['dec']
+        ax.scatter(ra, dec, transform=ax.get_transform('world'), color='cyan', marker='o', label='No Crossmatch',
+                   alpha=0.5)
+
+    # Plot Detections with Crossmatch
+    df_all_regions_with_crossmatch_obsid = df_all_regions_with_crossmatch[
+        df_all_regions_with_crossmatch['obsid'] == obsid]
+    if len(df_all_regions_with_crossmatch_obsid) > 0:
+        ra = df_all_regions_with_crossmatch_obsid['ra']
+        dec = df_all_regions_with_crossmatch_obsid['dec']
+        ax.scatter(ra, dec, transform=ax.get_transform('world'), color='yellow', marker='o', label='With Crossmatch',
+                   alpha=0.5)
+
+    # Get Crossmatched Sources for specific obsid
+    l1 = np.array(tab_res['SCRIPT_NUMBER_ID'])
+    l2 = np.array(df_all_regions_with_crossmatch_obsid.index)
+    common_idx = np.intersect1d(l1, l2)
+    tab_res_with_crossmatch = tab_res[np.isin(tab_res['SCRIPT_NUMBER_ID'], common_idx)]
+
+    # Plot Crossmatched Sources
+    if len(tab_res_with_crossmatch) > 0:
+        ra = tab_res_with_crossmatch['RA']
+        dec = tab_res_with_crossmatch['DEC']
+        coords = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+        ax.scatter(coords.ra.deg, coords.dec.deg, transform=ax.get_transform('world'), color='white', marker='+',
+                   label='SIMBAD Sources', alpha=1.0)
+
+        # Add text labels for each source
+        for i, source in enumerate(tab_res_with_crossmatch):
+            source_ra = coords[i].ra.deg
+            source_dec = coords[i].dec.deg
+            source_name = source['MAIN_ID']
+            otype = source['OTYPE']
+            txt = f'{source_name} | {otype}'
+
+            ax.text(source_ra, source_dec, txt, color='white', ha='left', va='bottom',
+                    transform=ax.get_transform('world'))
+
+    # Set the x-axis and y-axis limits to exclude surrounding 0 values
+    ax.set_xlim(np.min(np.nonzero(img_data)[1]), np.max(np.nonzero(img_data)[1]))
+    ax.set_ylim(np.min(np.nonzero(img_data)[0]), np.max(np.nonzero(img_data)[0]))
+    ax.set_xlabel('RA')
+    ax.set_ylabel('Dec')
+    ax.set_title(f'SIMBAD Crossmatch Plot | obsid={obsid}')
+    ax.legend()
+
+    savepath = data_results / f'{obsid}' / 'SIMBAD_crossmatch_plot.png'
+    logger.info(f'Saving figure to: {savepath}')
+    plt.savefig(savepath)
+    plt.show()
+
 if __name__ == '__main__':
+    from exod.utils.path import data_combined
     df_all_regions = combine_all_region_files()
-    tab_res = crossmatch_simbad(df_all_regions, radius=1*u.arcmin)
-    tab_res = classify_simbad_otype(tab_res=tab_res)
+    tab_res = crossmatch_simbad(df_region=df_all_regions, radius=1*u.arcmin)
     df_all_regions_no_crossmatch = get_df_regions_no_crossmatch(df_regions=df_all_regions, tab_res=tab_res)
+    df_all_regions_with_crossmatch = get_df_regions_with_crossmatch(df_regions=df_all_regions, tab_res=tab_res)
+
+    # Count and plot OTYPES
+    df_otypes = tab_res.to_pandas().value_counts('OTYPE')
+    logger.info(f'{df_otypes}\ndf_otypes')
+    df_otypes.sort_values().plot(figsize=(5,10.0), kind='barh', title='SIMBAD Crossmatch')

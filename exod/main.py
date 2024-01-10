@@ -1,9 +1,11 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from exod.pre_processing.event_filtering import filter_obsid_events
+from exod.pre_processing.download_observations import download_observation_events
 from exod.processing.variability import extract_var_regions, get_regions_sky_position, \
     plot_var_with_regions, get_region_lightcurves, calc_KS_poission, plot_region_lightcurves, calc_var_img
-from exod.utils.logger import logger
+from exod.utils.logger import logger, get_current_date_string
 
 
 def detect_transients(obsid, metric='v_score', combine_events=True, **kwargs):
@@ -92,29 +94,31 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     df_regions.to_csv(df_regions_savepath, index=False)
 
 
-    plot_outfile = data_results / f'{obsid}' / f'{time_interval}s' / 'VariabilityRegions.png'
+    plot_outfile = data_results / f'{obsid}' / 'var_img.png'
     plot_var_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
     
 
     if len(df_regions)<20:
-        plot_region_lightcurves(lcs=lcs, df_regions=df_regions, obsid=obsid, time_interval=time_interval)
+        plot_region_lightcurves(lcs=lcs, df_regions=df_regions, obsid=obsid)
     #else:
     #    cube_background, cube_background_withsource = compute_background(cube)
     #    plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, bboxes)
 
-    # plt.show()
+    plt.show()
 
 if __name__ == "__main__":
-    import time
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.pre_processing.read_events import read_EPIC_events_file
     from exod.utils.path import data, data_results
     import random
 
-    timestr = time.strftime("%d_%m_%y-%H%M%S")
+    # Get Simulation time
+    timestr = get_current_date_string() 
 
+    # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
     random.shuffle(obsids)
+
     all_res = []
     for obsid in obsids:
         args = {'obsid':obsid,

@@ -94,6 +94,7 @@ def create_image_file(infile, outfile, ximagebinsize=80, yimagebinsize=80, clobb
                f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
         run_cmd(cmd)
 
+
 def create_obsid_images(obsid, ximagebinsize=80, yimagebinsize=80, clobber=False):
     path_raw_obs, path_processed_obs = get_raw_and_processed_obs_path(obsid)
     event_files = get_raw_event_files(obsid)
@@ -103,6 +104,16 @@ def create_obsid_images(obsid, ximagebinsize=80, yimagebinsize=80, clobber=False
         img_filepath = path_processed_obs / img_filename # The output filepath
         create_image_file(infile=raw_filepath, outfile=img_filepath,
                           ximagebinsize=ximagebinsize, yimagebinsize=yimagebinsize, clobber=clobber)
+
+
+def espfilt(eventfile):
+    """
+    https://xmm-tools.cosmos.esa.int/external/sas/current/doc/espfilt/espfilt.html
+    https://xmm-tools.cosmos.esa.int/external/sas/current/doc/espfilt/node9.html
+    """
+    cmd = f'espfilt eventfile={eventfile}'
+    run_cmd(cmd)
+
 
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids

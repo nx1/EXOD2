@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def main_page():
-    sim_list = path.data_results / 'EXOD_simlist_03_01_24-210941.csv'
+    sim_list = path.data_results / 'EXOD_simlist_2024-01-05_12-16-21.csv'
     df = pd.read_csv(sim_list, dtype={'obsid':str})
     return render_template("obs_list.html",
             table=df.to_html(classes='table table-striped table-hover'))
