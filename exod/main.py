@@ -27,11 +27,9 @@ def detect_transients(obsid, metric='v_score', combine_events=True, **kwargs):
     logger.info('Setting Default common parameters')
     common_params = {'time_interval' : 1000,
                      'size_arcsec'   : 10,
-                     'box_size'      : 3,
                      'gti_only'      : False,
                      'min_energy'    : 0.2,
                      'max_energy'    : 12.0,
-                     'threshold'     : 8,
                      'clobber'       : False}
 
     logger.info('Updating default params from kwargs')
@@ -49,8 +47,8 @@ def detect_transients_l_score():
     raise NotImplementedError
 
 def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
-                              box_size=3, gti_only=False, min_energy=0.2,
-                              max_energy=12.0, threshold=8, clobber=False):
+                              gti_only=False, min_energy=0.2,
+                              max_energy=12.0, clobber=False):
 
     # Filter the events files
     filter_obsid_events(obsid=obsid,
@@ -59,18 +57,13 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
                         clobber=clobber)
 
     # Read the event files and create the data cube
-    cube, coordinates_XY = read_EPIC_events_file(obsid=obsid,
-                                                 size_arcsec=size_arcsec,
-                                                 time_interval=time_interval,
-                                                 box_size=box_size,
-                                                 gti_only=gti_only,
-                                                 min_energy=min_energy,
-                                                 max_energy=max_energy)
+    cube, coordinates_XY = read_EPIC_events_file(obsid=obsid, size_arcsec=size_arcsec, time_interval=time_interval,
+                                                 gti_only=gti_only, min_energy=min_energy, max_energy=max_energy)
 
     var_img = calc_var_img(cube=cube)
 
     # Get the dataframe describing the contiguous variable regions
-    df_regions = extract_var_regions(var_img=var_img, threshold=threshold)
+    df_regions = extract_var_regions(var_img=var_img)
 
     # Calculate the sky coordinates from the detected regions
     df_sky = get_regions_sky_position(obsid=obsid, coordinates_XY=coordinates_XY, df_regions=df_regions)
@@ -121,15 +114,13 @@ if __name__ == "__main__":
 
     all_res = []
     for obsid in obsids:
-        args = {'obsid':obsid,
-                'size_arcsec':15,
-                'time_interval':1000,
-                'box_size':3,
-                'gti_only':True,
-                'min_energy':0.2,
-                'max_energy':12,
-                'threshold':7,
-                'clobber':False}
+        args = {'obsid'         : obsid,
+                'size_arcsec'   : 20,
+                'time_interval' : 100,
+                'gti_only'      : True,
+                'min_energy'    : 0.2,
+                'max_energy'    : 12,
+                'clobber'       : False}
 
         res = args.copy()
         try:

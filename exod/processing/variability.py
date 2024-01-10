@@ -1,8 +1,13 @@
-import os
 
+from exod.pre_processing.read_events import get_image_files
+from exod.utils.path import data_processed, data_results
+from exod.utils.logger import logger
+
+import os
 import cmasher as cmr
 import numpy as np
 from astropy.convolution import convolve
+from astropy.stats import sigma_clip
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -13,16 +18,11 @@ from astropy.io import fits
 from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 
-from exod.pre_processing.read_events import get_image_files
-from exod.utils.path import data_processed, data_results
-from exod.utils.logger import logger
-
 
 def calc_var_img(cube):
     """
     Calculate the variability image from a data cube.
     """
-
     logger.info('Computing Variability')
     image_max    = np.nanmax(cube, axis=2)
     image_min    = np.nanmin(cube, axis=2)
@@ -50,14 +50,11 @@ def conv_var_img(var_img, box_size=3):
     return var_img_conv
 
 
-def extract_var_regions(var_img, threshold):
+def extract_var_regions(var_img):
     """
     Use skimage to obtain the contiguous regions in the variability image.
 
-    The threshold used is given by:
-        threshold * median
-
-    TODO :I think we should change this to some sort of threshold that is based on the data.
+    The threshold is calculated using an interative sigma clip.
 
     We currently used the weighted centroid which calculates a centroid based on
     both the size of the bounding box and the values of the pixels themselves.
@@ -65,16 +62,40 @@ def extract_var_regions(var_img, threshold):
     Parameters
     ----------
     var_img : Variability image (2D)
-    threshold : Threshold over which to consider variable regions
 
     Returns
     -------
     df_regions : DataFrame of Detected Regions
     """
     logger.info('Extracting variable Regions')
-    threshold_value = threshold * np.median(var_img)
-    logger.info(f'Threshold multiplier: {threshold} threshold_value: {threshold_value}')
-    var_img_mask = var_img > threshold_value
+
+    v_arr = var_img.flatten()
+
+    v_filt, lo, hi = sigma_clip(
+        v_arr,
+        sigma=3,
+        sigma_lower=None,
+        sigma_upper=None,
+        maxiters=5,
+        cenfunc='median',
+        stdfunc='std',
+        axis=None,
+        masked=True,
+        return_bounds=True,
+        copy=True,
+        grow=False
+    )
+
+    threshold = hi
+    logger.info(f'threshold: {threshold}')
+    var_img_mask = var_img > threshold
+
+    plt.figure(figsize=(10,3))
+    plt.title('Thresholding')
+    plt.plot(v_arr, label='Variability')
+    plt.axhline(threshold, color='red', label=f'threshold={threshold:.2f}')
+    plt.legend()
+    plt.ylabel('V score')
 
     # Use the skimage label function to label connected components
     # The result is an array that has the number of the region
@@ -83,15 +104,6 @@ def extract_var_regions(var_img, threshold):
     # 0010220
     # 0000000
     var_img_mask_labelled = label(var_img_mask)
-
-    # Plot the labelled variable regions
-    plt.figure(figsize=(8,8))
-    plt.title('Identified Variable Regions')
-    plt.imshow(var_img_mask_labelled.T,
-               cmap='tab20c',
-               interpolation='none',
-               origin='lower')
-    plt.colorbar()
 
     # Obtain the region properties for the detected regions.
     properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area')
@@ -227,7 +239,8 @@ def get_region_lightcurves(cube, df_regions):
     for i, row in df_regions.iterrows():
         xlo, xhi = row['bbox-0'], row['bbox-2']
         ylo, yhi = row['bbox-1'], row['bbox-3']
-        lc = np.nansum(cube[xlo:xhi, ylo:yhi], axis=(0,1))
+        data = cube[xlo:xhi, ylo:yhi]
+        lc = np.sum(data, axis=(0,1), dtype=np.int32)
         lcs.append(lc)
     return lcs
 

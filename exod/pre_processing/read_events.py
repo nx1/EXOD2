@@ -1,15 +1,60 @@
 from exod.utils.logger import logger
-from exod.utils.path import data_processed, data_results
+from exod.utils.path import data_processed
 from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
 
-import os
 import numpy as np
+import warnings
 from scipy.stats import binned_statistic_dd
-import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table, vstack
 from itertools import combinations
 from scipy.cluster.hierarchy import DisjointSet
+from astropy.io import fits
+from astropy.wcs import FITSFixedWarning
+from astropy.units import UnitsWarning
+
+warnings.filterwarnings(action='ignore', category=FITSFixedWarning, append=True)
+warnings.filterwarnings(action='ignore', category=UnitsWarning, append=True)
+
+
+
+def get_filtered_events_files(obsid):
+    """Return all the filtered event files found for a given observation ID."""
+    logger.info(f'Getting Image files for observation: {obsid}')
+    data_processed_obs = data_processed / f'{obsid}'
+    evt_files = data_processed_obs.glob('*FILT.fits')
+    evt_files = list(evt_files)
+    if evt_files:
+        logger.info(f'Found {len(evt_files)} filtered event files')
+        return evt_files
+    else:
+        raise FileNotFoundError(f'No Event files found for observation: {obsid}')
+
+
+def get_image_files(obsid):
+    """Return all the image files found for a given observation ID"""
+    logger.info(f'Getting Image files for observation: {obsid}')
+    data_processed_obs = data_processed / f'{obsid}'
+    img_files = data_processed_obs.glob('*IMG.fits')
+    img_files = list(img_files)
+    if img_files:
+        logger.info(f'Found {len(img_files)} image files')
+        return img_files
+    else:
+        raise FileNotFoundError(f'No Images found for observation: {obsid}')
+
+
+def get_PN_image_file(obsid):
+    """Return the first PN image for a given observation ID"""
+    logger.info(f'Getting Image files for observation: {obsid}')
+    data_processed_obs = data_processed / f'{obsid}'
+    img_files = data_processed_obs.glob('*PI*IMG.fits')
+    img_files = list(img_files)
+    if img_files:
+        return img_files[0]
+    else:
+        raise FileNotFoundError(f'No PN Images found for observation: {obsid}')
+
 
 def check_eventlist_instrument_and_submode(evt_file):
     """
@@ -90,50 +135,9 @@ def get_inner_time_bounds(data_list):
 
     return latest_start_time, earliest_end_time
 
-def _get_inner_time_bounds(data_M1, data_M2, data_pn):
-    """Get the latest start time and the earliest end time across all detectors."""
-    start_M1, end_M1 = np.min(data_M1['TIME']), np.max(data_M1['TIME'])
-    start_M2, end_M2 = np.min(data_M2['TIME']), np.max(data_M2['TIME'])
-    start_pn, end_pn = np.min(data_pn['TIME']), np.max(data_pn['TIME'])
-    latest_start_time = max(start_M1, start_M2, start_pn)
-    earliest_end_time = min(end_M1, end_M2, end_pn)
-    return latest_start_time, earliest_end_time
 
 
-def get_image_files(obsid):
-    """Return all the image files found for a given observation ID"""
-    logger.info(f'Getting Image files for observation: {obsid}')
-    data_processed_obs = data_processed / f'{obsid}'
-    img_files = data_processed_obs.glob('*IMG.fits')
-    img_files = list(img_files)
-    if img_files:
-        logger.info(f'Found {len(img_files)} image files')
-        return img_files
-    else:
-        raise FileNotFoundError(f'No Images found for observation: {obsid}')
 
-def get_filtered_events_files(obsid):
-    """Return all the filtered event files found for a given observation ID."""
-    logger.info(f'Getting Image files for observation: {obsid}')
-    data_processed_obs = data_processed / f'{obsid}'
-    evt_files = data_processed_obs.glob('*FILT.fits')
-    evt_files = list(evt_files)
-    if evt_files:
-        logger.info(f'Found {len(evt_files)} filtered event files')
-        return evt_files
-    else:
-        raise FileNotFoundError(f'No Event files found for observation: {obsid}')
-
-def get_PN_image_file(obsid):
-    """Return the first PN image for a given observation ID"""
-    logger.info(f'Getting Image files for observation: {obsid}')
-    data_processed_obs = data_processed / f'{obsid}'
-    img_files = data_processed_obs.glob('*PI*IMG.fits')
-    img_files = list(img_files)
-    if img_files:
-        return img_files[0]
-    else:
-        raise FileNotFoundError(f'No PN Images found for observation: {obsid}')
 
 
 def histogram_events_list(tab_evt, bin_size_seconds=100):
@@ -155,80 +159,6 @@ def histogram_events_list(tab_evt, bin_size_seconds=100):
     hist, bin_edges = np.histogram(time_array, bins=bins) 
     return hist, bin_edges
 
-def read_EPIC_events_file(obsid, size_arcsec, time_interval, box_size=3, gti_only=False, min_energy=0.2, max_energy=12.0):
-    """
-    Read the EPIC event files and create the data cube, and the X,Y Coordinates the axial extents of the cube.
-
-    TODO This function is doing way too much imho, I think we should be able to use the algorithm on data that is
-    TODO not pre-binned spatially aswell as for individual cameras, I think we may have to think about this more.
-    TODO I am halfway through re-doing this I think (see above functions)
-
-    Parameters
-    ----------
-    obsid : str : Observation ID
-    size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
-    time_interval : float : temporal window size of data cube binning
-    box_size : This is used to calculate the `cropping angles' which is basically the extents of the image
-    gti_only : bool : If true use only the data found in GTIs (as specified >1.5 CR)
-    min_energy : Minimum Energy for final EPIC data cube (this is already done at the filtering step no?)
-    max_energy : see above.
-
-    Returns
-    -------
-    cube_EPIC : np.ndarray containing the binned eventlist data (x,y,t)
-    coordinates_XY : (X, Y) where X and Y are 1D-arrays describing the extents of the cube.
-    """
-    # Extraction Settings
-    gti_threshold = 1.5                    # Values above this will be considered BTIs.
-    pixel_size    = size_arcsec / 0.05     # Final Pixel size in DetX DetY values
-    extent        = 70000                  # Temporary extent of the cube in DetX DetY values
-    nb_pixels     = int(extent/pixel_size) #
-
-
-
-    data_EPIC, time_max, time_min = get_epic_data(obsid=obsid)
-
-    n_bins             = int(((time_max - time_min) / time_interval))
-    time_stop          = time_min + n_bins * time_interval
-    time_windows       = np.arange(time_min, time_stop + 1, time_interval)
-    if gti_only:
-        rejected_frame_idx = calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, time_min)
-
-    logger.info(f'Filtering Grouped Events list by energy min_energy={min_energy} max_energy={max_energy}')
-    data_EPIC = data_EPIC[(min_energy * 1000 < data_EPIC['PI']) & (data_EPIC['PI'] < max_energy * 1000)]
-
-    logger.info(f'Creating the data cube')
-    bin_x = np.linspace(0, extent, nb_pixels+1)
-    bin_y = np.linspace(0, extent, nb_pixels+1)
-    bin_t = time_windows
-
-    cube_EPIC = binned_statistic_dd((data_EPIC['X'], data_EPIC['Y'], data_EPIC['TIME']),
-                                    values=None,
-                                    statistic='count',
-                                    bins=[bin_x, bin_y, bin_t])[0]
-
-    logger.info(f'Getting empty indexes in data cube')
-    indices_image = np.where(np.sum(cube_EPIC, axis=2) > 0)
-
-    cropping_angles = (np.min(indices_image[0]) - box_size, np.max(indices_image[0]) + 1 + box_size,
-                       np.min(indices_image[1]) - box_size, np.max(indices_image[1]) + 1 + box_size)
-    logger.info(f'cropping_angles: {cropping_angles}')
-
-    logger.info('Cropping EPIC cube between cropping_angles')
-    cube_EPIC = cube_EPIC[cropping_angles[0]:cropping_angles[1],cropping_angles[2]:cropping_angles[3]]
-
-    logger.info('Getting XY Coordinates')
-    coordinates_XY = (np.linspace(0,extent, nb_pixels+1)[cropping_angles[0]:cropping_angles[1]],
-                      np.linspace(0,extent, nb_pixels+1)[cropping_angles[2]:cropping_angles[3]])
-
-    #Drop BTI if necessary
-    if gti_only:
-        logger.info('gti_only=True, dropping bad frames from Data Cube')
-        dims_img  = (cube_EPIC.shape[0], cube_EPIC.shape[1],1)
-        nan_image = np.full(shape=dims_img, fill_value=np.nan, dtype=np.float64)
-        cube_EPIC[:,:,rejected_frame_idx] = nan_image
-
-    return cube_EPIC, coordinates_XY
 
 
 def get_start_end_time(event_file):
@@ -244,10 +174,11 @@ def get_overlapping_eventlist_subsets(obsid):
 
     In most cases this will just return a list of length 1 like
     [{M1.fits, M2.fits, PN.fits'}] with the event files. However,
-    for some observations it will return multiple entires,
+    for some observations it will return multiple entires if there
+    have been multiple seperate observations.
 
     There is a slight issue currently however and that is if more than
-    3 event lists overlap with each other it does not correct pull out
+    3 event lists overlap with each other it does not correctly pull out
     the combination. I have made this case error if it happens for now...
     """
     logger.info(f'Getting overlapping eventlists for observation={obsid}')
@@ -275,6 +206,7 @@ def get_overlapping_eventlist_subsets(obsid):
     return subsets
 
 def get_epic_data(obsid):
+    """Get the merged EPIC data for a given observation."""
     event_list_subsets = get_overlapping_eventlist_subsets(obsid=obsid)
 
     data_to_stack = []
@@ -327,8 +259,8 @@ def calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, t
     gti_mask      = (lc_HE < gti_threshold).astype(int)
     bti_start_idx = np.where(np.diff(gti_mask) == -1)[0]
     bti_stop_idx  = np.where(np.diff(gti_mask) == 1)[0]
-    logger.info(f'bti_start_idx = {bti_start_idx}')
-    logger.info(f'bti_stop_idx  = {bti_stop_idx}')
+    logger.info(f'bti_start_idx:\n{bti_start_idx}')
+    logger.info(f'bti_stop_idx :\n{bti_stop_idx}')
 
     logger.info('Getting Associated Timebins for the Good time intervals')
     indices_timebinsleft_gtistart = np.searchsorted(time_windows, time_windows_gti[bti_start_idx])
@@ -350,9 +282,77 @@ def calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, t
     # Remove duplicates and subtract 1 from each index
     rejected_idx = list(set(rejected_idx))
     rejected_idx = [index - 1 for index in rejected_idx]
-    logger.info(f'rejected_idx = {rejected_idx}')
+    logger.info(f'Number of rejected_idx = {len(rejected_idx)} / {len(time_windows)}')
     return rejected_idx
 
+
+def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2, max_energy=12.0):
+    """
+    Read the EPIC event files and create the data cube, and the X,Y Coordinates the axial extents of the cube.
+
+    Parameters
+    ----------
+    obsid : str : Observation ID
+    size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
+    time_interval : float : temporal window size of data cube binning
+    gti_only : bool : If true use only the data found in GTIs (as specified >1.5 CR)
+    min_energy : Minimum Energy for final EPIC data cube (this is already done at the filtering step no?)
+    max_energy : see above.
+
+    Returns
+    -------
+    cube_EPIC : np.ndarray containing the binned eventlist data (x,y,t)
+    coordinates_XY : (X, Y) where X and Y are 1D-arrays describing the extents of the cube.
+    """
+    # Extraction Settings
+    gti_threshold = 1.5                    # Values above this will be considered BTIs.
+    pixel_size    = size_arcsec / 0.05     # Final Pixel size in DetX DetY values
+    extent        = 70000                  # Temporary extent of the cube in DetX DetY values
+    nb_pixels     = int(extent/pixel_size) #
+
+    data_EPIC, time_max, time_min = get_epic_data(obsid=obsid)
+
+    n_bins             = int(((time_max - time_min) / time_interval))
+    time_stop          = time_min + n_bins * time_interval
+    time_windows       = np.arange(time_min, time_stop + 1, time_interval)
+    if gti_only:
+        rejected_frame_idx = calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, time_min)
+
+    logger.info(f'Filtering Grouped Events list by energy min_energy={min_energy} max_energy={max_energy}')
+    data_EPIC = data_EPIC[(min_energy * 1000 < data_EPIC['PI']) & (data_EPIC['PI'] < max_energy * 1000)]
+
+    logger.info(f'Creating the data cube')
+    bin_x = np.linspace(0, extent, nb_pixels+1)
+    bin_y = np.linspace(0, extent, nb_pixels+1)
+    bin_t = time_windows
+
+    cube_EPIC = binned_statistic_dd((data_EPIC['X'], data_EPIC['Y'], data_EPIC['TIME']),
+                                    values=None,
+                                    statistic='count',
+                                    bins=[bin_x, bin_y, bin_t])[0]
+
+    logger.info(f'Getting empty indexes in data cube')
+    indices_image = np.where(np.sum(cube_EPIC, axis=2) > 0)
+
+    cropping_angles = (np.min(indices_image[0]), np.max(indices_image[0]) + 1,
+                       np.min(indices_image[1]), np.max(indices_image[1]) + 1)
+    logger.info(f'cropping_angles: {cropping_angles}')
+
+    logger.info('Cropping EPIC cube between cropping_angles')
+    cube_EPIC = cube_EPIC[cropping_angles[0]:cropping_angles[1],cropping_angles[2]:cropping_angles[3]]
+
+    logger.info('Getting XY Coordinates')
+    coordinates_XY = (np.linspace(0,extent, nb_pixels+1)[cropping_angles[0]:cropping_angles[1]],
+                      np.linspace(0,extent, nb_pixels+1)[cropping_angles[2]:cropping_angles[3]])
+
+    #Drop BTI if necessary
+    if gti_only:
+        logger.info('gti_only=True, dropping bad frames from Data Cube')
+        dims_img  = (cube_EPIC.shape[0], cube_EPIC.shape[1],1)
+        nan_image = np.full(shape=dims_img, fill_value=np.nan, dtype=np.float64)
+        cube_EPIC[:,:,rejected_frame_idx] = nan_image
+
+    return cube_EPIC, coordinates_XY
 
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids
@@ -360,12 +360,19 @@ if __name__ == "__main__":
     import pandas as pd
 
     obsids = read_observation_ids(data / 'observations.txt')
- 
+
+    all_res = []
     for obs in obsids:
+        res = {}
+        res['obsid'] = obs
         try:
-            cube, coordinates_XY = read_EPIC_events_file(obsid=obs,
-                                                         size_arcsec=20,
-                                                         time_interval=750,
-                                                         gti_only=True)
+            cube, coordinates_XY = read_EPIC_events_file(obsid=obs, size_arcsec=20, time_interval=750, gti_only=True)
+            res['status'] = 'OK'
         except Exception as e:
-            logger.warning(f'Could not read {obs} {e}')
+            res['status'] = str(e)
+
+        all_res.append(res)
+
+
+    df = pd.DataFrame(all_res)
+    logger.info(f'\n{df}')

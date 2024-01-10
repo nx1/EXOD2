@@ -45,6 +45,8 @@ current_date = get_current_date_string()
 log_filepath = Path(os.environ['EXOD']) / 'logs' / f'exod_{current_date}.log'
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
+#ch.setLevel(logging.WARNING)
+
 
 # Create file handler
 fh = logging.FileHandler(log_filepath)
