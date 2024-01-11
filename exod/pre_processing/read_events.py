@@ -269,10 +269,10 @@ def get_bti(time, data, threshold):
 
     mask = data > threshold  # you can flip this to get the gti instead (it works)
     if mask.all():
-        print('All Values above Treshold! Entire observation is bad :(')
+        logger.info('All Values above Treshold! Entire observation is bad :(')
         return []
     elif (~mask).all():
-        print('All Values below Threshold! Entire observation is good :)')
+        logger.info('All Values below Threshold! Entire observation is good :)')
         return []
 
     int_mask = mask.astype(int)
@@ -286,20 +286,20 @@ def get_bti(time, data, threshold):
     last_crossing = diff[diff != 0][-1]
 
     if (first_crossing, last_crossing) == (-1, 1):
-        print('Curve Started and Ended above threshold!')
+        logger.info('Curve Started and Ended above threshold!')
         time_starts = np.append(time[0], time_starts)
         time_ends = np.append(time_ends, time[-1])
 
     elif len(idx_starts) < len(idx_ends):
-        print('Curve Started Above threshold! (but did not end above it)')
+        logger.info('Curve Started Above threshold! (but did not end above it)')
         time_starts = np.append(time[0], time_starts)
 
     elif len(idx_starts) > len(idx_ends):
-        print('Curve Ended Above threshold! (but did not start above it)')
+        logger.info('Curve Ended Above threshold! (but did not start above it)')
         time_ends = np.append(time_ends, time[-1])
 
     else:
-        print('Curve started and ended below threshold, nothing to do.')
+        logger.info('Curve started and ended below threshold, nothing to do.')
 
     assert len(time_starts) == len(time_ends)
     bti = [{'START': time_starts[i], 'STOP': time_ends[i]} for i in range(len(time_ends))]
@@ -307,10 +307,23 @@ def get_bti(time, data, threshold):
 
 
 def get_rejected_idx(bti, time_windows):
+    """
+    Get the rejected indexs for an array of time windows
+    given a list of bad time intervals.
+
+    Parameters
+    ----------
+    bti : [{'START':300, 'STOP':500}, {'START':600, 'STOP':800}, ...]
+    time_windows : array
+
+    Returns
+    -------
+    rejected_idx : array of rejected indexs
+    """
     t_starts = [b['START'] for b in bti]
     t_stops = [b['STOP'] for b in bti]
     idx_starts = np.searchsorted(time_windows, t_starts)
-    idx_stops = np.searchsorted(time_windows, t_stops) + 1
+    idx_stops = np.searchsorted(time_windows, t_stops)
 
     rejected_idx = np.array([])
     for i in range(len(idx_starts)):
