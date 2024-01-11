@@ -97,7 +97,7 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     #    cube_background, cube_background_withsource = compute_background(cube)
     #    plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, bboxes)
 
-    plt.show()
+    #plt.show()
 
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        #detect_transients(**args, metric='v_score', combine_events=True)
+        # detect_transients(**args, metric='v_score', combine_events=True)
         try:
             detect_transients(**args, metric='v_score', combine_events=True)
             # detect_transients(**args, metric='l_score', combine_events=True)

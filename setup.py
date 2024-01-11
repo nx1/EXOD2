@@ -23,8 +23,9 @@ setup(
         'statsmodels==0.14.0',
         'opencv-python==4.8.1.78',
         'photutils==1.10.0',
-        'astroquery==0.4.6',
-        'pytest==7.4.3'
+        'astroquery==0.4.7.dev9008',
+        'pytest==7.4.3',
+        'Flask==3.0.0'
     ],
 
     # Include additional files like data files, package data, etc.
