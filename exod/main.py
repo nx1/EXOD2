@@ -123,6 +123,8 @@ if __name__ == "__main__":
                 'clobber'       : False}
 
         res = args.copy()
+
+        #detect_transients(**args, metric='v_score', combine_events=True)
         try:
             detect_transients(**args, metric='v_score', combine_events=True)
             # detect_transients(**args, metric='l_score', combine_events=True)

@@ -2,8 +2,9 @@ from exod.utils.logger import logger
 from exod.utils.path import data_processed
 from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
 
-import numpy as np
 import warnings
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic_dd
 from astropy.io import fits
 from astropy.table import Table, vstack
@@ -192,9 +193,14 @@ def get_overlapping_eventlist_subsets(obsid):
     for d1, d2 in combinations(file_intervals.items(), r=2):
         f1, I1 = d1[0], d1[1]
         f2, I2 = d2[0], d2[1]
-
+            
         if intervals_overlap(I1, I2):
             disjoint_set.merge(f1, f2)
+            logger.info(f'f1: {f1.stem} : {I1} OVERLAP!')
+            logger.info(f'f2: {f2.stem} : {I2} OVERLAP!')
+        else:
+            logger.info(f'f1: {f1.stem} : {I1}')
+            logger.info(f'f2: {f2.stem} : {I2}')
 
     subsets = disjoint_set.subsets()
     logger.info(f'Found {len(subsets)} subsets.')
@@ -230,60 +236,101 @@ def get_epic_data(obsid):
     return data_EPIC, time_max, time_min
 
 
-def calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, time_min):
+def get_HE_lc(data_EPIC):
+    logger.info('Creating High Energy Lightcurve')
     min_energy_HE = 10.0  # minimum extraction energy for (High Energy) Background events
     max_energy_HE = 12.0  # maximum extraction energy for (High Energy) Background events
-    gti_window_size = 100 # Window Size to use for GTI extraction
+    gti_window_size = 100  # Window Size to use for GTI extraction
+    logger.info(f'min_energy_HE = {min_energy_HE} max_energy_HE = {max_energy_HE} gti_window_size = {gti_window_size}')
+    time_min = np.min(data_EPIC['TIME'])
+    time_max = np.max(data_EPIC['TIME'])
+    logger.info(f'time_min = {time_min} time_max = {time_max}')
 
-    logger.info('=======================================')
-    logger.info('Calculating Rejected Frame in data cube')
-    logger.info('=======================================')
-    logger.info('Calculating Time windows')
-    n_bins = int(((time_max - time_min) / time_interval))
-    time_stop = time_min + n_bins * time_interval
-    time_windows = np.arange(time_min, time_stop + 1, time_interval)
-    time_windows_gti = np.arange(time_min, time_stop + 1, gti_window_size)
+    time_windows_gti = np.arange(time_min, time_max, gti_window_size)
+    data_HE = np.array(data_EPIC['TIME'][(data_EPIC['PI'] > min_energy_HE * 1000) & (data_EPIC['PI'] < max_energy_HE * 1000)])
+    lc_HE = np.histogram(data_HE, bins=time_windows_gti)[0] / gti_window_size  # Divide by the bin size to get in ct/s
+    return time_windows_gti, lc_HE
 
-    logger.info(f'n_bins     = {n_bins}')
-    logger.info(f'time_min   = {time_min}')
-    logger.info(f'time_stop  = {time_stop}')
-    logger.info(f'time_max   = {time_max}')
 
-    logger.info(f'Extracting High Energy Lightcurve min_energy_HE={min_energy_HE} max_energy_HE={max_energy_HE}')
-    data_HE    = np.array(data_EPIC['TIME'][(data_EPIC['PI'] > min_energy_HE * 1000) & (data_EPIC['PI'] < max_energy_HE * 1000)])
-    lc_HE      = np.histogram(data_HE, bins=time_windows_gti)[0] / gti_window_size  # Divide by the bin size to get in ct/s
-    lc_HE_good = np.where(lc_HE < gti_threshold, lc_HE, np.nan)  # These can be commented out once we know things work
-    lc_HE_bad  = np.where(lc_HE >= gti_threshold, lc_HE, np.nan)  # These can be commented out once we know things work
+def get_bti(time, data, threshold):
+    """
+    Get the bad time intervals for a given lightcurve.
 
-    logger.info('Getting BTI start and stop indexs')
-    gti_mask      = (lc_HE < gti_threshold).astype(int)
-    bti_start_idx = np.where(np.diff(gti_mask) == -1)[0]
-    bti_stop_idx  = np.where(np.diff(gti_mask) == 1)[0]
-    logger.info(f'bti_start_idx:\n{bti_start_idx}')
-    logger.info(f'bti_stop_idx :\n{bti_stop_idx}')
+    Parameters
+    ----------
+    time : Time Array
+    data : Data Array
+    threshold: Threshold for bad time intervals
 
-    logger.info('Getting Associated Timebins for the Good time intervals')
-    indices_timebinsleft_gtistart = np.searchsorted(time_windows, time_windows_gti[bti_start_idx])
-    indices_timebinsleft_gtistop = np.searchsorted(time_windows, time_windows_gti[bti_stop_idx])
-    logger.info(f'indices_timebinsleft_gtistart = {indices_timebinsleft_gtistart}')
-    logger.info(f'indices_timebinsleft_gtistop  = {indices_timebinsleft_gtistop}')
+    Returns
+    -------
+    bti : [{'START':500, 'STOP':600}, {'START':700, 'STOP':800}, ...]
+    """
 
-    logger.info('Calculating rejected_idx BTI Indexs')
-    rejected_idx = []
-    for start, end in zip(indices_timebinsleft_gtistart, indices_timebinsleft_gtistop):
-        rejected_idx.extend(range(start, end + 1))
+    mask = data > threshold  # you can flip this to get the gti instead (it works)
+    if mask.all():
+        print('All Values above Treshold! Entire observation is bad :(')
+        return []
+    elif (~mask).all():
+        print('All Values below Threshold! Entire observation is good :)')
+        return []
 
-    # Handle remaining BTIs at the end
-    if len(indices_timebinsleft_gtistop) < len(indices_timebinsleft_gtistart):
-        last_start = indices_timebinsleft_gtistart[-1] + 1
-        remaining_indices = list(range(last_start, len(time_windows)))
-        rejected_idx.extend(remaining_indices)
+    int_mask = mask.astype(int)
+    diff = np.diff(int_mask)
+    idx_starts = np.where(diff == 1)[0]
+    idx_ends = np.where(diff == -1)[0]
+    time_starts = time[idx_starts]
+    time_ends = time[idx_ends]
 
-    # Remove duplicates and subtract 1 from each index
-    rejected_idx = list(set(rejected_idx))
-    rejected_idx = [index - 1 for index in rejected_idx]
-    logger.info(f'Number of rejected_idx = {len(rejected_idx)} / {len(time_windows)}')
+    first_crossing = diff[diff != 0][0]
+    last_crossing = diff[diff != 0][-1]
+
+    if (first_crossing, last_crossing) == (-1, 1):
+        print('Curve Started and Ended above threshold!')
+        time_starts = np.append(time[0], time_starts)
+        time_ends = np.append(time_ends, time[-1])
+
+    elif len(idx_starts) < len(idx_ends):
+        print('Curve Started Above threshold! (but did not end above it)')
+        time_starts = np.append(time[0], time_starts)
+
+    elif len(idx_starts) > len(idx_ends):
+        print('Curve Ended Above threshold! (but did not start above it)')
+        time_ends = np.append(time_ends, time[-1])
+
+    else:
+        print('Curve started and ended below threshold, nothing to do.')
+
+    assert len(time_starts) == len(time_ends)
+    bti = [{'START': time_starts[i], 'STOP': time_ends[i]} for i in range(len(time_ends))]
+    return bti
+
+
+def get_rejected_idx(bti, time_windows):
+    t_starts = [b['START'] for b in bti]
+    t_stops = [b['STOP'] for b in bti]
+    idx_starts = np.searchsorted(time_windows, t_starts)
+    idx_stops = np.searchsorted(time_windows, t_stops) + 1
+
+    rejected_idx = np.array([])
+    for i in range(len(idx_starts)):
+        idxs = np.arange(idx_starts[i], idx_stops[i], 1)
+        rejected_idx = np.append(rejected_idx, idxs)
+    rejected_idx = rejected_idx.astype(int)
     return rejected_idx
+
+
+def plot_bti(time, data, threshold, bti):
+    plt.figure(figsize=(10, 2.5))
+    for b in bti:
+        plt.axvspan(xmin=b['START'], xmax=b['STOP'], color='red', alpha=0.5)
+
+    plt.scatter(time, data, label='Data')
+    plt.axhline(threshold, color='red', label=f'Threshold={threshold}')
+    plt.xlabel('Time')
+    plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
+    plt.legend()
+    #plt.show()
 
 
 def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2, max_energy=12.0):
@@ -315,8 +362,13 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
     n_bins             = int(((time_max - time_min) / time_interval))
     time_stop          = time_min + n_bins * time_interval
     time_windows       = np.arange(time_min, time_stop + 1, time_interval)
+
     if gti_only:
-        rejected_frame_idx = calc_rejected_frame_idx(data_EPIC, gti_threshold, time_interval, time_max, time_min)
+        time_window_gti, lc_HE = get_HE_lc(data_EPIC=data_EPIC)
+        bti = get_bti(time=time_window_gti, data=lc_HE, threshold=gti_threshold)
+        plot_bti(time=time_window_gti[:-1], data=lc_HE, threshold=gti_threshold, bti=bti)
+        rejected_frame_idx = get_rejected_idx(bti=bti, time_windows=time_windows)
+
 
     logger.info(f'Filtering Grouped Events list by energy min_energy={min_energy} max_energy={max_energy}')
     data_EPIC = data_EPIC[(min_energy * 1000 < data_EPIC['PI']) & (data_EPIC['PI'] < max_energy * 1000)]

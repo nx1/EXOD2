@@ -240,7 +240,7 @@ def get_region_lightcurves(cube, df_regions):
         xlo, xhi = row['bbox-0'], row['bbox-2']
         ylo, yhi = row['bbox-1'], row['bbox-3']
         data = cube[xlo:xhi, ylo:yhi]
-        lc = np.sum(data, axis=(0,1), dtype=np.int32)
+        lc = np.nansum(data, axis=(0,1), dtype=np.int32)
         lcs.append(lc)
     return lcs
 
@@ -268,15 +268,18 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
     for i, row in df_regions.iterrows():
         label = row['label']
         lc = lcs[i]
+        """
         lc_mean = np.nanmean(lc)
         lc_generated = np.random.poisson(lc, size=(N_poission_realisations, len(lc)))
         lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
+        """
 
         plt.figure(figsize=(10, 3))
         plt.title(f'obsid={obsid} | label={label}')
 
         plt.step(range(len(lc)), lc, where='post')
 
+        """
         # Plot Error regions
         plt.fill_between(x=range(len(lc)),
                          y1=lc_percentiles[0],
@@ -285,10 +288,11 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
                          facecolor=color,
                          step="post",
                          label='16 and 84 percentiles')
-
+        """
+        
         plt.xlabel('Window/Frame Number')
         plt.ylabel('Counts (N)')
-        plt.legend()
+        # plt.legend()
         savepath = data_results / f'{obsid}' / f'lc_reg_{label}.png'
         logger.info(f'Saving lightcurve plot to: {savepath}')
         plt.savefig(savepath)
