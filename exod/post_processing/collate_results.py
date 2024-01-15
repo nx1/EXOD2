@@ -257,7 +257,8 @@ def plot_simbad_crossmatch_image(obsid,
             source_dec = coords[i].dec.deg
             source_name = source['MAIN_ID']
             otype = source['OTYPE']
-            txt = f'{source_name} | {otype}'
+            sep_arcsec = source['SEP_ARCSEC']
+            txt = f'{source_name} | {otype} | {sep_arcsec:.2f}'
 
             ax.text(source_ra, source_dec, txt, color='white', ha='left', va='bottom',
                     transform=ax.get_transform('world'))

@@ -1,54 +1,20 @@
-import matplotlib.pyplot as plt
-import pandas as pd
-
 from exod.pre_processing.event_filtering import filter_obsid_events
 from exod.pre_processing.download_observations import download_observation_events
 from exod.processing.variability import extract_var_regions, get_regions_sky_position, \
-    plot_var_with_regions, get_region_lightcurves, calc_KS_poission, plot_region_lightcurves, calc_var_img
+    plot_var_with_regions, get_region_lightcurves, calc_KS_poission, plot_region_lightcurves, \
+    calc_var_img, create_df_lcs
 from exod.utils.logger import logger, get_current_date_string
+from exod.utils.path import data_results, make_results_directory
 
 
-def detect_transients(obsid, metric='v_score', combine_events=True, **kwargs):
-    """
-    Parameters
-    ----------
-    obsid  : Observation ID
-    metric : 'v_score', or 'l_score'
-    combine_events : Combine events from each instrument
-    kwargs :
-
-    Returns
-    -------
-    """
-    implemented_methods = ['v_score', 'l_score']
-    logger.info(f'Detecting Transients using metric={metric} combine_events={combine_events}')
-
-    # Set Default parameters
-    logger.info('Setting Default common parameters')
-    common_params = {'time_interval' : 1000,
-                     'size_arcsec'   : 10,
-                     'gti_only'      : False,
-                     'min_energy'    : 0.2,
-                     'max_energy'    : 12.0,
-                     'clobber'       : False}
-
-    logger.info('Updating default params from kwargs')
-    common_params.update(kwargs)
-
-    if metric == 'v_score':
-        detect_transients_v_score(obsid=obsid, **kwargs)
-    elif metric == 'l_score':
-        detect_transients_l_score()
-    else:
-        raise ValueError(f'metric must be one of {implemented_methods} not {metric}!')
-
-
-def detect_transients_l_score():
-    raise NotImplementedError
+import matplotlib.pyplot as plt
+import pandas as pd
 
 def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
                               gti_only=False, min_energy=0.2,
                               max_energy=12.0, clobber=False):
+
+    make_results_directory(obsid)
 
     # Filter the events files
     filter_obsid_events(obsid=obsid,
@@ -72,8 +38,14 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     df_regions = pd.concat([df_regions, df_sky], axis=1)
     logger.info(f'df_regions:\n{df_regions}')
 
+    # Extract and Save lightcurves
     lcs = get_region_lightcurves(cube, df_regions)
+    df_lcs = create_df_lcs(lcs=lcs)
+    df_lcs_savepath = data_results / obsid / 'lcs.csv'
+    logger.info(f'Saving df_lcs to {df_lcs_savepath}')
+    df_lcs.to_csv(df_lcs_savepath, index=False)
 
+    # Calculate KS value #TODO move to post-processing?
     ks_results = [calc_KS_poission(lc) for lc in lcs]
     df_regions['KS_stat'] = [k.statistic for k in ks_results]
     df_regions['KS_pval'] = [k.pvalue for k in ks_results]
@@ -84,9 +56,10 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
 
     logger.info(f'df_regions:\n{df_regions}')
     df_regions_savepath = data_results / obsid / 'detected_regions.csv'
+    logger.info(f'Saving df_regions to {df_regions_savepath}')
     df_regions.to_csv(df_regions_savepath, index=False)
 
-
+    # Plot region files
     plot_outfile = data_results / f'{obsid}' / 'var_img.png'
     plot_var_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
     
@@ -99,11 +72,17 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
 
     #plt.show()
 
+
+def detect_transients_l_score():
+    raise NotImplementedError
+
+
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.pre_processing.read_events import read_EPIC_events_file
     from exod.utils.path import data, data_results
     import random
+
 
     # Get Simulation time
     timestr = get_current_date_string() 
@@ -115,8 +94,8 @@ if __name__ == "__main__":
     all_res = []
     for obsid in obsids:
         args = {'obsid'         : obsid,
-                'size_arcsec'   : 20,
-                'time_interval' : 100,
+                'size_arcsec'   : 15,
+                'time_interval' : 50,
                 'gti_only'      : True,
                 'min_energy'    : 0.2,
                 'max_energy'    : 12,
@@ -126,7 +105,7 @@ if __name__ == "__main__":
 
         # detect_transients(**args, metric='v_score', combine_events=True)
         try:
-            detect_transients(**args, metric='v_score', combine_events=True)
+            detect_transients_v_score(**args)
             # detect_transients(**args, metric='l_score', combine_events=True)
             res['status'] = 'Run'
         except Exception as e:

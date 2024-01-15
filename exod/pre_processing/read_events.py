@@ -18,7 +18,6 @@ warnings.filterwarnings(action='ignore', category=FITSFixedWarning, append=True)
 warnings.filterwarnings(action='ignore', category=UnitsWarning, append=True)
 
 
-
 def get_filtered_events_files(obsid):
     """Return all the filtered event files found for a given observation ID."""
     logger.info(f'Getting Image files for observation: {obsid}')
@@ -101,8 +100,15 @@ def PN_remove_borders(data_pn):
     #TODO remove edges for the smaller PN frame mode!
     """
     logger.warning('Ejecting PN Borders **MAY HAVE TO BE ADAPTED FOR OBSERVING MODES**')
-    data_pn = data_pn[~(data_pn['RAWX']==0)&~(data_pn['RAWX']==64)&
-                      ~(data_pn['RAWY']==0)&~(data_pn['RAWY']==200)]
+    rawx_exclude = [0,1,3,4,5,6,7,61,61,63,64]
+    rawy_exclude = [0,1,2,3,4,5,6,7,197,198,199,200]
+    logger.info(f'length pre: {len(data_pn)}')
+    for rawx in rawx_exclude:
+        data_pn = data_pn[data_pn['RAWX'] != rawx]
+    for rawy in rawy_exclude:
+        data_pn = data_pn[data_pn['RAWY'] != rawy]
+
+    logger.info(f'length post: {len(data_pn)}')
     return data_pn
 
 
@@ -125,7 +131,6 @@ def read_mos_events_list(evt_file, hdu=1):
     return tab, header
 
 
-
 def get_inner_time_bounds(data_list):
     """Get the latest start time and the earliest end time across all detectors."""
     start_times = [np.min(data['TIME']) for data in data_list]
@@ -135,10 +140,6 @@ def get_inner_time_bounds(data_list):
     earliest_end_time = min(end_times)
 
     return latest_start_time, earliest_end_time
-
-
-
-
 
 
 def histogram_events_list(tab_evt, bin_size_seconds=100):
@@ -159,7 +160,6 @@ def histogram_events_list(tab_evt, bin_size_seconds=100):
     bins = np.linspace(np.min(time_array), np.max(time_array), num_bins + 1)
     hist, bin_edges = np.histogram(time_array, bins=bins) 
     return hist, bin_edges
-
 
 
 def get_start_end_time(event_file):
@@ -210,6 +210,7 @@ def get_overlapping_eventlist_subsets(obsid):
             raise ValueError(f'Overlapping subset has {len(s)} event files! (>3) '
                              f'I still havent figured out how to seperate these out')
     return subsets
+
 
 def get_epic_data(obsid):
     """Get the merged EPIC data for a given observation."""
@@ -338,7 +339,7 @@ def plot_bti(time, data, threshold, bti):
     for b in bti:
         plt.axvspan(xmin=b['START'], xmax=b['STOP'], color='red', alpha=0.5)
 
-    plt.scatter(time, data, label='Data')
+    plt.scatter(time, data, label='Data', marker='.', s=5, color='black')
     plt.axhline(threshold, color='red', label=f'Threshold={threshold}')
     plt.xlabel('Time')
     plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
@@ -418,6 +419,7 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
         cube_EPIC[:,:,rejected_frame_idx] = nan_image
 
     return cube_EPIC, coordinates_XY
+
 
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids
