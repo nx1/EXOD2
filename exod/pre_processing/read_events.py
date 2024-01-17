@@ -100,10 +100,8 @@ def PN_remove_borders(data_pn):
     #TODO remove edges for the smaller PN frame mode!
     """
     logger.warning('Ejecting PN Borders **MAY HAVE TO BE ADAPTED FOR OBSERVING MODES**')
-    rawx_exclude = [0,1,3,4,5,6,7,61,61,63,64]
-    rawy_exclude = [0,1,2,3,4,5,6,7,197,198,199,200]
-    rawx_exclude = []
-    rawy_exclude = []
+    rawx_exclude = [0,1,3,4,61,61,63,64]
+    rawy_exclude = [0,1,2,3,4,197,198,199,200]
     logger.info(f'length pre: {len(data_pn)}')
     for rawx in rawx_exclude:
         data_pn = data_pn[data_pn['RAWX'] != rawx]
@@ -136,32 +134,12 @@ def read_mos_events_list(evt_file, hdu=1):
 def get_inner_time_bounds(data_list):
     """Get the latest start time and the earliest end time across all detectors."""
     start_times = [np.min(data['TIME']) for data in data_list]
-    end_times = [np.max(data['TIME']) for data in data_list]
+    end_times   = [np.max(data['TIME']) for data in data_list]
 
     latest_start_time = max(start_times)
     earliest_end_time = min(end_times)
 
     return latest_start_time, earliest_end_time
-
-
-def histogram_events_list(tab_evt, bin_size_seconds=100):
-    """
-    Create a histogram from a list of events.
-
-    Parameters
-    ----------
-    tab_evt : Event list table with ['TIME'] column
-    bin_size_seconds
-
-    Returns
-    -------
-    hist, bin_edges
-    """
-    time_array = tab_evt['TIME']
-    num_bins = int((np.max(time_array) - np.min(time_array)) / bin_size_seconds)
-    bins = np.linspace(np.min(time_array), np.max(time_array), num_bins + 1)
-    hist, bin_edges = np.histogram(time_array, bins=bins) 
-    return hist, bin_edges
 
 
 def get_start_end_time(event_file):
@@ -214,6 +192,15 @@ def get_overlapping_eventlist_subsets(obsid):
     return subsets
 
 
+def get_pn_data(obsid):
+    """What the hell am i doing ffs."""
+    files = get_filtered_events_files(obsid)
+    for f in files:
+        if 'PI' in f.stem:
+            data, header = read_pn_events_list(f)
+            return data
+    return KeyError(f'No PN data found for {obsid}')
+
 def get_epic_data(obsid):
     """Get the merged EPIC data for a given observation."""
     event_list_subsets = get_overlapping_eventlist_subsets(obsid=obsid)
@@ -236,7 +223,7 @@ def get_epic_data(obsid):
 
     data_EPIC = data_EPIC[(data_EPIC['TIME'] >= time_min) & (data_EPIC['TIME'] <= time_max)]
     logger.info(f'data_EPIC:\n{data_EPIC}')
-    return data_EPIC, time_max, time_min
+    return data_EPIC, time_min, time_max
 
 
 def get_HE_lc(data_EPIC):
@@ -354,6 +341,24 @@ def plot_bti(time, data, threshold, bti, obsid):
     #plt.show()
 
 
+def crop_data_cube(cube_EPIC, extent, nb_pixels):
+    """Crop the surrounding areas of the datacube that are empty."""
+    logger.info('Cropping Data Cube...')
+    logger.info(f'Getting non-empty regions in data cube')
+    idx_nonempty = np.where(np.sum(cube_EPIC, axis=2) > 0)
+
+    bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
+                np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
+
+    logger.info(f'Cropping EPIC cube between bbox_img: {bbox_img}')
+    cube_EPIC = cube_EPIC[bbox_img[0]:bbox_img[1], bbox_img[2]:bbox_img[3]]
+
+    logger.info('Getting XY Coordinates')
+    coordinates_XY = (np.linspace(0, extent, nb_pixels + 1)[bbox_img[0]:bbox_img[1]],
+                      np.linspace(0, extent, nb_pixels + 1)[bbox_img[2]:bbox_img[3]])
+    return cube_EPIC, coordinates_XY
+
+
 def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2, max_energy=12.0):
     """
     Read the EPIC event files and create the data cube, and the X,Y Coordinates the axial extents of the cube.
@@ -374,11 +379,14 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
     """
     # Extraction Settings
     gti_threshold = 1.5                    # Values above this will be considered BTIs.
+    gti_threshold = 0.5                    # Values above this will be considered BTIs.
     pixel_size    = size_arcsec / 0.05     # Final Pixel size in DetX DetY values
-    extent        = 70000                  # Temporary extent of the cube in DetX DetY values
-    nb_pixels     = int(extent/pixel_size) #
+    extent        = 60000                  # Temporary extent of the cube in DetX DetY values
+    nb_pixels     = int(extent/pixel_size)
 
-    data_EPIC, time_max, time_min = get_epic_data(obsid=obsid)
+    # data_EPIC, time_min, time_max = get_epic_data(obsid=obsid)
+    data_EPIC = get_pn_data(obsid=obsid)
+    time_min, time_max = min(data_EPIC['TIME']), max(data_EPIC['TIME'])
 
     n_bins       = int(((time_max - time_min) / time_interval))
     time_stop    = time_min + n_bins * time_interval
@@ -404,28 +412,17 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
                                     statistic='count',
                                     bins=[bin_x, bin_y, bin_t])[0]
 
-    logger.info(f'Getting empty indexes in data cube')
-    indices_image = np.where(np.sum(cube_EPIC, axis=2) > 0)
-
-    cropping_angles = (np.min(indices_image[0]), np.max(indices_image[0]) + 1,
-                       np.min(indices_image[1]), np.max(indices_image[1]) + 1)
-    logger.info(f'cropping_angles: {cropping_angles}')
-
-    logger.info('Cropping EPIC cube between cropping_angles')
-    cube_EPIC = cube_EPIC[cropping_angles[0]:cropping_angles[1],cropping_angles[2]:cropping_angles[3]]
-
-    logger.info('Getting XY Coordinates')
-    coordinates_XY = (np.linspace(0,extent, nb_pixels+1)[cropping_angles[0]:cropping_angles[1]],
-                      np.linspace(0,extent, nb_pixels+1)[cropping_angles[2]:cropping_angles[3]])
+    cube_EPIC, coordinates_XY = crop_data_cube(cube_EPIC, extent, nb_pixels)
 
     #Drop BTI if necessary
     if gti_only:
         logger.info('gti_only=True, dropping bad frames from Data Cube')
-        dims_img  = (cube_EPIC.shape[0], cube_EPIC.shape[1],1)
-        nan_image = np.full(shape=dims_img, fill_value=np.nan, dtype=np.float64)
-        cube_EPIC[:,:,rejected_frame_idx] = nan_image
+        img_shape = (cube_EPIC.shape[0], cube_EPIC.shape[1], 1)
+        img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
+        cube_EPIC[:,:,rejected_frame_idx] = img_nan
 
     return cube_EPIC, coordinates_XY
+
 
 
 if __name__ == "__main__":
