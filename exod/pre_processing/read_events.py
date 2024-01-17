@@ -1,5 +1,5 @@
 from exod.utils.logger import logger
-from exod.utils.path import data_processed
+from exod.utils.path import data_processed, data_results
 from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
 
 import warnings
@@ -102,6 +102,8 @@ def PN_remove_borders(data_pn):
     logger.warning('Ejecting PN Borders **MAY HAVE TO BE ADAPTED FOR OBSERVING MODES**')
     rawx_exclude = [0,1,3,4,5,6,7,61,61,63,64]
     rawy_exclude = [0,1,2,3,4,5,6,7,197,198,199,200]
+    rawx_exclude = []
+    rawy_exclude = []
     logger.info(f'length pre: {len(data_pn)}')
     for rawx in rawx_exclude:
         data_pn = data_pn[data_pn['RAWX'] != rawx]
@@ -270,10 +272,10 @@ def get_bti(time, data, threshold):
 
     mask = data > threshold  # you can flip this to get the gti instead (it works)
     if mask.all():
-        logger.info('All Values above Treshold! Entire observation is bad :(')
-        return []
+        logger.info('All values above threshold! Entire observation is bad :(')
+        raise ValueError(f'Entire Observation is a BTI')
     elif (~mask).all():
-        logger.info('All Values below Threshold! Entire observation is good :)')
+        logger.info('All values below Threshold! Entire observation is good :)')
         return []
 
     int_mask = mask.astype(int)
@@ -334,7 +336,7 @@ def get_rejected_idx(bti, time_windows):
     return rejected_idx
 
 
-def plot_bti(time, data, threshold, bti):
+def plot_bti(time, data, threshold, bti, obsid):
     plt.figure(figsize=(10, 2.5))
     for b in bti:
         plt.axvspan(xmin=b['START'], xmax=b['STOP'], color='red', alpha=0.5)
@@ -344,6 +346,11 @@ def plot_bti(time, data, threshold, bti):
     plt.xlabel('Time')
     plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
     plt.legend()
+
+    savepath = data_results / obsid / 'bti_plot.png'
+    logger.info(f'saving bti plot to: {savepath}')
+    plt.savefig(savepath)
+
     #plt.show()
 
 
@@ -373,14 +380,14 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
 
     data_EPIC, time_max, time_min = get_epic_data(obsid=obsid)
 
-    n_bins             = int(((time_max - time_min) / time_interval))
-    time_stop          = time_min + n_bins * time_interval
-    time_windows       = np.arange(time_min, time_stop + 1, time_interval)
+    n_bins       = int(((time_max - time_min) / time_interval))
+    time_stop    = time_min + n_bins * time_interval
+    time_windows = np.arange(time_min, time_stop + 1, time_interval)
 
     if gti_only:
         time_window_gti, lc_HE = get_HE_lc(data_EPIC=data_EPIC)
         bti = get_bti(time=time_window_gti, data=lc_HE, threshold=gti_threshold)
-        plot_bti(time=time_window_gti[:-1], data=lc_HE, threshold=gti_threshold, bti=bti)
+        plot_bti(time=time_window_gti[:-1], data=lc_HE, threshold=gti_threshold, bti=bti, obsid=obsid)
         rejected_frame_idx = get_rejected_idx(bti=bti, time_windows=time_windows)
 
 

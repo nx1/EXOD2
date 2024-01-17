@@ -70,7 +70,7 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     #    cube_background, cube_background_withsource = compute_background(cube)
     #    plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, bboxes)
 
-    #plt.show()
+    # plt.show()
 
 
 def detect_transients_l_score():
@@ -98,8 +98,8 @@ if __name__ == "__main__":
                 'time_interval' : 50,
                 'gti_only'      : True,
                 'min_energy'    : 0.2,
-                'max_energy'    : 12,
-                'clobber'       : False}
+                'max_energy'    : 12.0,
+                'clobber'       : True}
 
         res = args.copy()
 

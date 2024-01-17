@@ -1,4 +1,3 @@
-
 from exod.pre_processing.read_events import get_image_files
 from exod.utils.path import data_processed, data_results
 from exod.utils.logger import logger
@@ -26,11 +25,14 @@ def calc_var_img(cube):
     logger.info('Computing Variability')
     image_max    = np.nanmax(cube, axis=2)
     image_min    = np.nanmin(cube, axis=2)
-    image_median = np.median(cube, axis=2)
+    # image_median = np.median(cube, axis=2)
+    image_mean = np.mean(cube, axis=2)
 
-    condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
 
-    var_img = np.where(image_median > 0,
+    #condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
+    condition = np.nanmax((image_max - image_mean, image_mean - image_min)) / image_mean
+
+    var_img = np.where(image_mean > 0,
                        condition,
                        image_max)
     return var_img
@@ -70,7 +72,9 @@ def extract_var_regions(var_img):
     logger.info('Extracting variable Regions')
 
     v_arr = var_img.flatten()
-
+    sigma = 5
+    threshold = np.mean(v_arr) + sigma * np.std(v_arr)
+    """
     v_filt, lo, hi = sigma_clip(
         v_arr,
         sigma=3,
@@ -87,6 +91,7 @@ def extract_var_regions(var_img):
     )
 
     threshold = hi
+    """
     logger.info(f'threshold: {threshold}')
     var_img_mask = var_img > threshold
 
@@ -111,6 +116,10 @@ def extract_var_regions(var_img):
                                     intensity_image=var_img,
                                     properties=properties_)
     df_regions = pd.DataFrame(region_dict)
+
+    # Sort by Most Variable and reset in the label column
+    df_regions = df_regions.sort_values(by='intensity_mean', ascending=False).reset_index(drop=True)
+    df_regions['label'] = df_regions.index
 
     logger.info(f'region_table:\n{df_regions}')
     return df_regions
@@ -171,12 +180,6 @@ def get_regions_sky_position(obsid, coordinates_XY, df_regions):
     """
     Calculate the sky position of the detected regions.
 
-    Erwan, gonna need you to run me through this one lol.
-
-    One thing I see is that you use the WCS from one of three
-    image files that is already pre-binned to 80 pixels, I feel
-    uneasy about this...
-
     Parameters
     ----------
     obsid : str : Observation ID
@@ -205,10 +208,11 @@ def get_regions_sky_position(obsid, coordinates_XY, df_regions):
     # values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
     # compared to X and Y values
     logger.info(f'Getting X and Y interpolation limits')
-    logger.warning(f'This is assuming an 80 binning, this may not be the case for all cameras?')
-    interpX = interp1d(range(len(coordinates_XY[0])), coordinates_XY[0]/80)
-    interpY = interp1d(range(len(coordinates_XY[1])), coordinates_XY[1]/80)
-    logger.info(f'interpX={interpX}, interpY={interpY}')
+    logger.warning(f'Assuming a binning of 80 in the image file')
+    xcoords = coordinates_XY[0]
+    ycoords = coordinates_XY[1]
+    interpX = interp1d(range(len(xcoords)), xcoords/80)
+    interpY = interp1d(range(len(ycoords)), ycoords/80)
 
     all_res = []
     for i, row in df_regions.iterrows():
@@ -245,6 +249,18 @@ def get_region_lightcurves(cube, df_regions):
     return lcs
 
 
+def create_df_lcs(lcs):
+    """Create DataFrame of lightcurves from list of lcs."""
+    logger.info('Creating lightcurve dataframe')
+    if not lcs:
+        return pd.DataFrame()
+    dfs_to_concat = [pd.DataFrame({f'src_{i}': lc}) for i, lc in enumerate(lcs)]
+    df_lcs = pd.concat(dfs_to_concat, axis=1)
+    logger.info(f'df_lcs:\n{df_lcs}')
+    return df_lcs
+
+
+
 def calc_KS_poission(lc):
     """
     Calculate the KS Probability assuming the lightcurve was
@@ -262,9 +278,7 @@ def calc_KS_poission(lc):
 
 def plot_region_lightcurves(lcs, df_regions, obsid):
     N_poission_realisations = 5000
-    color = cmr.take_cmap_colors(cmap='cmr.ocean', N=1, cmap_range=(0.3, 0.3))[0]
     logger.info(f'Plotting regions lightcurves, using {N_poission_realisations} Poission realisations for errors')
-
     for i, row in df_regions.iterrows():
         label = row['label']
         lc = lcs[i]
@@ -276,11 +290,11 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
 
         plt.figure(figsize=(10, 3))
         plt.title(f'obsid={obsid} | label={label}')
-
         plt.step(range(len(lc)), lc, where='post')
 
         """
         # Plot Error regions
+        color = cmr.take_cmap_colors(cmap='cmr.ocean', N=1, cmap_range=(0.3, 0.3))[0]
         plt.fill_between(x=range(len(lc)),
                          y1=lc_percentiles[0],
                          y2=lc_percentiles[1],
@@ -293,7 +307,7 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
         plt.xlabel('Window/Frame Number')
         plt.ylabel('Counts (N)')
         # plt.legend()
-        savepath = data_results / f'{obsid}' / f'lc_reg_{label}.png'
+        savepath = data_results / obsid / f'lc_reg_{label}.png'
         logger.info(f'Saving lightcurve plot to: {savepath}')
         plt.savefig(savepath)
 

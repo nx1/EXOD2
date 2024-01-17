@@ -95,7 +95,9 @@ def crossmatch_simbad(df_region, radius):
     sc1 = SkyCoord(ra=tab_res['RA_REGION_DEG'], dec=tab_res['DEC_REGION_DEG'])
     sc2 = SkyCoord(ra=tab_res['RA'], dec=tab_res['DEC'], unit=(u.hourangle, u.deg))
     sep = sc1.separation(sc2)
-    tab_res['SEP'] = sep
+    tab_res['SEP_DEG'] = sep
+    tab_res['SEP_ARCMIN'] = tab_res['SEP_DEG'].to(u.arcmin)
+    tab_res['SEP_ARCSEC'] = tab_res['SEP_DEG'].to(u.arcsec)
     return tab_res
 
 
