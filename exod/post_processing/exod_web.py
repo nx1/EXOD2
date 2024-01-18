@@ -28,15 +28,20 @@ def observation_page(obsid):
     obs_path = data_results / obsid
 
     # Get Region File
-    try:
-        region_file = list(obs_path.glob('*region*'))[0]
-        df_region = pd.read_csv(region_file)
-        tab_reg = df_region.to_html(classes='table table-striped table-hover')
-    except IndexError:
-        print('No Region File Found!')
-        tab_reg = None
+    def get_table(glob_pattern):
+        try:
+            file = list(obs_path.glob(glob_pattern))[0]
+            df = pd.read_csv(file)
+            tab = df.to_html(classes='table table-striped table-hover')
+            return tab
+        except IndexError:
+            print(f'Could not find {glob_pattern}!')
+            return None
+            tab_reg = None
 
 
+    tab_reg = get_table('*region*')
+    tab_bti = get_table('*bti.csv')
 
     def get_img_path(glob_pattern):
         """Get the /static/ image path."""
@@ -59,7 +64,8 @@ def observation_page(obsid):
                  'tab_reg' : tab_reg,
                  'var_img' : var_img_file,
                  'cmatch_img' : cmatch_img_file,
-                 'bti_plot' : bti_plot}
+                 'bti_plot' : bti_plot,
+                 'tab_bti'  : tab_bti}
 
     return render_template('observation_page.html',
                            content=content)

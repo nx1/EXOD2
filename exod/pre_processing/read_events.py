@@ -5,6 +5,7 @@ from exod.pre_processing.epic_submodes import PN_SUBMODES, MOS_SUBMODES
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.stats import binned_statistic_dd
 from astropy.io import fits
 from astropy.table import Table, vstack
@@ -188,18 +189,18 @@ def get_overlapping_eventlist_subsets(obsid):
     for s in subsets:
         if len(s) > 3:
             raise ValueError(f'Overlapping subset has {len(s)} event files! (>3) '
-                             f'I still havent figured out how to seperate these out')
+                             f'I still havent figured out how to separate these out')
     return subsets
 
 
 def get_pn_data(obsid):
-    """What the hell am i doing ffs."""
+    """What the hell am I doing ffs."""
     files = get_filtered_events_files(obsid)
     for f in files:
         if 'PI' in f.stem:
             data, header = read_pn_events_list(f)
             return data
-    return KeyError(f'No PN data found for {obsid}')
+    raise KeyError(f'No PN data found for {obsid}')
 
 def get_epic_data(obsid):
     """Get the merged EPIC data for a given observation."""
@@ -265,15 +266,15 @@ def get_bti(time, data, threshold):
         logger.info('All values below Threshold! Entire observation is good :)')
         return []
 
-    int_mask = mask.astype(int)
-    diff = np.diff(int_mask)
-    idx_starts = np.where(diff == 1)[0]
-    idx_ends = np.where(diff == -1)[0]
+    int_mask    = mask.astype(int)
+    diff        = np.diff(int_mask)
+    idx_starts  = np.where(diff == 1)[0]
+    idx_ends    = np.where(diff == -1)[0]
     time_starts = time[idx_starts]
-    time_ends = time[idx_ends]
+    time_ends   = time[idx_ends]
 
     first_crossing = diff[diff != 0][0]
-    last_crossing = diff[diff != 0][-1]
+    last_crossing  = diff[diff != 0][-1]
 
     if (first_crossing, last_crossing) == (-1, 1):
         logger.info('Curve Started and Ended above threshold!')
@@ -378,14 +379,14 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
     coordinates_XY : (X, Y) where X and Y are 1D-arrays describing the extents of the cube.
     """
     # Extraction Settings
-    gti_threshold = 1.5                    # Values above this will be considered BTIs.
     gti_threshold = 0.5                    # Values above this will be considered BTIs.
     pixel_size    = size_arcsec / 0.05     # Final Pixel size in DetX DetY values
     extent        = 60000                  # Temporary extent of the cube in DetX DetY values
     nb_pixels     = int(extent/pixel_size)
 
-    # data_EPIC, time_min, time_max = get_epic_data(obsid=obsid)
-    data_EPIC = get_pn_data(obsid=obsid)
+    # data_EPIC, time_min, time_max = get_epic_data(obsid=obsid) # Use all Data
+    data_EPIC = get_pn_data(obsid=obsid) # Use only PN data
+
     time_min, time_max = min(data_EPIC['TIME']), max(data_EPIC['TIME'])
 
     n_bins       = int(((time_max - time_min) / time_interval))
@@ -395,9 +396,14 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
     if gti_only:
         time_window_gti, lc_HE = get_HE_lc(data_EPIC=data_EPIC)
         bti = get_bti(time=time_window_gti, data=lc_HE, threshold=gti_threshold)
+        df_bti = pd.DataFrame(bti)
+        logger.info(f'df_bti:\n{df_bti}')
+        savepath_bti = data_results / obsid / 'bti.csv'
+        logger.info(f'Saving BTI to {savepath_bti}')
+        df_bti.to_csv(savepath_bti, index=False)
+
         plot_bti(time=time_window_gti[:-1], data=lc_HE, threshold=gti_threshold, bti=bti, obsid=obsid)
         rejected_frame_idx = get_rejected_idx(bti=bti, time_windows=time_windows)
-
 
     logger.info(f'Filtering Grouped Events list by energy min_energy={min_energy} max_energy={max_energy}')
     data_EPIC = data_EPIC[(min_energy * 1000 < data_EPIC['PI']) & (data_EPIC['PI'] < max_energy * 1000)]
@@ -422,7 +428,6 @@ def read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min
         cube_EPIC[:,:,rejected_frame_idx] = img_nan
 
     return cube_EPIC, coordinates_XY
-
 
 
 if __name__ == "__main__":

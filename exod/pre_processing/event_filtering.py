@@ -19,15 +19,15 @@ def run_cmd(cmd):
 
 
 def get_raw_and_processed_obs_path(obsid):
-    path_raw_obs       = data_raw / f'{obsid}'
-    path_processed_obs = data_processed / f'{obsid}'
+    path_raw_obs       = data_raw / obsid
+    path_processed_obs = data_processed / obsid
     os.makedirs(path_processed_obs, exist_ok=True)
     return path_raw_obs, path_processed_obs
 
 
 def get_raw_event_files(obsid):
     logger.info(f'Getting raw event files for obsid: {obsid}')
-    path_raw_obs = data_raw / obsid
+    path_raw_obs, _ = get_raw_and_processed_obs_path(obsid)
     event_files = list(path_raw_obs.glob('*EVLI*FTZ'))
     logger.info(f'Found {len(event_files)} files.')
     return event_files
