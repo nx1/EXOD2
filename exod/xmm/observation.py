@@ -1,7 +1,10 @@
+from exod.xmm.event_list import EventList
+from exod.xmm.image import Image
 from exod.utils.path import data_raw, data_processed, data_results
 from exod.utils.logger import logger
 
-from astropy.io import fits
+import os
+
 
 class Observation:
     def __init__(self, obsid):
@@ -9,9 +12,15 @@ class Observation:
         self.path_raw = data_raw / obsid
         self.path_processed = data_processed / obsid
         self.path_results = data_results / obsid
+        self.make_dirs()
 
     def __repr__(self):
         return f'Observation({self.obsid})'
+
+    def make_dirs(self):
+        os.makedirs(self.path_raw, exist_ok=True)
+        os.makedirs(self.path_processed, exist_ok=True)
+        os.makedirs(self.path_results, exist_ok=True)
 
     def get_event_lists_raw(self):
         evt_raw = list(self.path_raw.glob('*EVLI*FTZ'))
@@ -22,33 +31,27 @@ class Observation:
         self.events_processed = [EventList(e) for e in evt_processed]
 
     def get_images(self):
-        img_processed = list(self.path_processed.glob('*IMG'))
+        img_processed = list(self.path_processed.glob('*IMG.fits'))
         self.images = [Image(i) for i in img_processed]
 
     def get_files(self):
-        self.get_images()
         self.get_event_lists_raw()
+        self.get_images()
         self.get_event_lists_processed()
 
+    @property
+    def info(self):
+        info = {'obsid' : self.obsid}
 
-class EventList:
-    def __init__(self, path):
-        self.path = path
+        for i, evt in enumerate(self.events_raw):
+            info[f'evt_raw_{i}'] = evt.filename
 
-    def __repr__(self):
-        return f'EventList({self.path})'
+        for i, evt in enumerate(self.events_processed):
+            info[f'evt_filt_{i}'] = evt.filename
 
-    def read(self):
+        for i, img in enumerate(self.images):
+            info[f'img_{i}'] = img.filename
 
-
-
-class Image:
-    def __init__(self, path):
-        self.path = path
-
-    def __repr__(self):
-        return f'Image({self.path})'
-
-if __name__ == "__main__":
-    obs = Observation('0760380201')
-    obs.get_files()
+        for k, v in info.items():
+            logger.info(f'{k:<10} : {v}')
+        return info

@@ -25,12 +25,6 @@ def create_all_paths():
         logger.info(f'Creating Path: {path}')
         os.makedirs(path, exist_ok=True)
 
-def make_results_directory(obsid):
-    data_results_obs = data_results / obsid
-    logger.info(f'Creating dir {data_results_obs}')
-    os.makedirs(data_results_obs, exist_ok=True)
-
-
 
 def check_file_exists(file_path, clobber=True):
     """

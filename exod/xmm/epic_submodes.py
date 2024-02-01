@@ -18,3 +18,5 @@ MOS_SUBMODES = {'PrimeFullWindow'  : True,
                 'FastUncompressed' : False,
                 'FastCompressed'   : False}
 
+ALL_SUBMODES = PN_SUBMODES.copy()
+ALL_SUBMODES.update(MOS_SUBMODES)

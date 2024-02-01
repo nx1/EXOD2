@@ -113,10 +113,10 @@ def check_GTIvsBTI_image_structure(size_arcsec,time_interval):
     GTI_threshold = {"pn":0.5,"M1":0.2,"M2":0.2}
     for instruments in ("pn","M1","M2"):
         HE_cube, HE_coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False,
-                                                           min_energy=10, max_energy=12, instr=[instruments])
+                                                           min_energy=10, max_energy=12)
         lc_HE = np.sum(HE_cube, axis=(0,1))/time_interval
-        cube, coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False,
-                                                     min_energy=0.2, max_energy=12, instr=[instruments])
+        cube, coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2,
+                                                     max_energy=12)
         image = np.sum(cube, axis=2)
         threshold=np.nanpercentile(image.flatten(), 99)
         cube = np.array([np.where(image<threshold, frame, np.nan) for frame in cube.transpose(2,0,1)]).transpose(1,2,0)
@@ -276,11 +276,11 @@ if __name__=="__main__":
 
     # calibrate_result_amplitude(np.geomspace(1e-2,1e1,25),
     #                            cube, time_interval,0.5,500, (25,25))
-    cubeHE, coordinates_XY = read_EPIC_events_file(obsid, 30, time_interval,
-                                                   gti_only=False, min_energy=10, max_energy=12)
+    cubeHE, coordinates_XY = read_EPIC_events_file(obsid, 30, time_interval, gti_only=False, min_energy=10,
+                                                   max_energy=12)
     lc_HE = np.sum(cubeHE,axis=(0,1))
-    cube, coordinates_XY = read_EPIC_events_file(obsid, 10, time_interval,
-                                                 gti_only=False, min_energy=0.2, max_energy=12)
+    cube, coordinates_XY = read_EPIC_events_file(obsid, 10, time_interval, gti_only=False, min_energy=0.2,
+                                                 max_energy=12)
     background_images_new, background_withsourc_new=compute_background_two_templates(cube, lc_HE, time_interval)
     background_images, background_withsource = compute_background(cube)
     maxi_value = np.max(np.sum(cube, axis=(0,1)))/(cube.shape[0]*cube.shape[1])

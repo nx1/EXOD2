@@ -10,6 +10,7 @@ from astropy.stats import sigma_clip
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm
 import pandas as pd
 from matplotlib.colors import LogNorm
 from astropy.wcs import WCS
@@ -25,12 +26,49 @@ def calc_var_img(cube):
     logger.info('Computing Variability')
     image_max    = np.nanmax(cube, axis=2)
     image_min    = np.nanmin(cube, axis=2)
-    # image_median = np.median(cube, axis=2)
-    image_mean = np.mean(cube, axis=2)
+    image_median = np.nanmedian(cube, axis=2)
+    image_mean   = np.nanmean(cube, axis=2)
+    image_std    = np.nanstd(cube, axis=2)
+    image_sum    = np.nansum(cube, axis=2)
+
+    print(image_max)
+    print(image_min)
+    print(image_median)
+    print(image_mean)
+
+    # condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
+    #condition = np.nanmax((image_max - image_mean, image_mean - image_min)) / image_mean
+    condition = image_max * image_std
+
+    fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+
+    # Plotting images
+    im_max = ax[0, 0].imshow(image_max, interpolation='none')
+    im_min = ax[0, 1].imshow(image_min, interpolation='none')
+    im_mean = ax[1, 0].imshow(image_mean, interpolation='none')
+    im_median = ax[1, 1].imshow(image_median, interpolation='none')
+    im_std = ax[1, 2].imshow(image_std, interpolation='none')  # Fix the row index here
+    im_sum = ax[0, 2].imshow(image_sum, interpolation='none')  # Fix the row index here
+
+    # Adding colorbars
+    cbar_max = fig.colorbar(im_max, ax=ax[0, 0])
+    cbar_min = fig.colorbar(im_min, ax=ax[0, 1])
+    cbar_mean = fig.colorbar(im_mean, ax=ax[1, 0])
+    cbar_median = fig.colorbar(im_median, ax=ax[1, 1])
+    cbar_std = fig.colorbar(im_std, ax=ax[1, 2])
+    cbar_sum = fig.colorbar(im_sum, ax=ax[0, 2])
+
+    # Setting titles
+    ax[0, 0].set_title('max')
+    ax[0, 1].set_title('min')
+    ax[1, 0].set_title('mean')
+    ax[1, 1].set_title('median')
+    ax[1, 2].set_title('std')
+    ax[0, 2].set_title('sum')
+
+    # plt.show()
 
 
-    #condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
-    condition = np.nanmax((image_max - image_mean, image_mean - image_min)) / image_mean
 
     var_img = np.where(image_mean > 0,
                        condition,
@@ -176,7 +214,7 @@ def plot_var_with_regions(var_img, df_regions, outfile):
     # plt.show()
 
 
-def get_regions_sky_position(obsid, coordinates_XY, df_regions):
+def get_regions_sky_position(df_regions, obsid, coordinates_XY):
     """
     Calculate the sky position of the detected regions.
 
@@ -277,12 +315,14 @@ def calc_KS_poission(lc):
 
 
 def plot_region_lightcurves(lcs, df_regions, obsid):
-    N_poission_realisations = 5000
-    logger.info(f'Plotting regions lightcurves, using {N_poission_realisations} Poission realisations for errors')
+    logger.info(f'Plotting regions lightcurves')
     for i, row in df_regions.iterrows():
         label = row['label']
         lc = lcs[i]
+
         """
+        N_poission_realisations = 5000
+        logger.info(f'Calculating Errors, using {N_poission_realisations} Poission realisations ')
         lc_mean = np.nanmean(lc)
         lc_generated = np.random.poisson(lc, size=(N_poission_realisations, len(lc)))
         lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
@@ -290,7 +330,7 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
 
         plt.figure(figsize=(10, 3))
         plt.title(f'obsid={obsid} | label={label}')
-        plt.step(range(len(lc)), lc, where='post')
+        plt.step(range(len(lc)), lc, where='post', color='black', lw=1.0)
 
         """
         # Plot Error regions

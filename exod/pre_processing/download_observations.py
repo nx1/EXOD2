@@ -18,6 +18,7 @@ def download_observation_events(obsid, clobber=False):
     """
     Download the post-processed event lists for PN, M1 and M2.
     """
+    logger.info(f'Downloading observations for obsid={obsid}')
     url_PN = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=PN&level=PPS&name=PIEVLI'
     url_M1 = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=M1&level=PPS&name=MIEVLI'
     url_M2 = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=M2&level=PPS&name=MIEVLI'
