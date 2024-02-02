@@ -55,30 +55,6 @@ def get_PN_image_file(obsid):
     else:
         raise FileNotFoundError(f'No PN Images found for observation: {obsid}')
 
-
-
-
-def PN_remove_borders(data_pn):
-    """
-    Remove Edge rows that are contaminated.
-
-    #TODO remove edges for the smaller PN frame mode!
-    """
-    logger.warning('Ejecting PN Borders **MAY HAVE TO BE ADAPTED FOR OBSERVING MODES**')
-    rawx_exclude = [0,1,3,4,61,61,63,64]
-    rawy_exclude = [0,1,2,3,4,197,198,199,200]
-    logger.info(f'length pre: {len(data_pn)}')
-    for rawx in rawx_exclude:
-        data_pn = data_pn[data_pn['RAWX'] != rawx]
-    for rawy in rawy_exclude:
-        data_pn = data_pn[data_pn['RAWY'] != rawy]
-
-    logger.info(f'length post: {len(data_pn)}')
-    return data_pn
-
-
-
-
 def get_inner_time_bounds(data_list):
     """Get the latest start time and the earliest end time across all detectors."""
     start_times = [np.min(data['TIME']) for data in data_list]
@@ -139,16 +115,6 @@ def get_overlapping_eventlist_subsets(obsid):
                              f'I still havent figured out how to separate these out')
     return subsets
 
-
-def get_pn_data(obsid):
-    """What the hell am I doing ffs."""
-    files = get_filtered_events_files(obsid)
-    for f in files:
-        if 'PI' in f.stem:
-            data, header = read_pn_events_list(f)
-            return data
-    raise KeyError(f'No PN data found for {obsid}')
-
 def get_epic_data(obsid):
     """Get the merged EPIC data for a given observation."""
     event_list_subsets = get_overlapping_eventlist_subsets(obsid=obsid)
@@ -176,17 +142,14 @@ def get_epic_data(obsid):
 
 def crop_data_cube(cube_EPIC, extent, nb_pixels):
     """Crop the surrounding areas of the datacube that are empty."""
-    logger.info('Cropping Data Cube...')
-    logger.info(f'Getting non-empty regions in data cube')
     idx_nonempty = np.where(np.sum(cube_EPIC, axis=2) > 0)
 
     bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
                 np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
 
-    logger.info(f'Cropping EPIC cube between bbox_img: {bbox_img}')
+    logger.info(f'Cropping data cube between bbox_img: {bbox_img}')
     cube_EPIC = cube_EPIC[bbox_img[0]:bbox_img[1], bbox_img[2]:bbox_img[3]]
 
-    logger.info('Getting XY Coordinates')
     coordinates_XY = (np.linspace(0, extent, nb_pixels + 1)[bbox_img[0]:bbox_img[1]],
                       np.linspace(0, extent, nb_pixels + 1)[bbox_img[2]:bbox_img[3]])
     return cube_EPIC, coordinates_XY

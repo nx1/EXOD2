@@ -19,44 +19,31 @@ from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 
 
-def calc_var_img(cube):
-    """
-    Calculate the variability image from a data cube.
-    """
-    logger.info('Computing Variability')
+def plot_cube_statistics(cube):
+    logger.info('Calculating and plotting data cube statistics...')
     image_max    = np.nanmax(cube, axis=2)
-    image_min    = np.nanmin(cube, axis=2)
+    image_min    = np.nanmin(cube, axis=2) # The Minimum and median are basically junk
     image_median = np.nanmedian(cube, axis=2)
     image_mean   = np.nanmean(cube, axis=2)
     image_std    = np.nanstd(cube, axis=2)
     image_sum    = np.nansum(cube, axis=2)
 
-    print(image_max)
-    print(image_min)
-    print(image_median)
-    print(image_mean)
-
-    # condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
-    #condition = np.nanmax((image_max - image_mean, image_mean - image_min)) / image_mean
-    condition = image_max * image_std
-
     fig, ax = plt.subplots(2, 3, figsize=(15, 10))
-
     # Plotting images
-    im_max = ax[0, 0].imshow(image_max, interpolation='none')
-    im_min = ax[0, 1].imshow(image_min, interpolation='none')
-    im_mean = ax[1, 0].imshow(image_mean, interpolation='none')
+    im_max    = ax[0, 0].imshow(image_max, interpolation='none')
+    im_min    = ax[0, 1].imshow(image_min, interpolation='none')
+    im_mean   = ax[1, 0].imshow(image_mean, interpolation='none')
     im_median = ax[1, 1].imshow(image_median, interpolation='none')
-    im_std = ax[1, 2].imshow(image_std, interpolation='none')  # Fix the row index here
-    im_sum = ax[0, 2].imshow(image_sum, interpolation='none')  # Fix the row index here
+    im_std    = ax[1, 2].imshow(image_std, interpolation='none')
+    im_sum    = ax[0, 2].imshow(image_sum, interpolation='none')
 
     # Adding colorbars
-    cbar_max = fig.colorbar(im_max, ax=ax[0, 0])
-    cbar_min = fig.colorbar(im_min, ax=ax[0, 1])
-    cbar_mean = fig.colorbar(im_mean, ax=ax[1, 0])
+    cbar_max    = fig.colorbar(im_max, ax=ax[0, 0])
+    cbar_min    = fig.colorbar(im_min, ax=ax[0, 1])
+    cbar_mean   = fig.colorbar(im_mean, ax=ax[1, 0])
     cbar_median = fig.colorbar(im_median, ax=ax[1, 1])
-    cbar_std = fig.colorbar(im_std, ax=ax[1, 2])
-    cbar_sum = fig.colorbar(im_sum, ax=ax[0, 2])
+    cbar_std    = fig.colorbar(im_std, ax=ax[1, 2])
+    cbar_sum    = fig.colorbar(im_sum, ax=ax[0, 2])
 
     # Setting titles
     ax[0, 0].set_title('max')
@@ -66,13 +53,21 @@ def calc_var_img(cube):
     ax[1, 2].set_title('std')
     ax[0, 2].set_title('sum')
 
-    # plt.show()
+    #plt.show()
 
+def calc_var_img(cube):
+    """
+    Calculate the variability image from a data cube.
+    """
+    logger.info('Computing Variability')
+    image_max    = np.nanmax(cube, axis=2)
+    image_std    = np.nanstd(cube, axis=2)
+    # image_sum    = np.nansum(cube, axis=2)
 
-
-    var_img = np.where(image_mean > 0,
-                       condition,
-                       image_max)
+    # condition = np.nanmax((image_max - image_median, image_median - image_min)) / image_median
+    #condition = np.nanmax((image_max - image_mean, image_mean - image_min)) / image_mean
+    # var_img = np.where(image_mean > 0, condition, image_max)
+    var_img = image_max * image_std
     return var_img
 
 
@@ -127,7 +122,6 @@ def extract_var_regions(var_img):
         copy=True,
         grow=False
     )
-
     threshold = hi
     """
     logger.info(f'threshold: {threshold}')
@@ -149,7 +143,7 @@ def extract_var_regions(var_img):
     var_img_mask_labelled = label(var_img_mask)
 
     # Obtain the region properties for the detected regions.
-    properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area')
+    properties_ = ('label', 'bbox', 'weighted_centroid', 'centroid_local', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
     region_dict = regionprops_table(label_image=var_img_mask_labelled,
                                     intensity_image=var_img,
                                     properties=properties_)
@@ -158,12 +152,12 @@ def extract_var_regions(var_img):
     # Sort by Most Variable and reset in the label column
     df_regions = df_regions.sort_values(by='intensity_mean', ascending=False).reset_index(drop=True)
     df_regions['label'] = df_regions.index
-
-    logger.info(f'region_table:\n{df_regions}')
     return df_regions
 
 
 def filter_df_regions(df_regions):
+    logger.info('Removing regions with area_bbox > 12')
+    df_regions = df_regions[df_regions['area_bbox'] <= 12] # Large regions
     return df_regions
 
 def plot_var_with_regions(var_img, df_regions, outfile):
@@ -188,7 +182,9 @@ def plot_var_with_regions(var_img, df_regions, outfile):
                    cmap=cmap)
     cbar = plt.colorbar(mappable=m1, ax=ax)
     cbar.set_label("Variability")
-    ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color='white')
+
+    src_color = 'blue'
+    ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color=src_color)
     for i, row in df_regions.iterrows():
         ind     = row['label']
         x_cen = row['weighted_centroid-0']
@@ -204,44 +200,21 @@ def plot_var_with_regions(var_img, df_regions, outfile):
                                  width=width,
                                  height=height,
                                  linewidth=1,
-                                 edgecolor='w',
+                                 edgecolor=src_color,
                                  facecolor='none')
 
-        plt.text(x_pos+width, y_pos+height, str(ind), c='w')
+        plt.text(x_pos+width, y_pos+height, str(ind), c=src_color)
         ax.add_patch(rect)
     logger.info(f'Saving Variability image to: {outfile}')
     plt.savefig(outfile)
     # plt.show()
 
 
-def get_regions_sky_position(df_regions, obsid, coordinates_XY):
+def get_regions_sky_position(df_regions, wcs, coordinates_XY):
     """
     Calculate the sky position of the detected regions.
-
-    Parameters
-    ----------
-    obsid : str : Observation ID
-    coordinates_XY :
-    df_regions
-
-    Returns
-    -------
-
     """
-    logger.info('Getting sky positions of regions')
-
-    img_files = get_image_files(obsid)
-    img_file = img_files[0] # Use the first image found.
-
-    logger.info(f'Opening fits file: {img_file}')
-    f = fits.open(img_file)
-
-    logger.info('Creating WCS from header')
-    header = f[0].header
-    w = WCS(header)
-    logger.info(w)
-
-    # Watch out for this move: to know the EPIC X and Y coordinates of the variable sources, we use the final coordinates
+    # To calculate the EPIC X and Y coordinates of the variable sources, we use the final coordinates
     # in the variability map, which are not integers. To know to which X and Y correspond to this, we interpolate the
     # values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
     # compared to X and Y values
@@ -256,7 +229,7 @@ def get_regions_sky_position(df_regions, obsid, coordinates_XY):
     for i, row in df_regions.iterrows():
         X = interpX(row['weighted_centroid-0'])
         Y = interpY(row['weighted_centroid-1'])
-        pos = w.pixel_to_world(X, Y)
+        pos = wcs.pixel_to_world(X, Y)
 
         res = {'X'   : X,
                'Y'   : Y,
@@ -265,8 +238,8 @@ def get_regions_sky_position(df_regions, obsid, coordinates_XY):
         all_res.append(res)
             
     df_sky = pd.DataFrame(all_res)
-    logger.info(f'df_sky:\n{df_sky}')
-    return df_sky
+    df_regions = pd.concat([df_regions, df_sky], axis=1)
+    return df_regions
 
 
 def get_region_lightcurves(cube, df_regions):
@@ -283,19 +256,14 @@ def get_region_lightcurves(cube, df_regions):
         ylo, yhi = row['bbox-1'], row['bbox-3']
         data = cube[xlo:xhi, ylo:yhi]
         lc = np.nansum(data, axis=(0,1), dtype=np.int32)
-        lcs.append(lc)
-    return lcs
+        res = pd.DataFrame({f'src_{i}' : lc})
+        lcs.append(res)
 
-
-def create_df_lcs(lcs):
-    """Create DataFrame of lightcurves from list of lcs."""
-    logger.info('Creating lightcurve dataframe')
-    if not lcs:
-        return pd.DataFrame()
-    dfs_to_concat = [pd.DataFrame({f'src_{i}': lc}) for i, lc in enumerate(lcs)]
-    df_lcs = pd.concat(dfs_to_concat, axis=1)
-    logger.info(f'df_lcs:\n{df_lcs}')
+    df_lcs = pd.concat(lcs, axis=1)
     return df_lcs
+
+
+
 
 
 
@@ -314,11 +282,12 @@ def calc_KS_poission(lc):
     return ks_res
 
 
-def plot_region_lightcurves(lcs, df_regions, obsid):
+def plot_region_lightcurves(df_lcs, df_regions, obsid):
     logger.info(f'Plotting regions lightcurves')
     for i, row in df_regions.iterrows():
         label = row['label']
-        lc = lcs[i]
+        lc = df_lcs[f'src_{i}']
+        #lc = lcs[i]
 
         """
         N_poission_realisations = 5000
@@ -328,9 +297,11 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
         lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
         """
 
-        plt.figure(figsize=(10, 3))
-        plt.title(f'obsid={obsid} | label={label}')
-        plt.step(range(len(lc)), lc, where='post', color='black', lw=1.0)
+        fig, ax = plt.subplots(figsize=(10, 3))
+        ax2 = ax.twiny()
+        ax.set_title(f'obsid={obsid} | label={label}')
+        ax.step(df_lcs['time'], df_lcs[f'src_{i}'], where='post', color='black', lw=1.0)
+        ax2.step(range(len(lc)), lc, where='post', color='black', lw=1.0)
 
         """
         # Plot Error regions
@@ -343,10 +314,10 @@ def plot_region_lightcurves(lcs, df_regions, obsid):
                          step="post",
                          label='16 and 84 percentiles')
         """
-        
-        plt.xlabel('Window/Frame Number')
-        plt.ylabel('Counts (N)')
-        # plt.legend()
+
+        ax.set_ylabel('Counts (N)')
+        ax.set_xlabel('Time (s)')
+        ax2.set_xlabel('Window/Frame Number')
         savepath = data_results / obsid / f'lc_reg_{label}.png'
         logger.info(f'Saving lightcurve plot to: {savepath}')
         plt.savefig(savepath)

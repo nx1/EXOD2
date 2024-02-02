@@ -14,8 +14,9 @@ class Image:
     def __repr__(self):
         return f'Image({self.path})'
 
-    def read(self):
+    def read(self, wcs_only=False):
         self.hdul = fits.open(self.path)
         self.header = self.hdul[0].header
-        self.data = self.hdul[0].data
+        if not wcs_only:
+            self.data = self.hdul[0].data
         self.wcs = WCS(self.header)

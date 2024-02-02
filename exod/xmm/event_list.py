@@ -31,7 +31,8 @@ class EventList:
         self.time_max   = np.max(self.data['TIME'])
 
         self.check_submode()
-        self.check_bad_rows()
+        self.remove_bad_rows()
+        self.remove_borders()
 
     def filter_by_energy(self, min_energy, max_energy):
         logger.info(f'Filtering Events list by energy min_energy={min_energy} max_energy={max_energy}')
@@ -41,12 +42,37 @@ class EventList:
         if not ALL_SUBMODES[self.submode]:
             raise NotImplementedError(f"The submode {self.submode} is not supported")
 
-    def check_bad_rows(self):
+    def remove_bad_rows(self):
         if self.instrument == 'EPN':
             logger.info('Removing Bad PN Rows Struder et al. 2001b')
             self.data = self.data[~((self.data['CCDNR'] == 4) & (self.data['RAWX'] == 12)) &
                                   ~((self.data['CCDNR'] == 5) & (self.data['RAWX'] == 11)) &
                                   ~((self.data['CCDNR'] == 10) & (self.data['RAWX'] == 28))]
+
+    def remove_borders(self):
+        """
+        For PN the RAWY is the long axis. The removal of 1px from each side gets rid of the weird hot-spot
+        that appears between two of the CCDs.
+
+        PrimeFullWindow             PrimeLargeWindow   PrimeSmallWindow
+        & PrimeFullWindowExtended
+        RAWY MAX: 200               RAWY MAX: 200      RAWY MAX: 200
+        RAWY MIN: 13                RAWY MIN: 102      RAWY MIN: 137
+        RAWX MAX: 64                RAWX MAX: 64       RAWX MAX: 64
+        RAWX MIN: 1                 RAWX MIN: 1        RAWX MIN: 1
+        """
+        if self.instrument == 'EPN' and (self.submode == 'PrimeFullWindow' or self.submode == 'PrimeFullWindowExtended'):
+            logger.info(f'Removing Borders: {self.instrument} {self.submode}')
+            self.data = self.data[self.data['RAWY'] > 20]
+            self.data = self.data[self.data['RAWY'] != 200]
+            self.data = self.data[self.data['RAWX'] != 64]
+            self.data = self.data[self.data['RAWX'] != 1]
+
+        if self.instrument == 'EPN' and self.submode == 'PrimeLargeWindow':
+            logger.info(f'Removing Borders: {self.instrument} {self.submode}')
+            self.data = self.data[self.data['RAWY'] != 200]
+            self.data = self.data[self.data['RAWX'] != 64]
+            self.data = self.data[self.data['RAWX'] != 1]
 
     @property
     def info(self):

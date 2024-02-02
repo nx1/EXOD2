@@ -3,11 +3,12 @@ from exod.pre_processing.event_filtering import filter_obsid_events, create_obsi
 from exod.pre_processing.download_observations import download_observation_events
 from exod.processing.variability import extract_var_regions, get_regions_sky_position, \
     plot_var_with_regions, get_region_lightcurves, calc_KS_poission, plot_region_lightcurves, \
-    calc_var_img, create_df_lcs
+    calc_var_img, plot_cube_statistics, filter_df_regions
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import data_results 
 from exod.xmm.observation import Observation
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -25,14 +26,17 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     # Create the Observation class
     observation = Observation(obsid)
     observation.get_files()
-    observation.info
 
-    # Get the eventslist to use
+    # Get the eventslist & image to use
     for evt in observation.events_processed:
         if 'PI' in evt.filename:
             event_list = evt
 
+    img = observation.images[0]
+    img.read(wcs_only=True)
+
     event_list.read()
+
 
     # Initialize the Data Loader
     dl = DataLoader(event_list=event_list,
@@ -43,29 +47,52 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
                     min_energy=min_energy,
                     max_energy=max_energy)
     dl.run()
+    data_cube = dl.data_cube
+    data_cube.video()
 
+    # Plot Cube statistics
+    # plot_cube_statistics(data_cube.data)
+
+    """
+    #################################
+    # Bright Source Masking (perhaps do this iteratively)
+    img_cr = np.nansum(data_cube.data, axis=2) / event_list.exposure
+    q_val = 99.95 #99.9936 #99.73
+    cr_bright_threshold = np.percentile(a=img_cr, q=q_val)
+    img_cr_mask = img_cr > cr_bright_threshold
+    print(cr_bright_threshold)
+
+    fig, ax = plt.subplots(1,2,figsize=(10,5))
+    ax[0].set_title('Count rate')
+    ax[1].set_title(f'Mask CR_threshold={cr_bright_threshold}')
+    im = ax[0].imshow(img_cr.T, origin='lower', interpolation='none')
+    fig.colorbar(im, ax=ax[0])
+    ax[1].imshow(img_cr_mask.T, origin='lower', interpolation='none')
+    plt.show()
+
+    ################################
+    """
 
     # Calculate the Variability Image
-    var_img = calc_var_img(cube=dl.data_cube.data)
+    var_img = calc_var_img(cube=data_cube.data)
 
     # Get the dataframe describing the contiguous variable regions
     df_regions = extract_var_regions(var_img=var_img)
 
     # Calculate the sky coordinates from the detected regions
-    df_sky = get_regions_sky_position(df_regions=df_regions, obsid=obsid, coordinates_XY=dl.coordinates_XY)
-
+    df_regions = get_regions_sky_position(df_regions=df_regions, wcs=img.wcs, coordinates_XY=data_cube.coordinates_XY)
+    df_regions = filter_df_regions(df_regions)
     # Create Region Dataframe
-    df_regions = pd.concat([df_regions, df_sky], axis=1)
-
     logger.info(f'df_regions:\n{df_regions}')
-    df_regions_savepath = data_results / obsid / 'regions.csv'
+    logger.info(f'{df_regions.columns}')
+    df_regions_savepath = observation.path_results / 'regions.csv'
     logger.info(f'Saving df_regions to {df_regions_savepath}')
     df_regions.to_csv(df_regions_savepath, index=False)
 
-
     # Create Lightcurve dataframe 
-    lcs = get_region_lightcurves(dl.data_cube.data, df_regions)
-    df_lcs = create_df_lcs(lcs=lcs)
+    df_lcs = get_region_lightcurves(dl.data_cube.data, df_regions)
+    df_lcs['time'] = dl.bin_t[:-1]
+    logger.info(f'df_lcs:\n{df_lcs}')
     df_lcs_savepath = data_results / obsid / f'lcs.csv'
     logger.info(f'Saving df_lcs to {df_lcs_savepath}')
     df_lcs.to_csv(df_lcs_savepath, index=False)
@@ -80,13 +107,14 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     """
 
     # Plot Variable Regions
-    plot_outfile = data_results / f'{obsid}' / 'var_img.png'
+    plot_outfile = observation.path_results / 'var_img.png'
     plot_var_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
 
     # Plot Lightcurves files
-    if len(lcs) < 20:
-        plot_region_lightcurves(lcs=lcs, df_regions=df_regions, obsid=obsid)
+    if len(df_regions) < 20:
+        plot_region_lightcurves(df_lcs=df_lcs, df_regions=df_regions, obsid=obsid)
 
+    obs_info = observation.info
     evt_info = event_list.info
     dl_info = dl.info
     plt.show()
@@ -102,12 +130,12 @@ if __name__ == "__main__":
 
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
-    random.shuffle(obsids)
+    # random.shuffle(obsids)
 
     all_res = []
     for obsid in obsids:
         args = {'obsid'         : obsid,
-                'size_arcsec'   : 15,
+                'size_arcsec'   : 10.0,
                 'time_interval' : 50,
                 'gti_only'      : True,
                 'gti_threshold' : 1.5,
@@ -122,8 +150,8 @@ if __name__ == "__main__":
             detect_transients_v_score(**args)
             res['status'] = 'Run'
         except Exception as e:
-            logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occured: {e}')
-            res['status'] = f'{type(e).__name__ }| {e}'
+            logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')
+            res['status'] = f'{type(e).__name__ } | {e}'
         all_res.append(res)
 
     logger.info(f'EXOD Run Completed total observations: {len(obsids)}')

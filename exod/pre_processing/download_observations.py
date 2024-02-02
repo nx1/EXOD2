@@ -63,10 +63,7 @@ if __name__ == "__main__":
     clobber = False
     
     obs_list_path  = path.data / 'observations.txt'
-    output_sh_path = path.data / 'download_obs.sh'
-
-    logger.info(f'Observations List Path: {obs_list_path}')
-    logger.info(f'Download Script Path: {output_sh_path}')
+    # obs_list_path  = path.data / 'all_obsids.txt'
 
     logger.info(f'Reading observations from {obs_list_path}')
     observation_ids = read_observation_ids(obs_list_path)

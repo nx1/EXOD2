@@ -10,11 +10,13 @@ from scipy.stats import binned_statistic_dd
 
 class DataLoader:
     """
+    event_list : EventList object with data already loaded.
     size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
-    time_interval : float : temporal window size of data cube binning
-    gti_only : bool : If true use only the data found in GTIs
-    min_energy : Minimum Energy for final EPIC data cube (this is already done at the filtering step no?)
-    max_energy : see above.
+    time_interval : Time in seconds for data cube binning
+    gti_only : If true use only the data found in GTIs
+    min_energy : Minimum energy for final data cube
+    max_energy : Maximum energy for final data cube
+    gti_treshold : Count rate below which will be considered good time intervals
     """
     def __init__(self, event_list, time_interval=50, size_arcsec=10,
                  gti_only=True, min_energy=0.2, max_energy=12.0,
@@ -29,7 +31,7 @@ class DataLoader:
         self.gti_threshold = gti_threshold
 
         self.pixel_size = size_arcsec / 0.05
-        self.extent     = 60000
+        self.extent     = 51840
         self.n_pixels   = int(self.extent / self.pixel_size)
         
         self.bin_x = np.linspace(0, self.extent, self.n_pixels+1)
@@ -64,6 +66,7 @@ class DataLoader:
             self.rejected_frame_idx = get_rejected_idx(bti=bti, time_windows=self.bin_t)
 
     def create_data_cube(self):
+        logger.info('Creating Data Cube...')
         data = self.event_list.data
         sample = data['X'], data['Y'], data['TIME']
         bins = [self.bin_x, self.bin_y, self.bin_t]
@@ -75,6 +78,7 @@ class DataLoader:
         cube, coordinates_XY = crop_data_cube(cube, self.extent, self.n_pixels)
         self.coordinates_XY = coordinates_XY
         data_cube = DataCube(cube)
+        data_cube.coordinates_XY = coordinates_XY # Add the coordinates to the datacube
         self.data_cube = data_cube
         logger.info(self.data_cube)
         return data_cube
