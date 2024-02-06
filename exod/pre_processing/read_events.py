@@ -1,13 +1,9 @@
-from exod.pre_processing.bti import get_high_energy_lc, get_bti, get_rejected_idx, plot_bti
 from exod.utils.logger import logger
-from exod.utils.path import data_processed, data_results
-from exod.xmm.epic_submodes import PN_SUBMODES, MOS_SUBMODES
+from exod.utils.path import data_processed
 
 import warnings
 import numpy as np
-import pandas as pd
-from scipy.stats import binned_statistic_dd
-from astropy.table import Table, vstack
+from astropy.table import vstack
 from itertools import combinations
 from scipy.cluster.hierarchy import DisjointSet
 from astropy.io import fits
@@ -30,18 +26,6 @@ def get_filtered_events_files(obsid):
     else:
         raise FileNotFoundError(f'No Event files found for observation: {obsid}')
 
-
-def get_image_files(obsid):
-    """Return all the image files found for a given observation ID"""
-    logger.info(f'Getting Image files for observation: {obsid}')
-    data_processed_obs = data_processed / f'{obsid}'
-    img_files = data_processed_obs.glob('*IMG.fits')
-    img_files = list(img_files)
-    if img_files:
-        logger.info(f'Found {len(img_files)} image files')
-        return img_files
-    else:
-        raise FileNotFoundError(f'No Images found for observation: {obsid}')
 
 
 def get_PN_image_file(obsid):
@@ -140,16 +124,3 @@ def get_epic_data(obsid):
     return data_EPIC, time_min, time_max
 
 
-def crop_data_cube(cube_EPIC, extent, nb_pixels):
-    """Crop the surrounding areas of the datacube that are empty."""
-    idx_nonempty = np.where(np.sum(cube_EPIC, axis=2) > 0)
-
-    bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
-                np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
-
-    logger.info(f'Cropping data cube between bbox_img: {bbox_img}')
-    cube_EPIC = cube_EPIC[bbox_img[0]:bbox_img[1], bbox_img[2]:bbox_img[3]]
-
-    coordinates_XY = (np.linspace(0, extent, nb_pixels + 1)[bbox_img[0]:bbox_img[1]],
-                      np.linspace(0, extent, nb_pixels + 1)[bbox_img[2]:bbox_img[3]])
-    return cube_EPIC, coordinates_XY

@@ -1,21 +1,20 @@
+from exod.utils.logger import logger
 from exod.processing import variability
 
 class Detector:
-    def __init__(self, data_loader, wcs):
-        self.data_loader = data_loader
-        self.data_cube = self.data_loader.data_cube
+    def __init__(self, data_cube, wcs, sigma=5):
+        self.data_cube = data_cube
         self.wcs = wcs
-
+        self.sigma = sigma
 
     def __repr__(self):
         return f'Detector({self.data_cube})'
 
     def run(self):
         self.var_img = variability.calc_var_img(self.data_cube.data)
-        self.df_regions = variability.extract_var_regions(self.var_img)
-        self.df_regions = variability.get_regions_sky_position(self.df_regions)
+        self.df_regions = variability.extract_var_regions(self.var_img, sigma=self.sigma)
+        self.df_regions = variability.get_regions_sky_position(self.df_regions, self.wcs, self.data_cube.coordinates_XY)
         self.df_regions = variability.filter_df_regions(self.df_regions)
-
         self.save_df_regions()
 
     def save_df_regions(self):
@@ -24,11 +23,10 @@ class Detector:
 
     @property
     def info(self):
-        info = {'data_loader' : repr(self.data_loader),
-                'data_cube'   : repr(self.data_cube),
+        info = {'data_cube'   : repr(self.data_cube),
                 'df_regions'  : self.df_regions.info()}
         for k, v in info.items():
-            print(f'{k:<11} : {v}')
+            logger.info(f'{k:<11} : {v}')
         return info
 
 
@@ -46,9 +44,8 @@ if __name__ == "__main__":
     dl = DataLoader(evt)
     dl.run()
     data_cube = dl.data_cube
-    detector = Detector(data_loader=dl, wcs=img.wcs)
+    detector = Detector(data_cube=data_cube, wcs=img.wcs)
     print(detector.wcs)
     detector.run()
     detector_info = detector.info
-
     print(detector)

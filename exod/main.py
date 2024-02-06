@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
-                              gti_only=False, gti_threshold=1.5, min_energy=0.2,
-                              max_energy=12.0, clobber=False):
+def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
+                 gti_only=False, gti_threshold=1.5, min_energy=0.2,
+                 max_energy=12.0, sigma=5, clobber=False):
 
     # download_observation_events(obsid=obsid)
 
@@ -37,20 +37,24 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
 
     event_list.read()
 
-
     # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list,
-                    size_arcsec=size_arcsec,
-                    time_interval=time_interval,
-                    gti_only=gti_only,
-                    gti_threshold=gti_threshold,
-                    min_energy=min_energy,
-                    max_energy=max_energy)
-    dl.run()
-    data_cube = dl.data_cube
-    data_cube.video()
+    data_loader = DataLoader(event_list=event_list,
+                             size_arcsec=size_arcsec,
+                             time_interval=time_interval,
+                             gti_only=gti_only,
+                             gti_threshold=gti_threshold,
+                             min_energy=min_energy,
+                             max_energy=max_energy)
+    data_loader.run()
 
-    # Plot Cube statistics
+    df_bti = data_loader.df_bti
+    df_bti_savepath = observation.path_results / 'bti.csv'
+    logger.info(f'Saving df_regions to {df_bti_savepath}')
+    df_bti.to_csv(df_bti_savepath, index=False)
+
+    # Create Data Cube
+    data_cube = data_loader.data_cube
+    data_cube.video()
     # plot_cube_statistics(data_cube.data)
 
     """
@@ -77,23 +81,22 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     var_img = calc_var_img(cube=data_cube.data)
 
     # Get the dataframe describing the contiguous variable regions
-    df_regions = extract_var_regions(var_img=var_img)
+    df_regions = extract_var_regions(var_img=var_img, sigma=sigma)
 
     # Calculate the sky coordinates from the detected regions
-    df_regions = get_regions_sky_position(df_regions=df_regions, wcs=img.wcs, coordinates_XY=data_cube.coordinates_XY)
+    df_regions = get_regions_sky_position(df_regions=df_regions, wcs=img.wcs, data_cube=data_cube)
     df_regions = filter_df_regions(df_regions)
+
     # Create Region Dataframe
     logger.info(f'df_regions:\n{df_regions}')
-    logger.info(f'{df_regions.columns}')
     df_regions_savepath = observation.path_results / 'regions.csv'
     logger.info(f'Saving df_regions to {df_regions_savepath}')
     df_regions.to_csv(df_regions_savepath, index=False)
 
     # Create Lightcurve dataframe 
-    df_lcs = get_region_lightcurves(dl.data_cube.data, df_regions)
-    df_lcs['time'] = dl.bin_t[:-1]
+    df_lcs = get_region_lightcurves(data_cube, df_regions)
     logger.info(f'df_lcs:\n{df_lcs}')
-    df_lcs_savepath = data_results / obsid / f'lcs.csv'
+    df_lcs_savepath = observation.path_results / 'lcs.csv'
     logger.info(f'Saving df_lcs to {df_lcs_savepath}')
     df_lcs.to_csv(df_lcs_savepath, index=False)
 
@@ -111,12 +114,13 @@ def detect_transients_v_score(obsid, time_interval=1000, size_arcsec=10,
     plot_var_with_regions(var_img=var_img, df_regions=df_regions, outfile=plot_outfile)
 
     # Plot Lightcurves files
-    if len(df_regions) < 20:
+    if len(df_regions) < 50:
         plot_region_lightcurves(df_lcs=df_lcs, df_regions=df_regions, obsid=obsid)
 
     obs_info = observation.info
     evt_info = event_list.info
-    dl_info = dl.info
+    dl_info = data_loader.info
+    dc_info = data_cube.info
     plt.show()
 
 
@@ -141,13 +145,14 @@ if __name__ == "__main__":
                 'gti_threshold' : 1.5,
                 'min_energy'    : 0.2,
                 'max_energy'    : 12.0,
+                'sigma'         : 5,
                 'clobber'       : False}
 
         res = args.copy()
 
-        detect_transients_v_score(**args)
+        run_pipeline(**args)
         try:
-            detect_transients_v_score(**args)
+            run_pipeline(**args)
             res['status'] = 'Run'
         except Exception as e:
             logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')

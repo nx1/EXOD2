@@ -9,7 +9,7 @@ def get_high_energy_lc(data_EPIC):
     logger.info('Creating High Energy Lightcurve')
     min_energy_high_energy = 10.0  # minimum extraction energy for High Energy Background events
     max_energy_high_energy = 12.0  # maximum extraction energy for High Energy Background events
-    gti_window_size = 100  # Window Size to use for GTI extraction
+    gti_window_size = 100 # Window Size to use for GTI extraction
     logger.info(f'min_energy_high_energy = {min_energy_high_energy} max_energy_high_energy = {max_energy_high_energy} gti_window_size = {gti_window_size}')
     time_min = np.min(data_EPIC['TIME'])
     time_max = np.max(data_EPIC['TIME'])
@@ -92,7 +92,7 @@ def get_rejected_idx(bti, time_windows):
     t_starts = [b['START'] for b in bti]
     t_stops = [b['STOP'] for b in bti]
     idx_starts = np.searchsorted(time_windows, t_starts)
-    idx_stops = np.searchsorted(time_windows, t_stops)
+    idx_stops = np.searchsorted(time_windows, t_stops) - 1
 
     rejected_idx = np.array([])
     for i in range(len(idx_starts)):
@@ -101,6 +101,24 @@ def get_rejected_idx(bti, time_windows):
     rejected_idx = rejected_idx.astype(int)
     return rejected_idx
 
+def get_rejected_idx_bool(rejected_idx, time_windows):
+    """
+    Get the boolean array corresponding to if a time
+    window was a bad time interval or not.
+
+    Parameters
+    ----------
+    rejected_idx : [1,4,6]
+    time_windows : [0, 1.5, 2.0, 3.5, 5.0, 6.5, 8.0]
+
+    Returns
+    -------
+    rejected_frame_bool : [F,T,F,F,T,F,T,F]
+
+    """
+    arr = np.arange(len(time_windows))
+    rejected_frame_bool = np.isin(arr, rejected_idx)
+    return rejected_frame_bool
 
 def plot_bti(time, data, threshold, bti, obsid):
     plt.figure(figsize=(10, 2.5))
@@ -117,4 +135,4 @@ def plot_bti(time, data, threshold, bti, obsid):
     logger.info(f'saving bti plot to: {savepath}')
     plt.savefig(savepath)
 
-    #plt.show()
+    # plt.show()

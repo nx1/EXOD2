@@ -1,9 +1,6 @@
-from exod.pre_processing.read_events import get_image_files
 from exod.utils.path import data_processed, data_results
 from exod.utils.logger import logger
 
-import os
-import cmasher as cmr
 import numpy as np
 from astropy.convolution import convolve
 from astropy.stats import sigma_clip
@@ -13,8 +10,6 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
 import pandas as pd
 from matplotlib.colors import LogNorm
-from astropy.wcs import WCS
-from astropy.io import fits
 from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 
@@ -85,11 +80,9 @@ def conv_var_img(var_img, box_size=3):
     return var_img_conv
 
 
-def extract_var_regions(var_img):
+def extract_var_regions(var_img, sigma=5):
     """
     Use skimage to obtain the contiguous regions in the variability image.
-
-    The threshold is calculated using an interative sigma clip.
 
     We currently used the weighted centroid which calculates a centroid based on
     both the size of the bounding box and the values of the pixels themselves.
@@ -103,36 +96,20 @@ def extract_var_regions(var_img):
     df_regions : DataFrame of Detected Regions
     """
     logger.info('Extracting variable Regions')
-
-    v_arr = var_img.flatten()
-    sigma = 5
-    threshold = np.mean(v_arr) + sigma * np.std(v_arr)
-    """
-    v_filt, lo, hi = sigma_clip(
-        v_arr,
-        sigma=3,
-        sigma_lower=None,
-        sigma_upper=None,
-        maxiters=5,
-        cenfunc='median',
-        stdfunc='std',
-        axis=None,
-        masked=True,
-        return_bounds=True,
-        copy=True,
-        grow=False
-    )
-    threshold = hi
-    """
-    logger.info(f'threshold: {threshold}')
+    threshold = np.mean(var_img) + sigma * np.std(var_img)
+    logger.info(f'threshold: {threshold} sigma: {sigma}')
     var_img_mask = var_img > threshold
 
-    plt.figure(figsize=(10,3))
-    plt.title('Thresholding')
-    plt.plot(v_arr, label='Variability')
-    plt.axhline(threshold, color='red', label=f'threshold={threshold:.2f}')
-    plt.legend()
-    plt.ylabel('V score')
+    """
+    # Iterative sigma clipping
+    v_filt, lo, hi = sigma_clip(var_img_flat, sigma=sigma, sigma_lower=None, sigma_upper=None,
+                                maxiters=5, cenfunc='median', stdfunc='std',
+                                axis=None, masked=True, return_bounds=True,
+                                copy=True, grow=False)
+    threshold = hi
+    """
+
+    plot_threshold_level(var_img, sigma, threshold)
 
     # Use the skimage label function to label connected components
     # The result is an array that has the number of the region
@@ -143,7 +120,7 @@ def extract_var_regions(var_img):
     var_img_mask_labelled = label(var_img_mask)
 
     # Obtain the region properties for the detected regions.
-    properties_ = ('label', 'bbox', 'weighted_centroid', 'centroid_local', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
+    properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
     region_dict = regionprops_table(label_image=var_img_mask_labelled,
                                     intensity_image=var_img,
                                     properties=properties_)
@@ -155,10 +132,21 @@ def extract_var_regions(var_img):
     return df_regions
 
 
+def plot_threshold_level(var_img, sigma, threshold):
+    plt.figure(figsize=(10, 3))
+    plt.title('Thresholding')
+    plt.plot(var_img.flatten(), label='Variability')
+    plt.axhline(threshold, color='red', label=fr'threshold={threshold:.2f} ({sigma}$\sigma$)')
+    plt.legend()
+    plt.ylabel('V score')
+    # plt.show()
+
+
 def filter_df_regions(df_regions):
     logger.info('Removing regions with area_bbox > 12')
     df_regions = df_regions[df_regions['area_bbox'] <= 12] # Large regions
     return df_regions
+
 
 def plot_var_with_regions(var_img, df_regions, outfile):
     """
@@ -210,7 +198,7 @@ def plot_var_with_regions(var_img, df_regions, outfile):
     # plt.show()
 
 
-def get_regions_sky_position(df_regions, wcs, coordinates_XY):
+def get_regions_sky_position(df_regions, wcs, data_cube):
     """
     Calculate the sky position of the detected regions.
     """
@@ -220,10 +208,8 @@ def get_regions_sky_position(df_regions, wcs, coordinates_XY):
     # compared to X and Y values
     logger.info(f'Getting X and Y interpolation limits')
     logger.warning(f'Assuming a binning of 80 in the image file')
-    xcoords = coordinates_XY[0]
-    ycoords = coordinates_XY[1]
-    interpX = interp1d(range(len(xcoords)), xcoords/80)
-    interpY = interp1d(range(len(ycoords)), ycoords/80)
+    interpX = interp1d(range(len(data_cube.bin_x)), data_cube.bin_x / 80)
+    interpY = interp1d(range(len(data_cube.bin_y)), data_cube.bin_y / 80)
 
     all_res = []
     for i, row in df_regions.iterrows():
@@ -242,29 +228,26 @@ def get_regions_sky_position(df_regions, wcs, coordinates_XY):
     return df_regions
 
 
-def get_region_lightcurves(cube, df_regions):
+def get_region_lightcurves(data_cube, df_regions):
     """
     Extract the lightcurves from the variable regions found.
     Returns
     -------
-    lcs : List of Lightcurves
+    df_lcs : DataFrame of Lightcurves
     """
     logger.info("Extracting lightcurves from data cube")
-    lcs = []
+    lcs = [pd.DataFrame({'time': data_cube.bin_t[:-1]}),
+           pd.DataFrame({'bti': data_cube.rejected_frame_bool[:-1]})]
     for i, row in df_regions.iterrows():
         xlo, xhi = row['bbox-0'], row['bbox-2']
         ylo, yhi = row['bbox-1'], row['bbox-3']
-        data = cube[xlo:xhi, ylo:yhi]
+        data = data_cube.data[xlo:xhi, ylo:yhi]
         lc = np.nansum(data, axis=(0,1), dtype=np.int32)
         res = pd.DataFrame({f'src_{i}' : lc})
         lcs.append(res)
 
     df_lcs = pd.concat(lcs, axis=1)
     return df_lcs
-
-
-
-
 
 
 def calc_KS_poission(lc):
@@ -297,7 +280,7 @@ def plot_region_lightcurves(df_lcs, df_regions, obsid):
         lc_percentiles = np.nanpercentile(lc_generated, (16,84), axis=0)
         """
 
-        fig, ax = plt.subplots(figsize=(10, 3))
+        fig, ax = plt.subplots(figsize=(10, 4))
         ax2 = ax.twiny()
         ax.set_title(f'obsid={obsid} | label={label}')
         ax.step(df_lcs['time'], df_lcs[f'src_{i}'], where='post', color='black', lw=1.0)
