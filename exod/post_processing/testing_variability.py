@@ -89,7 +89,7 @@ if __name__=='__main__':
     # cube += create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
     #                                    position=(0.41*cube.shape[0],0.36*cube.shape[1]),
     #                                    width_time=100, amplitude=1e0, size_arcsec=10)
-    # plot_variability_with_regions(var_img, 8,
+    # plot_variability_with_regions(image_var, 8,
     #                                os.path.join(data_processed,'0831790701','plot_test_varregions.png'))
     # plot_region_lightcurves(None, df_regions,,
     # print(get_regions_sky_position('0831790701', tab_centersofmass, coordinates_XY))

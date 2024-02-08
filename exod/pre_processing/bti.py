@@ -5,22 +5,6 @@ from exod.utils.logger import logger
 from exod.utils.path import data_results
 
 
-def get_high_energy_lc(data_EPIC):
-    logger.info('Creating High Energy Lightcurve')
-    min_energy_high_energy = 10.0  # minimum extraction energy for High Energy Background events
-    max_energy_high_energy = 12.0  # maximum extraction energy for High Energy Background events
-    gti_window_size = 100 # Window Size to use for GTI extraction
-    logger.info(f'min_energy_high_energy = {min_energy_high_energy} max_energy_high_energy = {max_energy_high_energy} gti_window_size = {gti_window_size}')
-    time_min = np.min(data_EPIC['TIME'])
-    time_max = np.max(data_EPIC['TIME'])
-    logger.info(f'time_min = {time_min} time_max = {time_max}')
-
-    time_windows_gti = np.arange(time_min, time_max, gti_window_size)
-    data_high_energy = np.array(data_EPIC['TIME'][(data_EPIC['PI'] > min_energy_high_energy * 1000) & (data_EPIC['PI'] < max_energy_high_energy * 1000)])
-    lc_high_energy = np.histogram(data_high_energy, bins=time_windows_gti)[0] / gti_window_size  # Divide by the bin size to get in ct/s
-    return time_windows_gti, lc_high_energy
-
-
 def get_bti(time, data, threshold):
     """
     Get the bad time intervals for a given lightcurve.
@@ -75,51 +59,6 @@ def get_bti(time, data, threshold):
     return bti
 
 
-def get_rejected_idx(bti, time_windows):
-    """
-    Get the rejected indexs for an array of time windows
-    given a list of bad time intervals.
-
-    Parameters
-    ----------
-    bti : [{'START':300, 'STOP':500}, {'START':600, 'STOP':800}, ...]
-    time_windows : array
-
-    Returns
-    -------
-    rejected_idx : array of rejected indexs
-    """
-    t_starts = [b['START'] for b in bti]
-    t_stops = [b['STOP'] for b in bti]
-    idx_starts = np.searchsorted(time_windows, t_starts)
-    idx_stops = np.searchsorted(time_windows, t_stops) - 1
-
-    rejected_idx = np.array([])
-    for i in range(len(idx_starts)):
-        idxs = np.arange(idx_starts[i], idx_stops[i], 1)
-        rejected_idx = np.append(rejected_idx, idxs)
-    rejected_idx = rejected_idx.astype(int)
-    return rejected_idx
-
-def get_rejected_idx_bool(rejected_idx, time_windows):
-    """
-    Get the boolean array corresponding to if a time
-    window was a bad time interval or not.
-
-    Parameters
-    ----------
-    rejected_idx : [1,4,6]
-    time_windows : [0, 1.5, 2.0, 3.5, 5.0, 6.5, 8.0]
-
-    Returns
-    -------
-    rejected_frame_bool : [F,T,F,F,T,F,T,F]
-
-    """
-    arr = np.arange(len(time_windows))
-    rejected_frame_bool = np.isin(arr, rejected_idx)
-    return rejected_frame_bool
-
 def plot_bti(time, data, threshold, bti, obsid):
     plt.figure(figsize=(10, 2.5))
     for b in bti:
@@ -127,6 +66,8 @@ def plot_bti(time, data, threshold, bti, obsid):
 
     plt.scatter(time, data, label='Data', marker='.', s=5, color='black')
     plt.axhline(threshold, color='red', label=f'Threshold={threshold}')
+
+    plt.title('BTI Diagnostic Plot')
     plt.xlabel('Time')
     plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
     plt.legend()
@@ -136,3 +77,50 @@ def plot_bti(time, data, threshold, bti, obsid):
     plt.savefig(savepath)
 
     # plt.show()
+
+
+def get_bti_bin_idx(bti, bin_t):
+    """
+    Get the rejected indexs for an array of time windows
+    given a list of bad time intervals.
+
+    Parameters
+    ----------
+    bti : [{'START':300, 'STOP':500}, {'START':600, 'STOP':800}, ...]
+    bin_t : array
+
+    Returns
+    -------
+    rejected_idx : array of rejected indexs
+    """
+    t_starts = [b['START'] for b in bti]
+    t_stops = [b['STOP'] for b in bti]
+    idx_starts = np.searchsorted(bin_t, t_starts)
+    idx_stops = np.searchsorted(bin_t, t_stops) - 1
+
+    rejected_idx = np.array([])
+    for i in range(len(idx_starts)):
+        idxs = np.arange(idx_starts[i], idx_stops[i], 1)
+        rejected_idx = np.append(rejected_idx, idxs)
+    rejected_idx = rejected_idx.astype(int)
+    return rejected_idx
+
+
+def get_bti_bin_idx_bool(rejected_idx, bin_t):
+    """
+    Get the boolean array corresponding to if a time
+    window was a bad time interval or not.
+
+    Parameters
+    ----------
+    rejected_idx : [1,4,6]
+    bin_t : [0, 1.5, 2.0, 3.5, 5.0, 6.5, 8.0]
+
+    Returns
+    -------
+    rejected_frame_bool : [F,T,F,F,T,F,T,F]
+
+    """
+    arr = np.arange(len(bin_t))
+    rejected_frame_bool = np.isin(arr, rejected_idx)
+    return rejected_frame_bool

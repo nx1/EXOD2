@@ -1,5 +1,5 @@
 from exod.processing.data_cube import DataCubeXMM
-from exod.pre_processing.bti import get_high_energy_lc, get_bti, get_rejected_idx, plot_bti, get_rejected_idx_bool
+from exod.pre_processing.bti import get_bti, get_bti_bin_idx, plot_bti, get_bti_bin_idx_bool
 from exod.utils.logger import logger
 
 import numpy as np
@@ -20,7 +20,6 @@ class DataLoader:
     def __init__(self, event_list, time_interval=50, size_arcsec=10,
                  gti_only=True, min_energy=0.2, max_energy=12.0,
                  gti_threshold=0.5):
-
         self.event_list    = event_list
         self.time_interval = time_interval
         self.size_arcsec   = size_arcsec
@@ -28,13 +27,6 @@ class DataLoader:
         self.min_energy    = min_energy
         self.max_energy    = max_energy
         self.gti_threshold = gti_threshold
-
-        self.pixel_size = size_arcsec / 0.05
-        self.extent     = 51840
-        self.n_pixels   = int(self.extent / self.pixel_size)
-        self.bin_x = np.linspace(0, self.extent, self.n_pixels+1)
-        self.bin_y = np.linspace(0, self.extent, self.n_pixels+1)
-        self.bin_t = self.calc_time_bins()
 
     def __repr__(self):
         return f"DataLoader(events_list={self.event_list})"
@@ -47,56 +39,59 @@ class DataLoader:
         self.create_data_cube()
 
         if self.gti_only:
+            self.get_bti_bins()
             self.drop_bti_from_data_cube()
 
-    def calc_time_bins(self):
-        t_lo = self.event_list.time_min
-        t_hi = self.event_list.time_max
-        t_i  = self.time_interval
-        n_time_bins = int((t_hi - t_lo) / t_i)
-        time_stop = t_lo + n_time_bins * t_i
-        time_bins = np.arange(t_lo, time_stop + 1, t_i)
-        return time_bins
+    def get_high_energy_lc(self):
+        min_energy_he = 10.0  # minimum extraction energy for High Energy Background events
+        max_energy_he = 12.0  # maximum extraction energy for High Energy Background events
+        gti_window_size = 100  # Window Size to use for GTI extraction
+        data = self.event_list.data
+        time_min = self.event_list.time_min
+        time_max = self.event_list.time_max
+        logger.info(f'min_energy_he = {min_energy_he} max_energy_he = {max_energy_he} gti_window_size = {gti_window_size}')
+
+        time_windows_gti = np.arange(time_min, time_max, gti_window_size)
+        data_he = np.array(data['TIME'][(data['PI'] > min_energy_he * 1000) & (data['PI'] < max_energy_he * 1000)])
+        lc_he = np.histogram(data_he, bins=time_windows_gti)[0] / gti_window_size  # Divide by the bin size to get in ct/s
+        return time_windows_gti, lc_he
 
     def calculate_bti(self):
-        time_window_gti, lc_high_energy = get_high_energy_lc(self.event_list.data)
-        bti = get_bti(time=time_window_gti, data=lc_high_energy, threshold=self.gti_threshold)
-        self.df_bti = pd.DataFrame(bti)
-        logger.info(f'df_bti:\n{self.df_bti}')
-        plot_bti(time=time_window_gti[:-1], data=lc_high_energy, threshold=self.gti_threshold, bti=bti, obsid=self.event_list.obsid)
-        self.rejected_frame_idx = get_rejected_idx(bti=bti, time_windows=self.bin_t)
-        self.rejected_frame_bool = get_rejected_idx_bool(self.rejected_frame_idx, time_windows=self.bin_t)
+        time_window_gti, lc_high_energy = self.get_high_energy_lc()
+        self.bti = get_bti(time=time_window_gti, data=lc_high_energy, threshold=self.gti_threshold)
+        plot_bti(time=time_window_gti[:-1], data=lc_high_energy, threshold=self.gti_threshold, bti=self.bti, obsid=self.event_list.obsid)
+        self.df_bti = pd.DataFrame(self.bti)
 
     def create_data_cube(self):
         logger.info('Creating Data Cube...')
         data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
-        data_cube.rejected_frame_bool = self.rejected_frame_bool #TODO refactor this guy
         self.data_cube = data_cube
         return data_cube
 
+    def get_bti_bins(self):
+        self.bti_bin_idx = get_bti_bin_idx(bti=self.bti, bin_t=self.data_cube.bin_t)
+        self.rejected_frame_bool = get_bti_bin_idx_bool(self.bti_bin_idx, bin_t=self.data_cube.bin_t)
+        self.data_cube.rejected_frame_bool = self.rejected_frame_bool
 
     def drop_bti_from_data_cube(self):
         logger.info('gti_only=True, dropping bad frames from Data Cube')
         img_shape = (self.data_cube.shape[0], self.data_cube.shape[1], 1)
         img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
-        self.data_cube.data[:, :, self.rejected_frame_idx] = img_nan
+        self.data_cube.data[:, :, self.bti_bin_idx] = img_nan
 
     @property
     def info(self):
         info = {
-            "events_list"   : repr(self.event_list),
+            "event_list"    : self.event_list.filename,
             "time_interval" : self.time_interval,
             "size_arcsec"   : self.size_arcsec,
             "gti_only"      : self.gti_only,
             "min_energy"    : self.min_energy,
             "max_energy"    : self.max_energy,
             "gti_threshold" : self.gti_threshold,
-            "pixel_size"    : self.pixel_size,
-            "extent"        : self.extent,
-            "n_pixels"      : self.n_pixels
         }
         for k, v in info.items():
-            logger.info(f'{k:<13} : {v}')
+            logger.info(f'{k:>13} : {v}')
         return info
 
 
@@ -111,3 +106,5 @@ if __name__ == "__main__":
     dl.run()
     import matplotlib.pyplot as plt
     plt.show()
+
+

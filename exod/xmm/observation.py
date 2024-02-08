@@ -29,6 +29,8 @@ class Observation:
     def get_event_lists_processed(self):
         evt_processed = list(self.path_processed.glob('*FILT.fits'))
         self.events_processed = [EventList(e) for e in evt_processed]
+        self.events_processed_pn = [e for e in self.events_processed if 'PI' in e.filename]
+        self.events_processed_mos = [e for e in self.events_processed if 'M1' in e.filename or 'M2' in e.filename]
 
     def get_images(self):
         img_processed = list(self.path_processed.glob('*IMG.fits'))
@@ -36,8 +38,8 @@ class Observation:
 
     def get_files(self):
         self.get_event_lists_raw()
-        self.get_images()
         self.get_event_lists_processed()
+        self.get_images()
 
     @property
     def info(self):
@@ -53,5 +55,5 @@ class Observation:
             info[f'img_{i}'] = img.filename
 
         for k, v in info.items():
-            logger.info(f'{k:<10} : {v}')
+            logger.info(f'{k:>10} : {v}')
         return info

@@ -27,6 +27,7 @@ class EventList:
         self.object     = self.header['OBJECT']
         self.exposure   = self.header['TELAPSE']
         self.N_events   = self.header['NAXIS2']
+        self.mean_rate  = self.N_events / self.exposure
         self.time_min   = np.min(self.data['TIME'])
         self.time_max   = np.max(self.data['TIME'])
 
@@ -84,8 +85,9 @@ class EventList:
             'date'       : self.date,
             'object'     : self.object,
             'exposure'   : self.exposure,
-            'N_events'   : self.N_events
+            'N_events'   : self.N_events,
+            'mean_rate'  : self.mean_rate
             }
         for k, v in info.items():
-            logger.info(f'{k:<10} : {v}')
+            logger.info(f'{k:>10} : {v}')
         return info

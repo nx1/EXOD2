@@ -47,8 +47,7 @@ if __name__ == "__main__":
         logger.info(f"{name:<15} : {path} : {exists}")
 
 
-
-
-
-
-
+def save_df(df, savepath):
+    logger.info(f'Saving df to: {savepath}')
+    logger.info(f'\n{df}')
+    df.to_csv(savepath, index=False)

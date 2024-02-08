@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from scipy.stats import binned_statistic_dd
 
 from exod.utils.logger import logger
@@ -27,25 +28,66 @@ class DataCube:
 
         def update(frame):
             ax.set_title(f'{self}\n{frame}/{num_frames}')
-            img.set_array(self.data[:, :, frame])
+            img.set_array(self.data[:, :, frame].T)
             return img,
     
         num_frames = self.shape[2]
         ani = FuncAnimation(fig, update, frames=num_frames, interval=10)
         plt.show()
 
+    def plot_cube_statistics(self):
+        cube = self.data
+        logger.info('Calculating and plotting data cube statistics...')
+        image_max    = np.nanmax(cube, axis=2)
+        image_min    = np.nanmin(cube, axis=2) # The Minimum and median are basically junk
+        image_median = np.nanmedian(cube, axis=2)
+        image_mean   = np.nanmean(cube, axis=2)
+        image_std    = np.nanstd(cube, axis=2)
+        image_sum    = np.nansum(cube, axis=2)
+
+        fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+        # Plotting images
+        im_max    = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower')
+        im_min    = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower')
+        im_mean   = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower')
+        im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower')
+        im_std    = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower')
+        im_sum    = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower')
+
+        # Adding colorbars
+        shrink = 0.55
+        cbar_max    = fig.colorbar(im_max, ax=ax[0, 0], shrink=shrink)
+        cbar_min    = fig.colorbar(im_min, ax=ax[0, 1], shrink=shrink)
+        cbar_mean   = fig.colorbar(im_mean, ax=ax[1, 0], shrink=shrink)
+        cbar_median = fig.colorbar(im_median, ax=ax[1, 1], shrink=shrink)
+        cbar_std    = fig.colorbar(im_std, ax=ax[1, 2], shrink=shrink)
+        cbar_sum    = fig.colorbar(im_sum, ax=ax[0, 2], shrink=shrink)
+
+        # Setting titles
+        ax[0, 0].set_title('max')
+        ax[0, 1].set_title('min')
+        ax[1, 0].set_title('mean')
+        ax[1, 1].set_title('median')
+        ax[1, 2].set_title('std')
+        ax[0, 2].set_title('sum')
+        plt.tight_layout()
+
+        plt.show()
+
+
+
 
 class DataCubeXMM(DataCube):
     def __init__(self, event_list, size_arcsec, time_interval):
-        self.event_list = event_list
+        self.event_list    = event_list
         self.size_arcsec   = size_arcsec
         self.time_interval = time_interval
         self.extent        = 51840 # Initial Cube Size
         self.pixel_size    = size_arcsec / 0.05
-        self.n_pixels      = int(self.extent / self.pixel_size)
-        self.bin_x = np.linspace(0, self.extent, self.n_pixels+1)
-        self.bin_y = np.linspace(0, self.extent, self.n_pixels+1)
-        self.bin_t = self.calc_time_bins()
+        self.n_bins        = int(self.extent / self.pixel_size)
+        self.bin_x         = np.linspace(0, self.extent, self.n_bins + 1)
+        self.bin_y         = np.linspace(0, self.extent, self.n_bins + 1)
+        self.bin_t         = self.calc_time_bins()
 
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
@@ -65,10 +107,7 @@ class DataCubeXMM(DataCube):
         data = self.event_list.data
         sample = data['X'], data['Y'], data['TIME']
         bins = [self.bin_x, self.bin_y, self.bin_t]
-        cube, bin_edges, bin_number = binned_statistic_dd(sample=sample,
-                                                          values=None,
-                                                          statistic='count',
-                                                          bins=bins)
+        cube, bin_edges, bin_number = binned_statistic_dd(sample=sample, values=None, statistic='count', bins=bins)
         return cube
 
     def crop_data_cube(self):
@@ -91,16 +130,17 @@ class DataCubeXMM(DataCube):
 
     @property
     def info(self):
-        info = {'event_list'    : repr(self.event_list),
-                'shape'         : self.shape,
+        info = {'event_list'    : self.event_list.filename,
                 'size_arcsec'   : self.size_arcsec,
                 'time_interval' : self.time_interval,
                 'extent'        : self.extent,
                 'pixel_size'    : self.pixel_size,
-                'n_pixels'      : self.n_pixels,
-                'bbox_img'      : self.bbox_img}
+                'n_bins'        : self.n_bins,
+                'bbox_img'      : self.bbox_img,
+                'shape'         : self.shape,
+                'memory_mb'     : self.memory_mb}
         for k, v in info.items():
-            logger.info(f'{k:<13} : {v}')
+            logger.info(f'{k:>13} : {v}')
         return info
 
 

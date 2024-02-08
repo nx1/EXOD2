@@ -2,7 +2,7 @@
 PN_SUBMODES = {'PrimeFullWindow'         : True,
                'PrimeFullWindowExtended' : True,
                'PrimeLargeWindow'        : True,
-               'PrimeSmallWindow'        : True,
+               'PrimeSmallWindow'        : False,
                'FastTiming'              : False,
                'FastBurst'               : False,
                'ModifiedTiming'          : False,

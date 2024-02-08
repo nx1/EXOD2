@@ -56,13 +56,13 @@ def observation_page(obsid):
         return img
 
     # Get Variability Image
-    var_img_file    = get_img_path('*var_img*')
+    var_img_file    = get_img_path('*image_var*')
     cmatch_img_file = get_img_path('*SIMBAD*')
     bti_plot        = get_img_path('*bti_plot*')
 
     content   = {'obsid'   : obsid,
                  'tab_reg' : tab_reg,
-                 'var_img' : var_img_file,
+                 'image_var' : var_img_file,
                  'cmatch_img' : cmatch_img_file,
                  'bti_plot' : bti_plot,
                  'tab_bti'  : tab_bti}
@@ -84,7 +84,7 @@ def all_detected_regions():
 
 @app.route('/all_var_img')
 def all_var_img_page():
-    images = list(path.data_results.glob('*/*var_img.png'))
+    images = list(path.data_results.glob('*/*image_var.png'))
     images = [f.relative_to(data) for f in images]
     images = [str(i) for i in images]
     images = [url_for('static', filename=f) for f in images]

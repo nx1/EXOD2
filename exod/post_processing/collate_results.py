@@ -305,7 +305,7 @@ def make_results_tarfile(exod_simlist_path):
         files = {'bti'     : list(obsid_path.glob('*bti.csv'))[0],
                  'lcs'     : list(obsid_path.glob('*lcs.csv'))[0],
                  'regions' : list(obsid_path.glob('*regions.csv'))[0],
-                 'var_img' : list(obsid_path.glob('*var_img.png'))[0]}
+                 'image_var' : list(obsid_path.glob('*image_var.png'))[0]}
 
         all_files.append(files)
 

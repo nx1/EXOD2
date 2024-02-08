@@ -21,17 +21,3 @@ This will run over all the observations specified in
 and perform the transient search, the output is then saved in
 `/data/results/obsid/`
 
-# Downloading Data.
-Add your observation IDs to 
-`EXOD2/data/observations.txt`
-
-Run the script:
-`python EXOD2/exod/pre_processing/create_download_script.py`
-
-Next run the .sh file created:
-`cd EXOD2/data`
-`chmod +x download_obs.sh`
-`./download_obs.sh`
-
-This will download the raw XMM event files to `data/raw`, and will also extract
-any tar.gz files if there are multiple poitings in a single observation.
