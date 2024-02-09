@@ -43,23 +43,23 @@ class DataLoader:
             self.drop_bti_from_data_cube()
 
     def get_high_energy_lc(self):
-        min_energy_he = 10.0  # minimum extraction energy for High Energy Background events
-        max_energy_he = 12.0  # maximum extraction energy for High Energy Background events
-        gti_window_size = 100  # Window Size to use for GTI extraction
+        min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
+        max_energy_he = 12.0     # maximum extraction energy for High Energy Background events
+        time_interval_gti = 100  # Window Size to use for GTI extraction
         data = self.event_list.data
         time_min = self.event_list.time_min
         time_max = self.event_list.time_max
-        logger.info(f'min_energy_he = {min_energy_he} max_energy_he = {max_energy_he} gti_window_size = {gti_window_size}')
-
-        time_windows_gti = np.arange(time_min, time_max, gti_window_size)
+        logger.info(f'min_energy_he = {min_energy_he} max_energy_he = {max_energy_he} time_interval_gti = {time_interval_gti}')
         data_he = np.array(data['TIME'][(data['PI'] > min_energy_he * 1000) & (data['PI'] < max_energy_he * 1000)])
-        lc_he = np.histogram(data_he, bins=time_windows_gti)[0] / gti_window_size  # Divide by the bin size to get in ct/s
-        return time_windows_gti, lc_he
+
+        t_bin_he = np.arange(time_min, time_max, time_interval_gti)
+        lc_he = np.histogram(data_he, bins=t_bin_he)[0] / time_interval_gti  # Divide by the bin size to get in ct/s
+        return t_bin_he, lc_he
 
     def calculate_bti(self):
-        time_window_gti, lc_high_energy = self.get_high_energy_lc()
-        self.bti = get_bti(time=time_window_gti, data=lc_high_energy, threshold=self.gti_threshold)
-        plot_bti(time=time_window_gti[:-1], data=lc_high_energy, threshold=self.gti_threshold, bti=self.bti, obsid=self.event_list.obsid)
+        t_bin_he, lc_he = self.get_high_energy_lc()
+        self.bti = get_bti(time=t_bin_he, data=lc_he, threshold=self.gti_threshold)
+        plot_bti(time=t_bin_he[:-1], data=lc_he, threshold=self.gti_threshold, bti=self.bti, obsid=self.event_list.obsid)
         self.df_bti = pd.DataFrame(self.bti)
 
     def create_data_cube(self):

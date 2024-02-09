@@ -5,28 +5,44 @@ from astropy.visualization import ImageNormalize, SqrtStretch
 from matplotlib import pyplot as plt, patches as patches
 from scipy.interpolate import interp1d
 from scipy.stats import kstest, poisson
-from skimage.measure import label, regionprops_table
+from skimage.measure import label, regionprops, regionprops_table
+from scipy.optimize import minimize_scalar
 
 from exod.utils.logger import logger
-from exod.utils.path import data_results
+from exod.utils.plotting import cmap_image
 
 
 class Detector:
-    def __init__(self, data_cube, wcs, sigma=5):
+    def __init__(self, data_cube, wcs, sigma=4):
         self.data_cube = data_cube
         self.wcs = wcs
         self.sigma = sigma
+
+        self.max_area_bbox = 6**2
+        self.n_sources_max = 15  # Number of sources above which to optimise sigma
 
     def __repr__(self):
         return f'Detector({self.data_cube})'
 
     def run(self):
         self.image_var  = self.calc_image_var()
+        self.image_var_mean = np.mean(self.image_var)
+        self.image_var_std  = np.std(self.image_var)
+        # self.image_var = self.conv_var_img(box_size=3)
         self.df_regions = self.extract_var_regions(sigma=self.sigma)
+
+        if self.n_sources > self.n_sources_max:
+            logger.info('More than 15 sources found! Optimising sigma.')
+            self.sigma = self.optimise_sigma(self.image_var, n_target_regions=10)
+            self.threshold = self.calc_extraction_threshold(self.sigma)
+            self.df_regions = self.extract_var_regions(sigma=self.sigma)
+
         self.df_regions = self.get_regions_sky_position()
         self.df_regions = self.filter_df_regions()
         self.df_lcs     = self.get_region_lightcurves()
-        plot_3d_image(self.image_var)
+
+
+        # plot_3d_image(self.image_var)
 
     def calc_image_var(self):
         """
@@ -35,8 +51,8 @@ class Detector:
         logger.info('Computing Variability')
         image_max = np.nanmax(self.data_cube.data, axis=2)
         image_std = np.nanstd(self.data_cube.data, axis=2)
-        var_img = image_max * image_std
-        return var_img
+        image_var = image_max * image_std
+        return image_var
 
     def conv_var_img(self, box_size=3):
         """
@@ -44,12 +60,16 @@ class Detector:
         """
         logger.info('Convolving Variability')
         kernel = np.ones((box_size, box_size)) / box_size ** 2
-        var_img_conv = convolve(self.image_var, kernel)
+        image_var_conv = convolve(self.image_var, kernel)
 
         # New version
         # convolved = gaussian_filter(image_var, 1)
         # convolved = np.where(image_var>0, convolved, 0)
-        return var_img_conv
+        return image_var_conv
+
+    def calc_extraction_threshold(self, sigma):
+        self.image_var_threshold = self.image_var_mean + sigma * self.image_var_std
+        return self.image_var_threshold
 
     def extract_var_regions(self, sigma=5):
         """
@@ -58,47 +78,45 @@ class Detector:
         We currently used the weighted centroid which calculates a centroid based on
         both the size of the bounding box and the values of the pixels themselves.
 
-        Parameters
-        ----------
+        https://scikit-image.org/docs/stable/auto_examples/segmentation/index.html
 
         Returns
         -------
         df_regions : DataFrame of Detected Regions
         """
         logger.info('Extracting variable Regions')
-        threshold = np.mean(self.image_var) + sigma * np.std(self.image_var)
-        logger.info(f'threshold: {threshold} sigma: {sigma}')
-        var_img_mask = self.image_var > threshold
+        image_var_mask = self.image_var > self.calc_extraction_threshold(sigma)
+        image_var_mask_labelled = label(image_var_mask)
 
-        """
-        # Iterative sigma clipping
-        v_filt, lo, hi = sigma_clip(var_img_flat, sigma=sigma, sigma_lower=None, sigma_upper=None,
-                                    maxiters=5, cenfunc='median', stdfunc='std',
-                                    axis=None, masked=True, return_bounds=True,
-                                    copy=True, grow=False)
-        threshold = hi
-        """
-
-        self.plot_threshold_level(threshold)
-
-        # Use the skimage label function to label connected components
-        # The result is an array that has the number of the region
-        # in the position of the variable regions
-        # 0011020
-        # 0010220
-        # 0000000
-        var_img_mask_labelled = label(var_img_mask)
+        logger.info(f'threshold: {self.calc_extraction_threshold(sigma)} sigma: {sigma}')
+        self.plot_threshold_level(self.calc_extraction_threshold(sigma))
 
         # Obtain the region properties for the detected regions.
         properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
-        region_dict = regionprops_table(label_image=var_img_mask_labelled, intensity_image=self.image_var,
-                                        properties=properties_)
+        region_dict = regionprops_table(label_image=image_var_mask_labelled,
+                                        intensity_image=self.image_var, properties=properties_)
         df_regions = pd.DataFrame(region_dict)
 
         # Sort by Most Variable and reset in the label column
         df_regions = df_regions.sort_values(by='intensity_mean', ascending=False).reset_index(drop=True)
         df_regions['label'] = df_regions.index
         return df_regions
+
+    def objective_function(self, sigma, image, n_target_regions):
+        """Function Used for optimising sigma detection threshold."""
+        threshold = self.calc_extraction_threshold(sigma)
+        image_mask = image > threshold
+        labeled_image = label(image_mask)
+        regions = regionprops(labeled_image)
+        n_regions = len(regions)
+        # print(f'sigma={sigma:.4f} threshold={threshold:.4f} n_regions={n_regions} target={n_target_regions}')
+        return np.abs(n_regions - n_target_regions)
+
+    def optimise_sigma(self, image, n_target_regions, sigma_bounds=(0.1, 20.0)):
+        """Find the optimal value of sigma to get n_target regions."""
+        result = minimize_scalar(self.objective_function, args=(image, n_target_regions), bounds=sigma_bounds, method='bounded')
+        logger.info(f'Optimisation results:\n{result}')
+        return result.x
 
     def plot_threshold_level(self, threshold):
         plt.figure(figsize=(10, 3))
@@ -111,7 +129,7 @@ class Detector:
 
     def filter_df_regions(self,):
         logger.info('Removing regions with area_bbox > 12')
-        df_regions = self.df_regions[self.df_regions['area_bbox'] <= 12]  # Large regions
+        df_regions = self.df_regions[self.df_regions['area_bbox'] <= self.max_area_bbox]
         return df_regions
 
     def get_regions_sky_position(self):
@@ -173,10 +191,21 @@ class Detector:
         return df_lcs
 
     @property
+    def n_sources(self):
+        return len(self.df_regions)
+
+    @property
     def info(self):
-        info = {'data_cube'   : repr(self.data_cube)}
+        info = {'data_cube'           : repr(self.data_cube),
+                'sigma'               : self.sigma,
+                'max_area_bbox'       : self.max_area_bbox,
+                'image_var_mean'      : self.image_var_mean,
+                'image_var_std'       : self.image_var_std,
+                'image_var_threshold' : self.image_var_threshold,
+                'n_sources'           : self.n_sources}
+
         for k, v in info.items():
-            logger.info(f'{k:>11} : {v}')
+            logger.info(f'{k:>20} : {v}')
         return info
 
 def plot_var_with_regions(var_img, df_regions, savepath):
@@ -193,8 +222,8 @@ def plot_var_with_regions(var_img, df_regions, savepath):
 
     fig, ax = plt.subplots(figsize=(8,8))
     ax.set_title(f'Detected Regions : {len(df_regions)}')
-    cmap = plt.cm.hot
-    cmap.set_bad('black')
+
+    cmap = cmap_image()
 
     norm = ImageNormalize(stretch=SqrtStretch()) #LogNorm()
 
@@ -293,7 +322,6 @@ def plot_3d_image(image):
     plt.show()
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
-    from exod.processing.data_cube import DataCube
     from exod.pre_processing.data_loader import DataLoader
 
     obs = Observation('0911791101')
@@ -304,10 +332,7 @@ if __name__ == "__main__":
     img.read(wcs_only=True)
     dl = DataLoader(evt)
     dl.run()
-    data_cube = dl.data_cube
-    detector = Detector(data_cube=data_cube, wcs=img.wcs)
-    print(detector.wcs)
+    detector = Detector(data_cube=dl.data_cube, wcs=img.wcs)
     detector.run()
     detector_info = detector.info
-    print(detector)
 

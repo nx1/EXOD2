@@ -39,8 +39,7 @@ def observation_page(obsid):
             return None
             tab_reg = None
 
-
-    tab_reg = get_table('*region*')
+    tab_reg = get_table('*regions.csv')
     tab_bti = get_table('*bti.csv')
 
     def get_img_path(glob_pattern):
@@ -60,16 +59,14 @@ def observation_page(obsid):
     cmatch_img_file = get_img_path('*SIMBAD*')
     bti_plot        = get_img_path('*bti_plot*')
 
-    content   = {'obsid'   : obsid,
-                 'tab_reg' : tab_reg,
-                 'image_var' : var_img_file,
+    content   = {'obsid'      : obsid,
+                 'tab_reg'    : tab_reg,
+                 'image_var'  : var_img_file,
                  'cmatch_img' : cmatch_img_file,
-                 'bti_plot' : bti_plot,
-                 'tab_bti'  : tab_bti}
+                 'bti_plot'   : bti_plot,
+                 'tab_bti'    : tab_bti}
 
-    return render_template('observation_page.html',
-                           content=content)
-
+    return render_template('observation_page.html', content=content)
 
 @app.route('/all_detected_regions')
 def all_detected_regions():
@@ -78,8 +75,7 @@ def all_detected_regions():
 
     content   = {'tab_reg' : tab_reg}
 
-    return render_template('all_detected_regions.html',
-                           content=content)
+    return render_template('all_detected_regions.html', content=content)
 
 
 @app.route('/all_var_img')

@@ -40,8 +40,8 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     dl.run()
 
     # Create Data Cube
-    # data_cube.plot_cube_statistics()
-    # data_cube.video()
+    # dl.data_cube.plot_cube_statistics()
+    dl.data_cube.video()
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
@@ -76,12 +76,12 @@ if __name__ == "__main__":
     for obsid in obsids:
         args = {'obsid'         : obsid,
                 'size_arcsec'   : 10.0,
-                'time_interval' : 500,
+                'time_interval' : 1000,
                 'gti_only'      : True,
-                'gti_threshold' : 1.5,
+                'gti_threshold' : 0.5,
                 'min_energy'    : 0.2,
                 'max_energy'    : 12.0,
-                'sigma'         : 5,
+                'sigma'         : 4,
                 'clobber'       : False}
 
         res = args.copy()
