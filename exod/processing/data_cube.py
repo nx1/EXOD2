@@ -1,9 +1,8 @@
-from matplotlib import pyplot as plt
-from scipy.stats import binned_statistic_dd
-
 from exod.utils.logger import logger
+from exod.utils.plotting import cmap_image
 
 import numpy as np
+from scipy.stats import binned_statistic_dd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm
@@ -20,7 +19,7 @@ class DataCube:
                 f"total_values={np.prod(self.shape)}, "
                 f"memory={self.memory_mb:.2f} MB)")
 
-    def video(self):
+    def video(self, savepath=None):
         fig, ax = plt.subplots()
         img = ax.imshow(self.data[:, :, 0].T, cmap='hot', animated=True, interpolation='none',
                         origin='lower') # norm=LogNorm())
@@ -33,6 +32,9 @@ class DataCube:
     
         num_frames = self.shape[2]
         ani = FuncAnimation(fig, update, frames=num_frames, interval=10)
+        if savepath:
+            logger.info(f'Saving {self} to {savepath}')
+            ani.save(savepath)
         plt.show()
 
     def plot_cube_statistics(self):
@@ -47,12 +49,13 @@ class DataCube:
 
         fig, ax = plt.subplots(2, 3, figsize=(15, 10))
         # Plotting images
-        im_max    = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower')
-        im_min    = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower')
-        im_mean   = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower')
-        im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower')
-        im_std    = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower')
-        im_sum    = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower')
+        cmap = cmap_image()
+        im_max    = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower', cmap=cmap)
+        im_min    = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower', cmap=cmap)
+        im_mean   = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower', cmap=cmap)
+        im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower', cmap=cmap)
+        im_std    = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower', cmap=cmap)
+        im_sum    = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower', cmap=cmap)
 
         # Adding colorbars
         shrink = 0.55
@@ -73,8 +76,6 @@ class DataCube:
         plt.tight_layout()
 
         plt.show()
-
-
 
 
 class DataCubeXMM(DataCube):
@@ -127,6 +128,12 @@ class DataCubeXMM(DataCube):
         bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
                     np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
         return bbox_img
+
+    def remove_bti_frames(self):
+        """Return the cube without the masked nan frames."""
+        data_non_nan = self.data[:,:,~self.rejected_frame_bool[:-1]]
+        return data_non_nan
+
 
     @property
     def info(self):

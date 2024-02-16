@@ -3,14 +3,19 @@ from exod.pre_processing.event_filtering import filter_obsid_events, create_obsi
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import save_df
 from exod.xmm.observation import Observation
-from exod.processing.detector import Detector, plot_var_with_regions, plot_region_lightcurves
+from exod.processing.detector import Detector, plot_var_with_regions
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
+def save_info(dictionary, savepath):
+    logger.info(f'Saving to {savepath}')
+
+    series = pd.Series(dictionary)
+    series.to_csv(savepath)
 
 def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
-                 gti_only=False, gti_threshold=1.5, min_energy=0.2,
+                 gti_only=False, gti_threshold=1.5, min_energy=0.5,
                  max_energy=12.0, sigma=5, clobber=False):
 
     # download_observation_events(obsid=obsid)
@@ -41,29 +46,34 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    dl.data_cube.video()
+    # dl.data_cube.video(savepath=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
     detector.run()
+    # detector.plot_3d_image(detector.image_var)
+    detector.plot_region_lightcurves(savedir=None) # savedir=observation.path_results
     plot_var_with_regions(var_img=detector.image_var, df_regions=detector.df_regions, savepath=observation.path_results / 'image_var.png')
-    plot_region_lightcurves(df_lcs=detector.df_lcs, df_regions=detector.df_regions, savedir=observation.path_results)
 
     # Save Results
     save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
     save_df(df=detector.df_lcs, savepath=observation.path_results / 'lcs.csv')
     save_df(df=detector.df_regions, savepath=observation.path_results / 'regions.csv')
-    obs_info = observation.info
-    evt_info = event_list.info
-    dl_info = dl.info
-    dc_info = dl.data_cube.info
-    det_info = detector.info
-    plt.show()
+
+    save_info(dictionary=observation.info, savepath=observation.path_results / 'obs_info.csv')
+    save_info(dictionary=event_list.info, savepath=observation.path_results / 'evt_info.csv')
+    save_info(dictionary=dl.info, savepath=observation.path_results / 'dl_info.csv')
+    save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
+    save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
+
+    # plt.show()
+
 
 
 if __name__ == "__main__":
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data, data_results
+    import random
 
     # Get Simulation time
     timestr = get_current_date_string() 
@@ -75,11 +85,11 @@ if __name__ == "__main__":
     all_res = []
     for obsid in obsids:
         args = {'obsid'         : obsid,
-                'size_arcsec'   : 10.0,
-                'time_interval' : 1000,
+                'size_arcsec'   : 15.0,
+                'time_interval' : 500,
                 'gti_only'      : True,
                 'gti_threshold' : 0.5,
-                'min_energy'    : 0.2,
+                'min_energy'    : 0.5,
                 'max_energy'    : 12.0,
                 'sigma'         : 4,
                 'clobber'       : False}

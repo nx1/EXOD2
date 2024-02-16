@@ -33,14 +33,14 @@ class DataLoader:
 
     def run(self):
         if self.gti_only:
-            self.calculate_bti()
+            self.calculate_bti() # This needs to be called first as the next step filters the eventlist.
 
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
 
         if self.gti_only:
             self.get_bti_bins()
-            self.drop_bti_from_data_cube()
+            self.mask_bti_from_data_cube()
 
     def get_high_energy_lc(self):
         min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
@@ -73,8 +73,8 @@ class DataLoader:
         self.rejected_frame_bool = get_bti_bin_idx_bool(self.bti_bin_idx, bin_t=self.data_cube.bin_t)
         self.data_cube.rejected_frame_bool = self.rejected_frame_bool
 
-    def drop_bti_from_data_cube(self):
-        logger.info('gti_only=True, dropping bad frames from Data Cube')
+    def mask_bti_from_data_cube(self):
+        logger.info('Masking bad frames from Data Cube (setting to nan)')
         img_shape = (self.data_cube.shape[0], self.data_cube.shape[1], 1)
         img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
         self.data_cube.data[:, :, self.bti_bin_idx] = img_nan

@@ -1,5 +1,9 @@
+from exod.utils.logger import logger
+from exod.utils.plotting import cmap_image
+
 import numpy as np
 import pandas as pd
+import astropy.units as u
 from astropy.convolution import convolve
 from astropy.visualization import ImageNormalize, SqrtStretch
 from matplotlib import pyplot as plt, patches as patches
@@ -7,9 +11,6 @@ from scipy.interpolate import interp1d
 from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 from scipy.optimize import minimize_scalar
-
-from exod.utils.logger import logger
-from exod.utils.plotting import cmap_image
 
 
 class Detector:
@@ -20,6 +21,10 @@ class Detector:
 
         self.max_area_bbox = 6**2
         self.n_sources_max = 15  # Number of sources above which to optimise sigma
+        self.n_target_regions = 10 # Number of Sources to aim for when optimising.
+
+        self.df_regions = None
+        self.df_sky = None
 
     def __repr__(self):
         return f'Detector({self.data_cube})'
@@ -33,7 +38,7 @@ class Detector:
 
         if self.n_sources > self.n_sources_max:
             logger.info('More than 15 sources found! Optimising sigma.')
-            self.sigma = self.optimise_sigma(self.image_var, n_target_regions=10)
+            self.sigma = self.optimise_sigma(self.image_var, n_target_regions=self.n_target_regions)
             self.threshold = self.calc_extraction_threshold(self.sigma)
             self.df_regions = self.extract_var_regions(sigma=self.sigma)
 
@@ -42,7 +47,6 @@ class Detector:
         self.df_lcs     = self.get_region_lightcurves()
 
 
-        # plot_3d_image(self.image_var)
 
     def calc_image_var(self):
         """
@@ -51,7 +55,8 @@ class Detector:
         logger.info('Computing Variability')
         image_max = np.nanmax(self.data_cube.data, axis=2)
         image_std = np.nanstd(self.data_cube.data, axis=2)
-        image_var = image_max * image_std
+        image_mean = np.nanmean(self.data_cube.data, axis=2)
+        image_var = (image_max - image_mean) * image_std
         return image_var
 
     def conv_var_img(self, box_size=3):
@@ -68,6 +73,7 @@ class Detector:
         return image_var_conv
 
     def calc_extraction_threshold(self, sigma):
+        """Calculate the extraction threshold for a given sigma value."""
         self.image_var_threshold = self.image_var_mean + sigma * self.image_var_std
         return self.image_var_threshold
 
@@ -92,7 +98,8 @@ class Detector:
         self.plot_threshold_level(self.calc_extraction_threshold(sigma))
 
         # Obtain the region properties for the detected regions.
-        properties_ = ('label', 'bbox', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
+        properties_ = ('label', 'bbox', 'centroid', 'weighted_centroid', 'intensity_mean',
+                       'equivalent_diameter_area', 'area_bbox')
         region_dict = regionprops_table(label_image=image_var_mask_labelled,
                                         intensity_image=self.image_var, properties=properties_)
         df_regions = pd.DataFrame(region_dict)
@@ -103,13 +110,13 @@ class Detector:
         return df_regions
 
     def objective_function(self, sigma, image, n_target_regions):
-        """Function Used for optimising sigma detection threshold."""
+        """Function used for optimising sigma detection threshold."""
         threshold = self.calc_extraction_threshold(sigma)
         image_mask = image > threshold
         labeled_image = label(image_mask)
         regions = regionprops(labeled_image)
         n_regions = len(regions)
-        # print(f'sigma={sigma:.4f} threshold={threshold:.4f} n_regions={n_regions} target={n_target_regions}')
+        # logger.info(f'sigma={sigma:.4f} threshold={threshold:.4f} n_regions={n_regions} target={n_target_regions}')
         return np.abs(n_regions - n_target_regions)
 
     def optimise_sigma(self, image, n_target_regions, sigma_bounds=(0.1, 20.0)):
@@ -122,7 +129,7 @@ class Detector:
         plt.figure(figsize=(10, 3))
         plt.title('Thresholding')
         plt.plot(self.image_var.flatten(), label='Variability')
-        plt.axhline(threshold, color='red', label=fr'threshold={threshold:.2f} ({self.sigma}$\sigma$)')
+        plt.axhline(threshold, color='red', label=fr'threshold={threshold:.2f} ({self.sigma:.2f}$\sigma$)')
         plt.legend()
         plt.ylabel('V score')
         # plt.show()
@@ -136,37 +143,45 @@ class Detector:
         """
         Calculate the sky position of the detected regions.
 
-        Test coords: savedir: 0803990501
+        Test coords: obsid : 0803990501
         1313 X-1     : 03 18 20.00 -66 29 10.9
         1313 X-2     : 03 18 22.00 -66 36 04.3
-        SN 1978K     : 03 17 38.620 -66 33 03.40
-        NGC1313 XMM4 : 03 18 18.46 -66 30 00.2   (lil guy next to x-1)
+        SN 1978K     : 03 17 38.62 -66 33 03.4
+        NGC1313 XMM4 : 03 18 18.46 -66 30 00.2 (lil guy next to x-1)
         """
         # To calculate the EPIC X and Y coordinates of the variable sources, we use the final coordinates
         # in the variability map, which are not integers. To know to which X and Y correspond to this, we interpolate the
         # values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
         # compared to X and Y values
-        logger.info(f'Getting X and Y interpolation limits')
-        logger.warning(f'Assuming a binning of 80 in the image file')
+        img_bin_size = 80
+        logger.warning(f'Interpolating assuming a binning of {img_bin_size} in the image file')
 
         data_cube = self.data_cube
-        interpX = interp1d(range(len(data_cube.bin_x)), data_cube.bin_x / 80)
-        interpY = interp1d(range(len(data_cube.bin_y)), data_cube.bin_y / 80)
+        interpX = interp1d(range(len(data_cube.bin_x)), data_cube.bin_x)
+        interpY = interp1d(range(len(data_cube.bin_y)), data_cube.bin_y)
 
         all_res = []
         for i, row in self.df_regions.iterrows():
             X = interpX(row['weighted_centroid-0'])
             Y = interpY(row['weighted_centroid-1'])
-            pos = self.wcs.pixel_to_world(X, Y)
 
-            res = {'X': X,
-                   'Y': Y,
-                   'ra': pos.ra.value,
-                   'dec': pos.dec.value}
+            x_img = X / img_bin_size
+            y_img = Y / img_bin_size
+            skycoord = self.wcs.pixel_to_world(x_img, y_img)
+
+            res = {'x_img'    : x_img, # x_position in the binned fits image
+                   'y_img'    : y_img, # y_position in the binned fits image
+                   'X'        : X,     # X in the event_list (sky coordinates)
+                   'Y'        : Y,     # Y in the event-list (sky coordinates)
+                   'ra'       : skycoord.ra.to_string(unit=u.hourangle, precision=2),
+                   'dec'      : skycoord.dec.to_string(unit=u.deg, precision=2),
+                   'ra_deg'   : skycoord.ra.value,
+                   'dec_deg'  : skycoord.dec.value}
             all_res.append(res)
 
-        df_sky = pd.DataFrame(all_res)
-        df_regions = pd.concat([self.df_regions, df_sky], axis=1)
+        self.df_sky = pd.DataFrame(all_res)
+        logger.info(f'df_sky:\n{self.df_sky}')
+        df_regions = pd.concat([self.df_regions, self.df_sky], axis=1)
         return df_regions
 
     def get_region_lightcurves(self):
@@ -190,6 +205,55 @@ class Detector:
         df_lcs = pd.concat(lcs, axis=1)
         return df_lcs
 
+    def plot_region_lightcurve(self, i, savepath=None):
+        """Plot the ith region lightcurve."""
+        lc = self.df_lcs[f'src_{i}']
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax2 = ax.twiny()
+        ax.step(self.df_lcs['time'], lc, where='post', color='black', lw=1.0)
+        ax2.step(range(len(lc)), lc, where='post', color='none', lw=1.0)
+
+        ax.set_title(f'Source #{i}')
+        ax.set_ylabel('Counts (N)')
+        ax.set_xlabel('Time (s)')
+        ax2.set_xlabel('Window/Frame Number')
+        plt.tight_layout()
+
+        if savepath:
+            logger.info(f'Saving lightcurve plot to: {savepath}')
+            plt.savefig(savepath)
+
+    def plot_region_lightcurves(self, savedir=None, max_sources=15):
+        if self.n_sources > max_sources:
+            logger.info(f'{self.n_sources} > {max_sources} Not plotting lightcurves')
+            return None
+
+        logger.info(f'Plotting regions lightcurves')
+        savepath = None
+        for i, row in self.df_regions.iterrows():
+            if savedir:
+                savepath = savedir / f'lc_reg_{i}.png'
+            self.plot_region_lightcurve(i, savepath=savepath)
+
+
+    def plot_3d_image(self, image):
+        """Plot an image as a 3D surface"""
+        xx, yy = np.mgrid[0:image.shape[0], 0:image.shape[1]]
+        fig = plt.figure(figsize=(15, 15))
+        ax = fig.add_subplot(projection='3d')
+        ax.plot_surface(xx, yy, image, rstride=1, cstride=1, cmap='plasma', linewidth=0)  # , antialiased=False
+
+        ax.grid(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        # ax.set_zticks([])
+
+        # ax.set_zlim(0,100)ax.set_zticks([])
+
+        plt.tight_layout()
+
+        plt.show()
+
     @property
     def n_sources(self):
         return len(self.df_regions)
@@ -199,10 +263,14 @@ class Detector:
         info = {'data_cube'           : repr(self.data_cube),
                 'sigma'               : self.sigma,
                 'max_area_bbox'       : self.max_area_bbox,
+                'n_sources_max'       : self.n_sources_max,
+                'n_target_regions'    : self.n_target_regions,
                 'image_var_mean'      : self.image_var_mean,
                 'image_var_std'       : self.image_var_std,
                 'image_var_threshold' : self.image_var_threshold,
                 'n_sources'           : self.n_sources}
+
+
 
         for k, v in info.items():
             logger.info(f'{k:>20} : {v}')
@@ -232,11 +300,13 @@ def plot_var_with_regions(var_img, df_regions, savepath):
     cbar.set_label('Variability')
 
     src_color = 'lime'
-    ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='.', s=10, color=src_color)
+    ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color='white')
+    ax.scatter(df_regions['centroid-0'], df_regions['centroid-1'], marker='.', s=10, color=src_color)
+
     for i, row in df_regions.iterrows():
         ind   = row['label']
-        x_cen = row['weighted_centroid-0']
-        y_cen = row['weighted_centroid-1']
+        x_cen = row['centroid-0']
+        y_cen = row['centroid-1']
 
         width  = row['bbox-2'] - row['bbox-0']
         height = row['bbox-3'] - row['bbox-1']
@@ -274,52 +344,14 @@ def calc_KS_poission(lc):
     return ks_res
 
 
-def plot_region_lightcurves(df_lcs, df_regions, savedir, max_sources=15):
-    if len(df_regions) > max_sources:
-        logger.info(f'len({df_regions}) > {max_sources}')
-        return None
-
-    logger.info(f'Plotting regions lightcurves')
-    for i, row in df_regions.iterrows():
-        plot_region_lightcurve(df_lcs, i, savepath=savedir / f'lc_reg_{i}.png')
 
 
-def plot_region_lightcurve(df_lcs, i, savepath=None):
-    """Plot the ith region lightcurve."""
-    lc = df_lcs[f'src_{i}']
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax2 = ax.twiny()
-    ax.step(df_lcs['time'], df_lcs[f'src_{i}'], where='post', color='black', lw=1.0)
-    ax2.step(range(len(lc)), lc, where='post', color='black', lw=1.0)
-
-    ax.set_title(f'Source #{i}')
-    ax.set_ylabel('Counts (N)')
-    ax.set_xlabel('Time (s)')
-    ax2.set_xlabel('Window/Frame Number')
-    plt.tight_layout()
-
-    if savepath:
-        logger.info(f'Saving lightcurve plot to: {savepath}')
-        plt.savefig(savepath)
 
 
-def plot_3d_image(image):
-    """Plot an image as a 3D surface"""
-    xx, yy = np.mgrid[0:image.shape[0], 0:image.shape[1]]
-    fig = plt.figure(figsize=(15, 15))
-    ax = fig.add_subplot(projection='3d')
-    ax.plot_surface(xx, yy, image, rstride=1, cstride=1, cmap='plasma', linewidth=0)  # , antialiased=False
 
-    ax.grid(False)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    # ax.set_zticks([])
 
-    ax.set_zlim(0,100)
-    plt.tight_layout()
 
-    plt.show()
+
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
     from exod.pre_processing.data_loader import DataLoader
