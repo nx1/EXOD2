@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from tqdm import tqdm
 import pandas as pd
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -281,45 +282,26 @@ def plot_simbad_crossmatch_image(obsid,
     plt.show()
 
 
-def make_results_tarfile(exod_simlist_path):
+def make_results_tarfile(output_filename):
     """
     Create results tarfile from exod simlist.
 
     Parameters
     ----------
-    exod_simlist_path : Path to simlist .csv file
+    output_filename : filename without .tar.gz extension
     """
-    # Read observation list
-    df_obs_list = pd.read_csv(exod_simlist_path, dtype={'obsid': str})
-    # Only get run observations
-    df_obs_list_run = df_obs_list[df_obs_list['status'] == 'Run']
+    csv_files = list(data_results.glob('*/*.csv'))
+    image_var = list(data_results.glob('*/*image_var.png'))
+    simlists  = list(data_results.glob('*simlist*'))
+    print(f'Found #_csv={len(csv_files)} #_image_var={len(image_var)}')
 
-    # Get observation Ids
-    obsids_run = df_obs_list_run['obsid']
-
-    all_files = []
-    for obsid in obsids_run:
-        obsid_path = data_results / obsid
-        print(f'Getting files {obsid_path}')
-
-        files = {'bti'     : list(obsid_path.glob('*bti.csv'))[0],
-                 'lcs'     : list(obsid_path.glob('*lcs.csv'))[0],
-                 'regions' : list(obsid_path.glob('*regions.csv'))[0],
-                 'image_var' : list(obsid_path.glob('*image_var.png'))[0]}
-
-        all_files.append(files)
-
-    p = Path(exod_simlist_path)
-    date_str = p.stem.split('simlist_')[1]
-    tarfile_savepath = data_combined / f'{date_str}_res.tar.gz'
+    tarfile_savepath = data_combined / f'{output_filename}.tar.gz'
     with tarfile.open(str(tarfile_savepath), mode='w|gz') as tf:
-        for files in all_files:
-            for k, v in files.items():
-                arcname = v.relative_to(data_results)
-                print(f'{k:<8}: {v} --> {arcname}')
-                tf.add(v, arcname=arcname)
-
-    print(f'Saved to: {tarfile_savepath}')
+        for f in tqdm([*csv_files, *image_var, *simlists]):
+            arcname = f.relative_to(data_results)
+            print(f'{f} --> {arcname}')
+            tf.add(f, arcname=arcname)
+    print(f'tarfile save to: {tarfile_savepath}')
 
 if __name__ == '__main__':
     from exod.utils.path import data_combined
