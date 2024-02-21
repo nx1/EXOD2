@@ -10,6 +10,7 @@ from cv2 import inpaint, INPAINT_NS, filter2D
 from scipy.stats import poisson
 from tqdm import tqdm
 import cmasher as cmr
+from scipy.stats import poisson
 
 def compute_expected_cube_using_templates(cube, rejected):
     """Computes a baseline expected cube, combining background and sources. Any departure from this expected cube
@@ -72,9 +73,21 @@ def compute_variability(observed_cube, estimated_cube):
     final_V_map = np.where(V_map_positive>-V_map_negative, V_map_positive, V_map_negative)
     return final_V_map
 
+def compute_likelihood_variability(observed_cube, estimated_cube):
+    """We have access to an expected and observed cubes. Variability is the log likelihood of observing counts above
+    (resp. below) the observed value, knowing it follows a Poisson variable of expectation the estimated_cube.
+    Here, this log likelihood takes negative values for eclipses. We take the largest of both possibilities."""
+    V_cube = np.where(observed_cube>estimated_cube,
+                      -np.log10(1-poisson.cdf(observed_cube,estimated_cube)),
+                      +np.log10(poisson.cdf(observed_cube,estimated_cube)))
+    image_V_min = np.nanmin(V_cube, axis=2)
+    image_V_max = np.nanmax(V_cube, axis=2)
+    final_V_map = np.where(image_V_max>-image_V_min, image_V_max, image_V_min)
+    return final_V_map
+
 if __name__=="__main__":
     obsid='0886121001'#'0831790701' #
-    size_arcsec = 15
+    size_arcsec = 10
     time_interval = 1000
     gti_only = False
     gti_threshold = 0.5
@@ -102,39 +115,54 @@ if __name__=="__main__":
     image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
 
 
-    fig, axes = plt.subplots(1,3)
-    axes[0].imshow(image, norm=LogNorm())
-    axes[1].imshow(expected_image, norm=LogNorm())
-    axes[2].imshow((image-expected_image)/np.sqrt(image+expected_image), vmin=-1, vmax=1)
-    plt.show()
+    # fig, axes = plt.subplots(1,3)
+    # axes[0].imshow(image, norm=LogNorm())
+    # axes[1].imshow(expected_image, norm=LogNorm())
+    # axes[2].imshow((image-expected_image)/np.sqrt(image+expected_image), vmin=-1, vmax=1)
+    # plt.show()
 
-    Vmap = compute_variability(cube, estimated_cube)
+    Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
     fig, axes = plt.subplots(1, 3)
-    axes[0].imshow(image, norm=LogNorm())
-    axes[1].imshow(expected_image, norm=LogNorm())
-    m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.guppy_r')
+    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
+    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
     cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
     cbar.set_label(r'Max residuals ($\sigma$)')
     plt.show()
 
+    Vmap = np.where(expected_image>0,compute_likelihood_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
+    fig, axes = plt.subplots(1, 3)
+    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
+    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    m=axes[2].imshow(Vmap, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
+    cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
+    cbar.set_label(r'Transient log likelihood')
+    plt.show()
 
     #Check result on frames. This uses pre-computed frames, run the code in compute_expected_cube_using_templates in the console to use this
-    for frame_index in range(cube.shape[2]):
-        fig, axes = plt.subplots(2, 2)
-        image = cube[:, :, frame_index]
-        expected_image = estimated_cube[:, :, frame_index]
-        # image = np.where(cube[:,:,frame_index]>0,cube[:,:,frame_index],np.nan)
-        # expected_image=np.where(estimated_cube[:,:,frame_index]>0,estimated_cube[:,:,frame_index],np.nan)
-        axes[0][0].imshow(image, norm=LogNorm(), interpolation='none')
-        axes[0][1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-        m=axes[1][0].imshow((image - expected_image) / np.sqrt(image + expected_image), vmin=-2, vmax=2, cmap='cmr.redshift_r', interpolation='none')
-        cbar = plt.colorbar(mappable=m, ax=axes[1][0], fraction=0.046, pad=0.04)
-        cbar.set_label(r'Max residuals ($\sigma$)')
-        axes[1][1].hist(((image - expected_image) / np.sqrt(image + expected_image)).flatten(), bins=50)
-        axes[1][1].set_xlim(-3,3)
-        fig.set_figwidth(10)
-        fig.set_figheight(10)
-        plt.show()
+    # for frame_index in range(cube.shape[2]):
+    #     fig, axes = plt.subplots(2, 2)
+    #     image = cube[:, :, frame_index]
+    #     expected_image = estimated_cube[:, :, frame_index]
+    #     # image = np.where(cube[:,:,frame_index]>0,cube[:,:,frame_index],np.nan)
+    #     # expected_image=np.where(estimated_cube[:,:,frame_index]>0,estimated_cube[:,:,frame_index],np.nan)
+    #     axes[0][0].imshow(image, norm=LogNorm(), interpolation='none')
+    #     axes[0][1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    #     m=axes[1][0].imshow((image - expected_image) / np.sqrt(image + expected_image), vmin=-2, vmax=2, cmap='cmr.redshift_r', interpolation='none')
+    #     cbar = plt.colorbar(mappable=m, ax=axes[1][0], fraction=0.046, pad=0.04)
+    #     cbar.set_label(r'Max residuals ($\sigma$)')
+    #
+    #     poisson_cdf = poisson.cdf(image,expected_image)
+    #     residuals_poisson = np.where(image>expected_image,-np.log10(1-poisson.cdf(image,expected_image)),+np.log10(poisson.cdf(image,expected_image)))
+    #     m=axes[1][1].imshow(residuals_poisson, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
+    #     cbar = plt.colorbar(mappable=m, ax=axes[1][1], fraction=0.046, pad=0.04)
+    #     cbar.set_label(r'Transient log likelihood')
+    #     fig.set_figwidth(10)
+    #     fig.set_figheight(10)
+    #
+    #     for ax in axes.flatten():
+    #         ax.axis("off")
+    #     plt.show()
 
 
 
