@@ -118,7 +118,7 @@ def get_bti_bin_idx_bool(rejected_idx, bin_t):
 
     Returns
     -------
-    rejected_frame_bool : [F,T,F,F,T,F,T,F]
+    bti_bin_idx_bool : [F,T,F,F,T,F,T,F]
 
     """
     arr = np.arange(len(bin_t))

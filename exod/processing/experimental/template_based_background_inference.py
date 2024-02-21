@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
 import os
-from exod.pre_processing.read_events_files import read_EPIC_events_file
+from exod.pre_processing.data_loader import DataLoader
+from exod.xmm.observation import Observation
 from exod.utils.path import data_processed
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
@@ -73,10 +74,30 @@ def compute_variability(observed_cube, estimated_cube):
 
 if __name__=="__main__":
     obsid='0886121001'#'0831790701' #
-    size_arcsec=15
-    time_interval=1000
-    cube, coordinates_XY, rejected = read_EPIC_events_file(obsid, size_arcsec, time_interval,
-                                                   gti_only=False, emin=0.2, emax=12)
+    size_arcsec = 15
+    time_interval = 1000
+    gti_only = False
+    gti_threshold = 0.5
+    min_energy = 0.5
+    max_energy = 12.0
+
+    observation = Observation(obsid)
+    observation.get_files()
+
+    event_list = observation.events_processed_pn[0]
+    event_list.read()
+
+    img = observation.images[0]
+    img.read(wcs_only=True)
+
+    dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
+                    gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+    dl.run()
+
+    cube = dl.data_cube.data
+    rejected = dl.data_cube.bti_bin_idx
+
+
     estimated_cube = compute_expected_cube_using_templates(cube, rejected)
     image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
 

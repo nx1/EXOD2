@@ -32,14 +32,12 @@ class DataLoader:
         return f"DataLoader(events_list={self.event_list})"
 
     def run(self):
-        if self.gti_only:
-            self.calculate_bti() # This needs to be called first as the next step filters the eventlist.
-
+        self.calculate_bti() # This needs to be called first as the next step filters the eventlist.
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
+        self.get_bti_bins()
 
         if self.gti_only:
-            self.get_bti_bins()
             self.mask_bti_from_data_cube()
 
     def get_high_energy_lc(self):
@@ -70,8 +68,10 @@ class DataLoader:
 
     def get_bti_bins(self):
         self.bti_bin_idx = get_bti_bin_idx(bti=self.bti, bin_t=self.data_cube.bin_t)
-        self.rejected_frame_bool = get_bti_bin_idx_bool(self.bti_bin_idx, bin_t=self.data_cube.bin_t)
-        self.data_cube.rejected_frame_bool = self.rejected_frame_bool
+        self.bti_bin_idx_bool = get_bti_bin_idx_bool(self.bti_bin_idx, bin_t=self.data_cube.bin_t)
+
+        self.data_cube.bti_bin_idx = self.bti_bin_idx
+        self.data_cube.bti_bin_idx_bool = self.bti_bin_idx_bool
 
     def mask_bti_from_data_cube(self):
         logger.info('Masking bad frames from Data Cube (setting to nan)')

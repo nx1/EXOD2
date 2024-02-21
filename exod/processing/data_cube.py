@@ -90,6 +90,9 @@ class DataCubeXMM(DataCube):
         self.bin_y         = np.linspace(0, self.extent, self.n_bins + 1)
         self.bin_t         = self.calc_time_bins()
 
+        self.bti_bin_idx = []
+        self.bti_bin_idx_bool = []
+
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
@@ -131,7 +134,7 @@ class DataCubeXMM(DataCube):
 
     def remove_bti_frames(self):
         """Return the cube without the masked nan frames."""
-        data_non_nan = self.data[:,:,~self.rejected_frame_bool[:-1]]
+        data_non_nan = self.data[:,:,~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
 

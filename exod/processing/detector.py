@@ -193,7 +193,7 @@ class Detector:
         """
         logger.info("Extracting lightcurves from data cube")
         lcs = [pd.DataFrame({'time': self.data_cube.bin_t[:-1]}),
-               pd.DataFrame({'bti': self.data_cube.rejected_frame_bool[:-1]})]
+               pd.DataFrame({'bti': self.data_cube.bti_bin_idx_bool[:-1]})]
         for i, row in self.df_regions.iterrows():
             xlo, xhi = row['bbox-0'], row['bbox-2']
             ylo, yhi = row['bbox-1'], row['bbox-3']

@@ -46,7 +46,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    # dl.data_cube.video(savepath=None)
+    dl.data_cube.video(savepath=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
@@ -66,7 +66,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
     save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
 
-    # plt.show()
+    plt.show()
 
 
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         args = {'obsid'         : obsid,
                 'size_arcsec'   : 15.0,
                 'time_interval' : 500,
-                'gti_only'      : True,
+                'gti_only'      : False,
                 'gti_threshold' : 0.5,
                 'min_energy'    : 0.5,
                 'max_energy'    : 12.0,
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        # run_pipeline(**args)
+        run_pipeline(**args)
         try:
             run_pipeline(**args)
             res['status'] = 'Run'
