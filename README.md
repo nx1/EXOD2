@@ -8,7 +8,7 @@ https://github.com/users/nx1/projects/2
 
 `cd EXOD`
 
-`pip -e install .`
+`pip install -e .`
 
 Then set the 'EXOD' enviroment in your .bashrc to point to this repo i.e.
 `export EXOD='/home/{username}/EXOD2'`
@@ -21,3 +21,13 @@ This will run over all the observations specified in
 and perform the transient search, the output is then saved in
 `/data/results/obsid/`
 
+
+# Code
+Classes
+=======
+
+`xmm.Observation(obsid)` : Getting Observation Data and setting directory structure
+`xmm.EventList(path)` : Reading and checking storing EventList
+`pre_processing.DataLoader()` : Creates the DataCube from the EventList (I agree this is clunky)
+`processing.DataCube(EventList, size_arcsec, time_interval)` : Creating and storing the datacube from the EventList
+`processing.Detector(DataCube, wcs, sigma)` : Main detection algorithm on data cube.
