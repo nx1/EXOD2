@@ -83,7 +83,8 @@ def compute_likelihood_variability(observed_cube, estimated_cube):
     image_V_min = np.nanmin(V_cube, axis=2)
     image_V_max = np.nanmax(V_cube, axis=2)
     final_V_map = np.where(image_V_max>-image_V_min, image_V_max, image_V_min)
-    return final_V_map
+    return np.where(expected_image>0,final_V_map,np.empty(cube.shape[:2])*np.nan)
+
 
 if __name__=="__main__":
     obsid='0886121001'#'0831790701' #
