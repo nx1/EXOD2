@@ -25,8 +25,8 @@ def create_fake_burst(data_cube, x_pos, y_pos, time_peak_fraction, width_time, a
 
     # Pixels to iterate over
     r = 10 # Size of box to calculate values
-    x_lo, x_hi = int(x_pos-r*sigma_2d), int(x_pos+r*sigma_2d)
-    y_lo, y_hi = int(y_pos-r*sigma_2d), int(y_pos+r*sigma_2d)
+    x_lo, x_hi = max(0,int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d),peak_data.shape[2]-1)
+    y_lo, y_hi = max(0,int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d),peak_data.shape[2]-1)
 
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
