@@ -22,23 +22,32 @@ def download_observation_events(obsid, clobber=False):
     url_PN = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=PN&level=PPS&name=PIEVLI'
     url_M1 = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=M1&level=PPS&name=MIEVLI'
     url_M2 = f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&instname=M2&level=PPS&name=MIEVLI'
+    url_src= f'http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={obsid}&name=OBSMLI&level=PPS'
 
-    urls = {'PN':url_PN ,
-            'M1':url_M1,
-            'M2':url_M2}
+    urls = {'PN' : url_PN,
+            'M1' : url_M1,
+            'M2' : url_M2,
+            'src': url_src}
+
+    globs = {'PN' : '*PN*FTZ',
+             'M1' : '*M1*FTZ',
+             'M2' : '*M2*FTZ',
+             'src': '*EP*OBSMLI*FTZ'}
 
     for inst, download_url in urls.items():
+        # Create the folder to save to
+        obs_path  = path.data_raw / f'{obsid}'
+        os.makedirs(obs_path, exist_ok=True)
+        if not clobber and len(list(obs_path.glob(globs[inst]))) > 0: # Dirty check for fits files
+            logger.info(f'{globs[inst]} found, skipping...')
+            continue
+
         response = requests.get(download_url)
         logger.info(response)
         if response.status_code == 200:
             # Get the filename from the response header
             cd = response.headers.get('content-disposition')
             filename = cd.split('filename=')[1].strip('";')
-
-            # Create the folder to save to
-            obs_path  = path.data_raw / f'{obsid}'
-            os.makedirs(obs_path, exist_ok=True)
-
             file_path = obs_path / f'{filename}'
             if file_path.is_file() and not clobber:
                 logger.info(f'Skipping {file_path}. File already exists.')
