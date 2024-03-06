@@ -110,7 +110,6 @@ def check_eclipse_estimate_success():
     plt.plot(tab_eclipse, tab_eclipse,c='k')
     plt.show()
 
-
 def plot_some_n_bayes():
     range_n = np.arange(10)
     range_mu = np.geomspace(1e-3, 1e3, 500)
@@ -133,8 +132,8 @@ def test_bayes_on_false_cube(size):
     # minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(3)
     cube = np.random.poisson(1e-1, (size,size,size))
     estimated = np.ones((size,size,size))*1e-1
-    peaks = bayes_factor_peak_new(estimated, cube)>5 #cube>minimum_for_peak(estimated)
-    eclipse =  bayes_factor_eclipse_new(estimated, cube)>5#cube<maximum_for_eclipse(estimated)
+    peaks = bayes_factor_peak(estimated, cube)>5 #cube>minimum_for_peak(estimated)
+    eclipse = bayes_factor_eclipse(estimated, cube)>5#cube<maximum_for_eclipse(estimated)
     print(np.sum(peaks), np.sum(eclipse))
     return np.sum(peaks), np.sum(eclipse)
 
@@ -349,7 +348,7 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     timebins = np.geomspace(10,1000,n_timebins)
     all_timebin_results=[]
 
-    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=3)
+    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=5)
 
     tab_all_amplitudes=[]
     for timebin in timebins:
