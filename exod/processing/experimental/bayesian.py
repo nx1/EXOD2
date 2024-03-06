@@ -79,7 +79,7 @@ def repeated_peaks(cube,expected,threshold):
 
 
 if __name__=="__main__":
-    obsid='0886121001'#'0831790701' #
+    obsid='0872390901'#'0886121001'#'0831790701' #
     size_arcsec = 20
     gti_only = False
     gti_threshold = 0.5

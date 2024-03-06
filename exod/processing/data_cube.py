@@ -100,6 +100,8 @@ class DataCubeXMM(DataCube):
         super().__init__(self.data)
 
 
+
+
     def calc_time_bins(self):
         t_lo = self.event_list.time_min
         t_hi = self.event_list.time_max
@@ -141,9 +143,9 @@ class DataCubeXMM(DataCube):
 
     def remove_bad_frames(self):
         """Sets frames with total counts below 5 to zero"""
-        self.data = np.where(np.nansum(self.data,axis=(0,1))>5,
+        self.data=np.where(np.nansum(self.data,axis=(0,1))>5,
                                        self.data,
-                                       np.empty(self.shape)*np.nan)
+                                       np.empty(self.data.shape)*np.nan)
 
     @property
     def info(self):
