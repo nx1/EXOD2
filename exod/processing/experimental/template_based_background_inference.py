@@ -87,9 +87,9 @@ def compute_likelihood_variability(observed_cube, estimated_cube):
 
 
 if __name__=="__main__":
-    obsid='0886121001'#'0831790701' #
-    size_arcsec = 10
-    time_interval = 1000
+    obsid='0872390901'#'0886121001'#'0831790701' #
+    size_arcsec = 20
+    time_interval = 5
     gti_only = False
     gti_threshold = 0.5
     min_energy = 0.5
@@ -111,34 +111,31 @@ if __name__=="__main__":
     cube = dl.data_cube.data
     rejected = dl.data_cube.bti_bin_idx
 
+    plt.figure()
+    plt.plot(np.nansum(cube,axis=(0,1)))
+    plt.yscale('log')
+    plt.show()
 
-    estimated_cube = compute_expected_cube_using_templates(cube, rejected)
-    image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
-
-
-    # fig, axes = plt.subplots(1,3)
-    # axes[0].imshow(image, norm=LogNorm())
-    # axes[1].imshow(expected_image, norm=LogNorm())
-    # axes[2].imshow((image-expected_image)/np.sqrt(image+expected_image), vmin=-1, vmax=1)
+    # estimated_cube = compute_expected_cube_using_templates(cube, rejected)
+    # image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
+    #
+    # Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
+    # fig, axes = plt.subplots(1, 3)
+    # axes[0].imshow(image, norm=LogNorm(), interpolation='none')
+    # axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    # m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
+    # cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
+    # cbar.set_label(r'Max residuals ($\sigma$)')
     # plt.show()
-
-    Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
-    fig, axes = plt.subplots(1, 3)
-    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
-    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
-    cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
-    cbar.set_label(r'Max residuals ($\sigma$)')
-    plt.show()
-
-    Vmap = np.where(expected_image>0,compute_likelihood_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
-    fig, axes = plt.subplots(1, 3)
-    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
-    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    m=axes[2].imshow(Vmap, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
-    cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
-    cbar.set_label(r'Transient log likelihood')
-    plt.show()
+    #
+    # Vmap = np.where(expected_image>0,compute_likelihood_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
+    # fig, axes = plt.subplots(1, 3)
+    # axes[0].imshow(image, norm=LogNorm(), interpolation='none')
+    # axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    # m=axes[2].imshow(Vmap, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
+    # cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
+    # cbar.set_label(r'Transient log likelihood')
+    # plt.show()
 
     #Check result on frames. This uses pre-computed frames, run the code in compute_expected_cube_using_templates in the console to use this
     # for frame_index in range(cube.shape[2]):

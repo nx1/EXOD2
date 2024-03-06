@@ -96,7 +96,9 @@ class DataCubeXMM(DataCube):
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
+        self.remove_bad_frames()
         super().__init__(self.data)
+
 
     def calc_time_bins(self):
         t_lo = self.event_list.time_min
@@ -137,6 +139,11 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:,:,~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
+    def remove_bad_frames(self):
+        """Sets frames with total counts below 5 to zero"""
+        self.data = np.where(np.nansum(self.data,axis=(0,1))>5,
+                                       self.data,
+                                       np.empty(self.shape)*np.nan)
 
     @property
     def info(self):
@@ -156,7 +163,9 @@ class DataCubeXMM(DataCube):
 
 if __name__ == "__main__":
     data_array = np.random.rand(10, 10, 10)
+    data_array[:,:,2]=np.zeros((10,10))
     data_cube = DataCube(data_array)
+    print(np.sum(data_cube.data, axis=(0,1)))
     data_cube.video()
     print(data_cube)
 
