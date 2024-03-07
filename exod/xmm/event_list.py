@@ -4,13 +4,15 @@ from exod.xmm.epic_submodes import ALL_SUBMODES
 from pathlib import Path
 import numpy as np
 from astropy.io import fits
-from astropy.table import Table
+from astropy.table import Table, vstack
 
 
 class EventList:
     def __init__(self, path):
-        self.path = Path(path)
-        self.filename = self.path.name
+        self.path      = Path(path)
+        self.filename  = self.path.name
+        self.is_read   = False
+        self.is_merged = False
 
     def __repr__(self):
         return f'EventList({self.path})'
@@ -34,6 +36,50 @@ class EventList:
         self.check_submode()
         self.remove_bad_rows()
         self.remove_borders()
+        self.is_read = True
+
+    @classmethod
+    def from_event_lists(cls, event_lists):
+        """
+        Create a merged EventList from a list of existing ones.
+        event_lists = [EventList, EventList, EventList]
+        """
+        event_list = cls.__new__(cls)
+        # Read event lists if not read
+        for e in event_lists:
+            if not e.is_read:
+                e.read()
+
+        # Combine the data into a single table
+        data_stacked = vstack([e.data for e in event_lists])
+
+        # Unload the data from the constituent event lists to save memory
+        for e in event_lists:
+            e.unload_data()
+
+        # Write Attributes
+        event_list.path     = 'merged'
+        event_list.filename = str([e.filename for e in event_lists])
+        event_list.is_read  = True
+        event_list.is_merged = True
+
+        event_list.hdul   = None
+        event_list.header = None
+        event_list.data   = data_stacked
+
+        event_list.event_lists   = list(event_lists)
+        event_list.N_event_lists = len(event_lists)
+        event_list.obsid         = event_lists[0].obsid
+        event_list.instrument    = str([e.instrument  for e in event_lists])
+        event_list.submode       = str([e.submode for e in event_lists])
+        event_list.date          = event_lists[0].date
+        event_list.object        = event_lists[0].object
+        event_list.time_min      = np.min(data_stacked['TIME'])
+        event_list.time_max      = np.max(data_stacked['TIME'])
+        event_list.exposure      = event_list.time_max - event_list.time_min
+        event_list.N_events      = len(data_stacked)
+        event_list.mean_rate     = event_list.N_events / event_list.exposure
+        return event_list
 
     def filter_by_energy(self, min_energy, max_energy):
         logger.info(f'Filtering Events list by energy min_energy={min_energy} max_energy={max_energy}')
@@ -76,6 +122,10 @@ class EventList:
             self.data = self.data[self.data['RAWX'] < 64-margin]
             self.data = self.data[self.data['RAWX'] > 1+margin]
 
+
+    def unload_data(self):
+        del(self.data)
+        self.is_read = False
 
     @property
     def info(self):

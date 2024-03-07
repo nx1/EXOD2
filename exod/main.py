@@ -1,6 +1,7 @@
 from exod.pre_processing.data_loader import DataLoader
 from exod.pre_processing.bti import plot_bti
 from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
+from exod.xmm.event_list import EventList
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import save_df
 from exod.xmm.observation import Observation
@@ -28,8 +29,11 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     observation.get_files()
 
     # Get the eventslist & image to use
-    event_list = observation.events_processed_pn[0]
-    event_list.read()
+    # event_list = observation.events_processed_pn[0]
+    # event_list.read()
+
+    observation.get_events_overlapping_subsets()
+    event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
 
     img = observation.images[0]
     img.read(wcs_only=True)
@@ -98,7 +102,7 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        # run_pipeline(**args)
+        run_pipeline(**args)
         try:
             run_pipeline(**args)
             res['status'] = 'Run'

@@ -158,6 +158,8 @@ class DataCubeXMM(DataCube):
             ccd_bins = [1, 2, 4, 5, 7] #Maybe list(set(self.event_list.data['CCDNR']))?
         elif self.event_list.instrument == "EMOS2":
             ccd_bins = [1, 2, 3, 4, 5, 6, 7]
+        else:
+            return None
         ccd_bins.append(13) #Just to get a right edge for the final bin
         sample = self.event_list.data['CCDNR'], self.event_list.data['TIME']
         ccdlightcurves, bin_edges, bin_number  = binned_statistic_dd(sample,
