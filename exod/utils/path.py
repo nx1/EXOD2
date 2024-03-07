@@ -4,6 +4,7 @@ from exod.utils.logger import logger
 
 base            = Path(os.environ['EXOD'])
 data            = base / 'data'
+utils           = base / 'exod' / 'utils'
 data_raw        = data / 'raw'
 data_processed  = data / 'processed'
 data_results    = data / 'results'
@@ -13,6 +14,7 @@ logs            = base / 'logs'
 all_paths = {
     'base': base,
     'data': data,
+    'utils': utils,
     'data_raw': data_raw,
     'data_processed': data_processed,
     'data_results': data_results,
@@ -24,7 +26,6 @@ def create_all_paths():
     for name, path in all_paths.items():
         logger.info(f'Creating Path: {path}')
         os.makedirs(path, exist_ok=True)
-
 
 def check_file_exists(file_path, clobber=True):
     """

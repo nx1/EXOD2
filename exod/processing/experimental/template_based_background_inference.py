@@ -114,6 +114,24 @@ if __name__=="__main__":
     plt.figure()
     plt.plot(np.nansum(cube,axis=(0,1)))
     plt.yscale('log')
+
+    estimated_cube = compute_expected_cube_using_templates(cube, rejected)
+    image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
+
+
+    # fig, ax = plt.subplots(1,3)
+    # ax[0].imshow(image, norm=LogNorm())
+    # ax[1].imshow(expected_image, norm=LogNorm())
+    # ax[2].imshow((image-expected_image)/np.sqrt(image+expected_image), vmin=-1, vmax=1)
+    # plt.show()
+
+    Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
+    fig, axes = plt.subplots(1, 3)
+    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
+    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
+    cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
+    cbar.set_label(r'Max residuals ($\sigma$)')
     plt.show()
 
     # estimated_cube = compute_expected_cube_using_templates(cube, rejected)
@@ -139,26 +157,26 @@ if __name__=="__main__":
 
     #Check result on frames. This uses pre-computed frames, run the code in compute_expected_cube_using_templates in the console to use this
     # for frame_index in range(cube.shape[2]):
-    #     fig, axes = plt.subplots(2, 2)
+    #     fig, ax = plt.subplots(2, 2)
     #     image = cube[:, :, frame_index]
     #     expected_image = estimated_cube[:, :, frame_index]
     #     # image = np.where(cube[:,:,frame_index]>0,cube[:,:,frame_index],np.nan)
     #     # expected_image=np.where(estimated_cube[:,:,frame_index]>0,estimated_cube[:,:,frame_index],np.nan)
-    #     axes[0][0].imshow(image, norm=LogNorm(), interpolation='none')
-    #     axes[0][1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    #     m=axes[1][0].imshow((image - expected_image) / np.sqrt(image + expected_image), vmin=-2, vmax=2, cmap='cmr.redshift_r', interpolation='none')
-    #     cbar = plt.colorbar(mappable=m, ax=axes[1][0], fraction=0.046, pad=0.04)
+    #     ax[0][0].imshow(image, norm=LogNorm(), interpolation='none')
+    #     ax[0][1].imshow(expected_image, norm=LogNorm(), interpolation='none')
+    #     m=ax[1][0].imshow((image - expected_image) / np.sqrt(image + expected_image), vmin=-2, vmax=2, cmap='cmr.redshift_r', interpolation='none')
+    #     cbar = plt.colorbar(mappable=m, ax=ax[1][0], fraction=0.046, pad=0.04)
     #     cbar.set_label(r'Max residuals ($\sigma$)')
     #
     #     poisson_cdf = poisson.cdf(image,expected_image)
     #     residuals_poisson = np.where(image>expected_image,-np.log10(1-poisson.cdf(image,expected_image)),+np.log10(poisson.cdf(image,expected_image)))
-    #     m=axes[1][1].imshow(residuals_poisson, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
-    #     cbar = plt.colorbar(mappable=m, ax=axes[1][1], fraction=0.046, pad=0.04)
+    #     m=ax[1][1].imshow(residuals_poisson, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
+    #     cbar = plt.colorbar(mappable=m, ax=ax[1][1], fraction=0.046, pad=0.04)
     #     cbar.set_label(r'Transient log likelihood')
     #     fig.set_figwidth(10)
     #     fig.set_figheight(10)
     #
-    #     for ax in axes.flatten():
+    #     for ax in ax.flatten():
     #         ax.axis("off")
     #     plt.show()
 

@@ -59,7 +59,7 @@ def get_bti(time, data, threshold):
     return bti
 
 
-def plot_bti(time, data, threshold, bti, obsid):
+def plot_bti(time, data, threshold, bti, savepath=None):
     plt.figure(figsize=(10, 2.5))
     for b in bti:
         plt.axvspan(xmin=b['START'], xmax=b['STOP'], color='red', alpha=0.5)
@@ -72,9 +72,10 @@ def plot_bti(time, data, threshold, bti, obsid):
     plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
     plt.legend()
 
-    savepath = data_results / obsid / 'bti_plot.png'
-    logger.info(f'saving bti plot to: {savepath}')
-    plt.savefig(savepath)
+
+    if savepath:
+        logger.info(f'saving bti plot to: {savepath}')
+        plt.savefig(savepath)
 
     # plt.show()
 
@@ -91,19 +92,19 @@ def get_bti_bin_idx(bti, bin_t):
 
     Returns
     -------
-    rejected_idx : array of rejected indexs
+    bti_bin_idx : array of indexs coreesponding to BTIs
     """
     t_starts = [b['START'] for b in bti]
     t_stops = [b['STOP'] for b in bti]
     idx_starts = np.searchsorted(bin_t, t_starts)
     idx_stops = np.searchsorted(bin_t, t_stops) - 1
 
-    rejected_idx = np.array([])
+    bti_bin_idx = np.array([])
     for i in range(len(idx_starts)):
         idxs = np.arange(idx_starts[i], idx_stops[i], 1)
-        rejected_idx = np.append(rejected_idx, idxs)
-    rejected_idx = rejected_idx.astype(int)
-    return rejected_idx
+        bti_bin_idx = np.append(bti_bin_idx, idxs)
+    bti_bin_idx = bti_bin_idx.astype(int)
+    return bti_bin_idx
 
 
 def get_bti_bin_idx_bool(rejected_idx, bin_t):
@@ -122,5 +123,5 @@ def get_bti_bin_idx_bool(rejected_idx, bin_t):
 
     """
     arr = np.arange(len(bin_t))
-    rejected_frame_bool = np.isin(arr, rejected_idx)
-    return rejected_frame_bool
+    bti_bin_idx_bool = np.isin(arr, rejected_idx)
+    return bti_bin_idx_bool

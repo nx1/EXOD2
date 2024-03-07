@@ -14,6 +14,16 @@ class Observation:
         self.path_results = data_results / obsid
         self.make_dirs()
 
+        self.events_raw = []
+        self.events_processed = []
+        self.events_processed_pn = []
+        self.events_processed_mos1 = []
+        self.events_processed_mos2 = []
+
+        self.images = []
+
+        self.source_list = []
+
     def __repr__(self):
         return f'Observation({self.obsid})'
 
@@ -30,7 +40,11 @@ class Observation:
         evt_processed = list(self.path_processed.glob('*FILT.fits'))
         self.events_processed = [EventList(e) for e in evt_processed]
         self.events_processed_pn = [e for e in self.events_processed if 'PI' in e.filename]
-        self.events_processed_mos = [e for e in self.events_processed if 'M1' in e.filename or 'M2' in e.filename]
+        self.events_processed_mos1 = [e for e in self.events_processed if 'M1' in e.filename]
+        self.events_processed_mos2 = [e for e in self.events_processed if 'M2' in e.filename]
+
+    def get_source_list(self):
+        self.source_list = self.path_processed.glob('*EP*OBSMLI*FTZ')
 
     def get_images(self):
         img_processed = list(self.path_processed.glob('*IMG.fits'))
@@ -57,3 +71,6 @@ class Observation:
         for k, v in info.items():
             logger.info(f'{k:>10} : {v}')
         return info
+
+
+

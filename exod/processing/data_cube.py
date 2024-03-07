@@ -22,14 +22,14 @@ class DataCube:
     def video(self, savepath=None):
         fig, ax = plt.subplots()
         img = ax.imshow(self.data[:, :, 0].T, cmap='hot', animated=True, interpolation='none',
-                        origin='lower') # norm=LogNorm())
+                        origin='lower')  # norm=LogNorm())
         colorbar = fig.colorbar(img, ax=ax)
 
         def update(frame):
             ax.set_title(f'{self}\n{frame}/{num_frames}')
             img.set_array(self.data[:, :, frame].T)
             return img,
-    
+
         num_frames = self.shape[2]
         ani = FuncAnimation(fig, update, frames=num_frames, interval=10)
         if savepath:
@@ -40,31 +40,31 @@ class DataCube:
     def plot_cube_statistics(self):
         cube = self.data
         logger.info('Calculating and plotting data cube statistics...')
-        image_max    = np.nanmax(cube, axis=2)
-        image_min    = np.nanmin(cube, axis=2) # The Minimum and median are basically junk
+        image_max = np.nanmax(cube, axis=2)
+        image_min = np.nanmin(cube, axis=2)  # The Minimum and median are basically junk
         image_median = np.nanmedian(cube, axis=2)
-        image_mean   = np.nanmean(cube, axis=2)
-        image_std    = np.nanstd(cube, axis=2)
-        image_sum    = np.nansum(cube, axis=2)
+        image_mean = np.nanmean(cube, axis=2)
+        image_std = np.nanstd(cube, axis=2)
+        image_sum = np.nansum(cube, axis=2)
 
         fig, ax = plt.subplots(2, 3, figsize=(15, 10))
         # Plotting images
         cmap = cmap_image()
-        im_max    = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower', cmap=cmap)
-        im_min    = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower', cmap=cmap)
-        im_mean   = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower', cmap=cmap)
+        im_max = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower', cmap=cmap)
+        im_min = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower', cmap=cmap)
+        im_mean = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower', cmap=cmap)
         im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower', cmap=cmap)
-        im_std    = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower', cmap=cmap)
-        im_sum    = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower', cmap=cmap)
+        im_std = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower', cmap=cmap)
+        im_sum = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower', cmap=cmap)
 
         # Adding colorbars
         shrink = 0.55
-        cbar_max    = fig.colorbar(im_max, ax=ax[0, 0], shrink=shrink)
-        cbar_min    = fig.colorbar(im_min, ax=ax[0, 1], shrink=shrink)
-        cbar_mean   = fig.colorbar(im_mean, ax=ax[1, 0], shrink=shrink)
+        cbar_max = fig.colorbar(im_max, ax=ax[0, 0], shrink=shrink)
+        cbar_min = fig.colorbar(im_min, ax=ax[0, 1], shrink=shrink)
+        cbar_mean = fig.colorbar(im_mean, ax=ax[1, 0], shrink=shrink)
         cbar_median = fig.colorbar(im_median, ax=ax[1, 1], shrink=shrink)
-        cbar_std    = fig.colorbar(im_std, ax=ax[1, 2], shrink=shrink)
-        cbar_sum    = fig.colorbar(im_sum, ax=ax[0, 2], shrink=shrink)
+        cbar_std = fig.colorbar(im_std, ax=ax[1, 2], shrink=shrink)
+        cbar_sum = fig.colorbar(im_sum, ax=ax[0, 2], shrink=shrink)
 
         # Setting titles
         ax[0, 0].set_title('max')
@@ -80,15 +80,15 @@ class DataCube:
 
 class DataCubeXMM(DataCube):
     def __init__(self, event_list, size_arcsec, time_interval):
-        self.event_list    = event_list
-        self.size_arcsec   = size_arcsec
+        self.event_list = event_list
+        self.size_arcsec = size_arcsec
         self.time_interval = time_interval
-        self.extent        = 51840 # Initial Cube Size
-        self.pixel_size    = size_arcsec / 0.05
-        self.n_bins        = int(self.extent / self.pixel_size)
-        self.bin_x         = np.linspace(0, self.extent, self.n_bins + 1)
-        self.bin_y         = np.linspace(0, self.extent, self.n_bins + 1)
-        self.bin_t         = self.calc_time_bins()
+        self.extent = 51840  # Initial Cube Size
+        self.pixel_size = size_arcsec / 0.05
+        self.n_bins = int(self.extent / self.pixel_size)
+        self.bin_x = np.linspace(0, self.extent, self.n_bins + 1)
+        self.bin_y = np.linspace(0, self.extent, self.n_bins + 1)
+        self.bin_t = self.calc_time_bins()
 
         self.bti_bin_idx = []
         self.bti_bin_idx_bool = []
@@ -105,7 +105,7 @@ class DataCubeXMM(DataCube):
     def calc_time_bins(self):
         t_lo = self.event_list.time_min
         t_hi = self.event_list.time_max
-        t_i  = self.time_interval
+        t_i = self.time_interval
         n_time_bins = int((t_hi - t_lo) / t_i)
         time_stop = t_lo + n_time_bins * t_i
         time_bins = np.arange(t_lo, time_stop + 1, t_i)
@@ -138,26 +138,26 @@ class DataCubeXMM(DataCube):
 
     def remove_bti_frames(self):
         """Return the cube without the masked nan frames."""
-        data_non_nan = self.data[:,:,~self.bti_bin_idx_bool[:-1]]
+        data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
     def remove_bad_frames(self):
         """Sets frames with total counts below 5 to zero"""
-        self.data=np.where(np.nansum(self.data,axis=(0,1))>5,
-                                       self.data,
-                                       np.empty(self.data.shape)*np.nan)
+        self.data = np.where(np.nansum(self.data, axis=(0, 1)) > 5,
+                             self.data,
+                             np.empty(self.data.shape) * np.nan)
 
     @property
     def info(self):
-        info = {'event_list'    : self.event_list.filename,
-                'size_arcsec'   : self.size_arcsec,
-                'time_interval' : self.time_interval,
-                'extent'        : self.extent,
-                'pixel_size'    : self.pixel_size,
-                'n_bins'        : self.n_bins,
-                'bbox_img'      : self.bbox_img,
-                'shape'         : self.shape,
-                'memory_mb'     : self.memory_mb}
+        info = {'event_list': self.event_list.filename,
+                'size_arcsec': self.size_arcsec,
+                'time_interval': self.time_interval,
+                'extent': self.extent,
+                'pixel_size': self.pixel_size,
+                'n_bins': self.n_bins,
+                'bbox_img': self.bbox_img,
+                'shape': self.shape,
+                'memory_mb': self.memory_mb}
         for k, v in info.items():
             logger.info(f'{k:>13} : {v}')
         return info
@@ -165,9 +165,8 @@ class DataCubeXMM(DataCube):
 
 if __name__ == "__main__":
     data_array = np.random.rand(10, 10, 10)
-    data_array[:,:,2]=np.zeros((10,10))
+    data_array[:, :, 2] = np.zeros((10, 10))
     data_cube = DataCube(data_array)
-    print(np.sum(data_cube.data, axis=(0,1)))
+    print(np.sum(data_cube.data, axis=(0, 1)))
     data_cube.video()
     print(data_cube)
-

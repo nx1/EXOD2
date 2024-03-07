@@ -1,6 +1,6 @@
 
 import pytest
-from exod.pre_processing.event_filtering import filter_PN_file
+from exod.pre_processing.event_filtering import filter_observation_events
 
 def test_unsupported_obs():
     obsids = ['0820880501', # EPN BURST
@@ -9,7 +9,7 @@ def test_unsupported_obs():
 
     for obs in obsids:
         with pytest.raises(Exception):
-            filter_PN_file(obs)
+            filter_observation_events(obs)
 
 def test_PN_PrimeFullWindow():
     obsid = '0882110401'  # EPN PrimeFullWindow

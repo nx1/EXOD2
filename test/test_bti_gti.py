@@ -1,4 +1,4 @@
-from exod.pre_processing.read_events import get_bti, plot_bti, get_rejected_idx
+from exod.pre_processing.bti import get_bti, get_bti_bin_idx, plot_bti
 import numpy as np
 
 def test_gti_bti():
@@ -22,5 +22,5 @@ def test_gti_bti():
     for data in test_cases:
         threshold = 1.5
         bti = get_bti(time, data, threshold)
-        rejected_idx = get_rejected_idx(bti, time2)
+        rejected_idx = get_bti_bin_idx(bti, time2)
         plot_bti(time, data, threshold, bti)

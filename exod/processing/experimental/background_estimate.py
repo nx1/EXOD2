@@ -2,8 +2,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from exod.pre_processing.read_events import read_EPIC_events_file
-from exod.utils.path import data_processed
+from exod.xmm.observation import Observation
+from exod.pre_processing.data_loader import DataLoader
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
 from scipy.stats import poisson
@@ -34,33 +34,29 @@ def compute_background(cube):
     normalized_background = no_source_image / np.nansum(no_source_image)
 
     lightcurve_no_source_image = [np.sum(np.where(image<threshold, cube[:,:,i],0), axis=(0,1)) for i in range(cube.shape[2])]
-    background_images = [normalized_background*frame_value for frame_value in lightcurve_no_source_image]
-    background_images = np.array(background_images).transpose(1, 2, 0)
+    background_images     = [normalized_background*frame_value for frame_value in lightcurve_no_source_image]
+    background_images     = np.array(background_images).transpose(1, 2, 0)
     background_withsource = [normalized_background*frame_value + source_only_image/(cube.shape[2]) for frame_value in lightcurve_no_source_image]
     background_withsource = np.array(background_withsource).transpose(1, 2, 0)
     return background_images, background_withsource
 
 
-obsid = '0831790701'
-savedir = data_processed / f'{obsid}' / 'BackgroundTest'
-logger.info(f'Saving background test png to {savedir}')
-os.makedirs(savedir, exist_ok=True)
+
 
 def compute_background_two_templates(cube, lc_HE, time_binning):
     image_total = np.sum(cube, axis=2)
-    threshold=np.nanpercentile(image_total.flatten(), 95)
+    threshold = np.nanpercentile(image_total.flatten(), 95)
     condition = np.where(image_total>threshold)
     mask = np.zeros(image_total.shape)
-    mask[condition]=1
-    mask=np.uint8(mask[:,:,np.newaxis])
+    mask[condition] = 1
+    mask = np.uint8(mask[:,:,np.newaxis])
 
     plt.figure()
-    timebins=np.arange(cube.shape[2])
+    timebins = np.arange(cube.shape[2])
     lc = np.nansum(cube,axis=(0,1))
     plt.plot(timebins, np.where(lc_HE > 1*time_binning, lc, np.nan), c='r')
     plt.plot(timebins, np.where(lc_HE < 1*time_binning, lc, np.nan), c='b')
-
-    plt.savefig(savedir / "full_image_lightcurve.png")
+    plt.show()
 
     no_source_image_total = inpaint(image_total.astype(np.float32)[:,:,np.newaxis], mask, 5, flags=INPAINT_NS)
     source_only_image = image_total-no_source_image_total
@@ -82,29 +78,25 @@ def compute_background_two_templates(cube, lc_HE, time_binning):
     m1 = ax1.imshow(normalized_total_background, origin='lower', interpolation='none', norm=LogNorm())
     ax1.set_title('Total')
     ax1.axis("off")
-    plt.colorbar(mappable=m1, ax=ax1, fraction=0.046, pad=0.04)
+    # plt.colorbar(m1)
+    # plt.colorbar(mappable=m1, ax=ax1, fraction=0.046, pad=0.04)
     m2 = ax2.imshow(normalized_GTI_background, origin='lower', interpolation='none', norm=LogNorm())
     ax2.set_title('GTI')
     ax2.axis("off")
-    plt.colorbar(mappable=m2, ax=ax2, fraction=0.046, pad=0.04)
+    # plt.colorbar(mappable=m2, ax=ax2, fraction=0.046, pad=0.04)
     m3 = ax3.imshow(normalized_BTI_background, origin='lower', interpolation='none', norm=LogNorm())  # vmin=-5, vmax=5, cmap='cmr.guppy')
     ax3.set_title('BTI')
     ax3.axis("off")
-    plt.colorbar(mappable=m3, ax=ax3, fraction=0.046, pad=0.04)
-    plt.savefig(savedir / "test_GTI_image.png")
+    # plt.colorbar(mappable=m3, ax=ax3, fraction=0.046, pad=0.04)
+    plt.show()
 
 
     lightcurve_no_source_image = [np.sum(np.where(image_total<threshold, cube[:,:,i], 0),
                                          axis=(0,1)) for i in range(cube.shape[2])]
-    background_images = np.where(lc_HE<1*time_binning,
-                                 normalized_GTI_background[:,:,np.newaxis]*lightcurve_no_source_image,
-                                 normalized_BTI_background[:,:,np.newaxis]*lightcurve_no_source_image)
+    background_images = np.where(lc_HE<1*time_binning, normalized_GTI_background[:,:,np.newaxis]*lightcurve_no_source_image, normalized_BTI_background[:,:,np.newaxis]*lightcurve_no_source_image)
     #background_images = np.array(background_images).transpose(1, 2, 0)
-    background_withsource = np.where(lc_HE < 1 * time_binning,
-                         normalized_GTI_background[:,:,np.newaxis] * lightcurve_no_source_image
-                                     +source_only_image_GTI[:,:,np.newaxis]/(cube.shape[2]),
-                         normalized_BTI_background[:,:,np.newaxis] * lightcurve_no_source_image
-                                     +source_only_image_BTI[:,:,np.newaxis]/(cube.shape[2]))
+    background_withsource = np.where(lc_HE < 1 * time_binning, normalized_GTI_background[:,:,np.newaxis] * lightcurve_no_source_image +source_only_image_GTI[:,:,np.newaxis]/(cube.shape[2]),
+                         normalized_BTI_background[:,:,np.newaxis] * lightcurve_no_source_image + source_only_image_BTI[:,:,np.newaxis]/(cube.shape[2]))
     #background_withsource = np.array(background_withsource).transpose(1, 2, 0)
     return background_images, background_withsource
 
@@ -112,13 +104,11 @@ def check_GTIvsBTI_image_structure(size_arcsec,time_interval):
     #TODO: Extract images from GTI and BTI and check for non-linearities, that might justify using two template responses
     GTI_threshold = {"pn":0.5,"M1":0.2,"M2":0.2}
     for instruments in ("pn","M1","M2"):
-        HE_cube, HE_coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False,
-                                                           min_energy=10, max_energy=12)
-        lc_HE = np.sum(HE_cube, axis=(0,1))/time_interval
-        cube, coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2,
-                                                     max_energy=12)
+        HE_cube, HE_coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=10, max_energy=12)
+        lc_HE = np.sum(HE_cube, axis=(0,1)) / time_interval
+        cube, coordinates_XY = read_EPIC_events_file(obsid, size_arcsec, time_interval, gti_only=False, min_energy=0.2, max_energy=12)
         image = np.sum(cube, axis=2)
-        threshold=np.nanpercentile(image.flatten(), 99)
+        threshold = np.nanpercentile(image.flatten(), 99)
         cube = np.array([np.where(image<threshold, frame, np.nan) for frame in cube.transpose(2,0,1)]).transpose(1,2,0)
         plt.figure()
         plt.imshow(np.sum(cube, axis=2), origin='lower', interpolation='none', norm=LogNorm())
@@ -148,13 +138,14 @@ def check_GTIvsBTI_image_structure(size_arcsec,time_interval):
         plt.savefig(savedir / f"test_GTI_image_{instruments}.png")
 #check_GTIvsBTI_image_structure(10,100)
 
-def run_computation(cube_raw, with_peak=False, size_arcsec=15):
+def run_computation(data_cube, with_peak=False, size_arcsec=15):
+    cube = data_cube.data
     if with_peak:
-        cube = cube_raw+create_fake_burst(cube_raw.shape, 1000, time_peak_fraction=0.05,
-                                       position=(0.41*cube_raw.shape[0],0.36*cube_raw.shape[1]),
-                                       width_time=50, amplitude=1e1, size_arcsec=size_arcsec)
+        xpos = 0.41 * data_cube.shape[0]
+        ypos = 0.36 * data_cube.shape[1]
+        cube = data_cube + create_fake_burst(data_cube,x_pos=xpos, y_pos=ypos, time_peak_fraction=0.05, width_time=50, amplitude=1e1)
     else:
-        cube = cube_raw
+        cube = data_cube
 
     image     = np.sum(cube, axis=2)
     threshold = np.nanpercentile(image.flatten(), 99)
@@ -176,13 +167,15 @@ def run_computation(cube_raw, with_peak=False, size_arcsec=15):
     plt.colorbar(mappable=m1, ax=ax1)
     m2 = ax2.imshow(no_source_image.T, origin='lower', interpolation='none', norm=LogNorm(mini, maxi))
     plt.colorbar(mappable=m2, ax=ax2)
-    plt.savefig(savedir / "background_test.png")
+    # plt.savefig(savedir / "background_test.png")
+    plt.show()
 
     normalized_background = no_source_image/np.nansum(no_source_image)
     lightcurve_no_source_image = [np.sum(np.where(image<threshold, cube[:,:,i],0), axis=(0,1)) for i in range(cube.shape[2])]
     plt.figure()
     plt.plot(lightcurve_no_source_image)
-    plt.savefig(savedir / "lightcurve_background_test.png")
+    # plt.savefig(savedir / "lightcurve_background_test.png")
+    plt.show()
     extrapolated_images = [normalized_background*frame_value + source_only_image/(cube.shape[2])
                            for frame_value in lightcurve_no_source_image]
 
@@ -207,7 +200,7 @@ def run_computation(cube_raw, with_peak=False, size_arcsec=15):
         ax3.set_title("Poisson likelihood")
         ax3.axis('off')
         fig.tight_layout()
-        plt.savefig(savedir / 'background_test_2_{ind}.png')
+        # plt.savefig(savedir / 'background_test_2_{ind}.png')
 
 
 def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_fraction,peak_width, position):
@@ -218,9 +211,7 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     tab_background_of_peak=[]
     plt.figure()
     for amplitude in tqdm(tab_amplitude):
-        cube_end = cube_raw + create_fake_burst(cube_raw.shape, time_interval, time_peak_fraction=time_peak_fraction,
-                                       position=position,
-                                       width_time=peak_width, amplitude=amplitude, size_arcsec=size_arcsec)
+        cube_end = cube_raw + create_fake_burst(cube_raw.shape, time_interval, time_peak_fraction=time_peak_fraction, position=position, width_time=peak_width, amplitude=amplitude, size_arcsec=size_arcsec)
         (x,y)=position
         tab_counts.append(cube_end[x,y,int(time_peak_fraction*cube.shape[2])])
         image = np.sum(cube_end, axis=2)
@@ -233,10 +224,8 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
         source_only_image = image - no_source_image
 
         normalized_background = no_source_image / np.nansum(no_source_image)
-        lightcurve_no_source_image = [np.sum(np.where(image < threshold, cube[:, :, i], 0), axis=(0, 1)) for i in
-                                      range(cube.shape[2])]
-        extrapolated_images = np.array([normalized_background * image_value + source_only_image / (cube.shape[2])
-                               for image_value in lightcurve_no_source_image]).transpose(1, 2, 0)
+        lightcurve_no_source_image = [np.sum(np.where(image < threshold, cube[:, :, i], 0), axis=(0, 1)) for i in range(cube.shape[2])]
+        extrapolated_images = np.array([normalized_background * image_value + source_only_image / (cube.shape[2]) for image_value in lightcurve_no_source_image]).transpose(1, 2, 0)
         log_likelihoods=-poisson.logpmf(cube_end[x,y], extrapolated_images[x,y])
         log_likelihoods_all_image=-poisson.logpmf(cube_end, extrapolated_images)
         tab_percentiles.append(np.nanpercentile(log_likelihoods_all_image[:,:,int(time_peak_fraction*cube.shape[2])],
@@ -263,43 +252,46 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     plt.savefig(savedir / f"Calibration_peak.png")
 
 if __name__=="__main__":
-    size_arcsec=10
-    time_interval=1000
-    # cube, coordinates_XY = read_EPIC_events_file('0831790701', size_arcsec, time_interval, gti_only=False)
-    # cube_peak = cube+create_fake_burst(cube.shape, 1000, time_peak_fraction=0.05,
-    #                                        position=(0.21*cube.shape[0],0.26*cube.shape[1]),
-    #                                        width_time=5000, amplitude=1e2, size_arcsec=20)
-    # plt.figure(figsize=(15,15))
-    # plt.imshow(np.nansum(cube_peak, axis=2), norm=LogNorm(), interpolation='none')
-    # plt.savefig(savedir / f"TestBurst.png"))
-    # run_computation(cube, with_peak=True, size_arcsec=size_arcsec)
+    obsid = '0831790701'
+    observation = Observation(obsid)
+    observation.get_files()
+    savedir = observation.path_processed
+    event_list = observation.events_processed_pn[0]
+    event_list.read()
 
-    # calibrate_result_amplitude(np.geomspace(1e-2,1e1,25),
-    #                            cube, time_interval,0.5,500, (25,25))
-    cubeHE, coordinates_XY = read_EPIC_events_file(obsid, 30, time_interval, gti_only=False, min_energy=10,
-                                                   max_energy=12)
-    lc_HE = np.sum(cubeHE,axis=(0,1))
-    cube, coordinates_XY = read_EPIC_events_file(obsid, 10, time_interval, gti_only=False, min_energy=0.2,
-                                                 max_energy=12)
-    background_images_new, background_withsourc_new=compute_background_two_templates(cube, lc_HE, time_interval)
+    # Initialize the Data Loader
+    dl = DataLoader(event_list=event_list,
+                    size_arcsec=10,
+                    time_interval=100,
+                    gti_only=True,
+                    gti_threshold=0.5,
+                    min_energy=0.5,
+                    max_energy=12.0)
+    dl.run()
+
+    lc_HE, time_HE = dl.get_high_energy_lc()
+    lc_HE = lc_HE[:-1]
+    cube  = dl.data_cube.data
+
+    background_images_new, background_withsource_new = compute_background_two_templates(cube, lc_HE, dl.time_interval)
     background_images, background_withsource = compute_background(cube)
-    maxi_value = np.max(np.sum(cube, axis=(0,1)))/(cube.shape[0]*cube.shape[1])
+    maxi_value = np.max(np.sum(cube, axis=(0,1))) / (cube.shape[0] * cube.shape[1])
     for i in tqdm(range(background_images.shape[2])):
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         fig.set_figheight(5)
         fig.set_figwidth(15)
         m1 = ax1.imshow(background_withsource[:,:,i].T, origin='lower', interpolation='none', norm=LogNorm(1,maxi_value))
-        plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
+        # plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
         ax1.set_title("Expected image (old)")
         ax1.axis('off')
-        m2 = ax2.imshow(background_withsourc_new[:,:,i].T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
-        plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
+        m2 = ax2.imshow(background_withsource_new[:, :, i].T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
+        # plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
         ax2.set_title("Expected image (new)")
         ax2.axis('off')
         m3 = ax3.imshow(cube[:,:,i].T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
-        plt.colorbar(mappable=m3, ax=ax3,fraction=0.046, pad=0.04)
+        # plt.colorbar(mappable=m3, ax=ax3,fraction=0.046, pad=0.04)
         ax3.set_title("True image")
         ax3.axis('off')
 
-        plt.savefig(savedir / f'background_test_{i}.png')
+        plt.show()
 

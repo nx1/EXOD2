@@ -1,5 +1,5 @@
 from exod.processing.data_cube import DataCubeXMM
-from exod.pre_processing.bti import get_bti, get_bti_bin_idx, plot_bti, get_bti_bin_idx_bool
+from exod.pre_processing.bti import get_bti, get_bti_bin_idx, get_bti_bin_idx_bool
 from exod.utils.logger import logger
 
 import numpy as np
@@ -55,10 +55,11 @@ class DataLoader:
         return t_bin_he, lc_he
 
     def calculate_bti(self):
-        t_bin_he, lc_he = self.get_high_energy_lc()
-        self.bti = get_bti(time=t_bin_he, data=lc_he, threshold=self.gti_threshold)
-        plot_bti(time=t_bin_he[:-1], data=lc_he, threshold=self.gti_threshold, bti=self.bti, obsid=self.event_list.obsid)
+        self.t_bin_he, self.lc_he = self.get_high_energy_lc()
+        self.bti = get_bti(time=self.t_bin_he, data=self.lc_he, threshold=self.gti_threshold)
+
         self.df_bti = pd.DataFrame(self.bti)
+        
 
     def create_data_cube(self):
         logger.info('Creating Data Cube...')

@@ -23,7 +23,7 @@ def check_estimate_success():
             N = np.random.poisson(mu+peak)
             tab_N.append(N)
             for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_rate_estimate(fraction, mu, N))
+                tab.append(peak_rate_estimate(fraction, N, mu))
         axes[0].scatter(tab_mu,tab_N, c=color, label=f'Peak amplitude {peak}')
         axes[0].plot(tab_mu,tab_mid, c=color)
         axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
@@ -50,7 +50,7 @@ def check_estimate_success():
         #     tab_err.append(np.std(tab_rates))
         # plt.errorbar(tab_peak,tab_mid,yerr=tab_err, c=color, fmt='o', label=f"$\mu={mu}$")
             N = np.random.poisson(mu+peak)
-            tab_rates = peak_rate_estimate(np.array((0.16,0.5,0.84)),mu, N)
+            tab_rates = peak_rate_estimate(np.array((0.16, 0.5, 0.84)), N, mu)
             tab_mid.append(tab_rates[1])
             tab_errneg.append(tab_rates[1]-tab_rates[0])
             tab_errpos.append(tab_rates[2] - tab_rates[1])
@@ -73,7 +73,7 @@ def check_eclipse_estimate_success():
             N = np.random.poisson(max(mu-eclipse,0))
             tab_N.append(N)
             for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_rate_estimate(fraction, mu, N))
+                tab.append(peak_rate_estimate(fraction, N, mu))
         axes[0].scatter(tab_mu,tab_N, c=color)
         axes[0].plot(tab_mu,tab_mid, c=color)
         axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
@@ -215,10 +215,12 @@ def bayes_rate_estimate(obsid='0886121001'):
             peaks = cube_with_peak > minimum_for_peak(np.where(estimated_cube > 0, estimated_cube, np.nan))
             if int(time_fraction * cube.shape[2]) in rejected:
                 if np.max(peaks[x_pos, y_pos]) > 0:
-                    tab_current_bti.append(peak_rate_estimate(0.5,estimated_cube[x_pos, y_pos],cube_with_peak[x_pos, y_pos]))
+                    tab_current_bti.append(
+                        peak_rate_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
             else:
                 if np.max(peaks[x_pos, y_pos]) > 0:
-                    tab_current_gti.append(peak_rate_estimate(0.5,estimated_cube[x_pos, y_pos],cube_with_peak[x_pos, y_pos]))
+                    tab_current_gti.append(
+                        peak_rate_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
         tab_result_gti.append(np.mean(tab_current_gti))
         tab_err_gti.append(np.std(tab_current_gti))
         tab_result_bti.append(np.mean(tab_current_bti))
