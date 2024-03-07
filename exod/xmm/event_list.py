@@ -62,18 +62,20 @@ class EventList:
         RAWX MAX: 64                RAWX MAX: 64       RAWX MAX: 64
         RAWX MIN: 1                 RAWX MIN: 1        RAWX MIN: 1
         """
+        margin = 3
         if self.instrument == 'EPN' and (self.submode == 'PrimeFullWindow' or self.submode == 'PrimeFullWindowExtended'):
             logger.info(f'Removing Borders: {self.instrument} {self.submode}')
-            self.data = self.data[self.data['RAWY'] > 20]
-            self.data = self.data[self.data['RAWY'] != 200]
-            self.data = self.data[self.data['RAWX'] != 64]
-            self.data = self.data[self.data['RAWX'] != 1]
+            self.data = self.data[self.data['RAWY'] > 20+margin]
+            self.data = self.data[self.data['RAWY'] < 200-margin]
+            self.data = self.data[self.data['RAWX'] < 64-margin]
+            self.data = self.data[self.data['RAWX'] > 1+margin]
 
         if self.instrument == 'EPN' and self.submode == 'PrimeLargeWindow':
             logger.info(f'Removing Borders: {self.instrument} {self.submode}')
-            self.data = self.data[self.data['RAWY'] != 200]
-            self.data = self.data[self.data['RAWX'] != 64]
-            self.data = self.data[self.data['RAWX'] != 1]
+            self.data = self.data[self.data['RAWY'] < 200-margin]
+            self.data = self.data[self.data['RAWX'] < 64-margin]
+            self.data = self.data[self.data['RAWX'] > 1+margin]
+
 
     @property
     def info(self):

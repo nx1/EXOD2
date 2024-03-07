@@ -96,7 +96,8 @@ class DataCubeXMM(DataCube):
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
-        self.remove_bad_frames()
+        # self.remove_bad_frames()
+        self.remove_frames_partial_CCDexposure()
         super().__init__(self.data)
 
 
@@ -146,6 +147,25 @@ class DataCubeXMM(DataCube):
         self.data = np.where(np.nansum(self.data, axis=(0, 1)) > 5,
                              self.data,
                              np.empty(self.data.shape) * np.nan)
+
+    def remove_frames_partial_CCDexposure(self):
+        """Allows to remove the frames where at least one CCD is down, while the others are bright (median of the
+        remaining CCDs is over 10). Might need to be adapted to the working CCDs in MOS archive"""
+
+        if self.event_list.instrument == 'EPN':
+            ccd_bins = [1, 4, 7, 10] #We work in quadrants for EPIC pn
+        elif self.event_list.instrument == "EMOS1":
+            ccd_bins = [1, 2, 4, 5, 7] #Maybe list(set(self.event_list.data['CCDNR']))?
+        elif self.event_list.instrument == "EMOS2":
+            ccd_bins = [1, 2, 3, 4, 5, 6, 7]
+        ccd_bins.append(13) #Just to get a right edge for the final bin
+        sample = self.event_list.data['CCDNR'], self.event_list.data['TIME']
+        ccdlightcurves, bin_edges, bin_number  = binned_statistic_dd(sample,
+                                              values=None, statistic='count', bins=[ccd_bins, self.bin_t])
+        count_active_ccd = np.sum(ccdlightcurves > 0, axis=0) #Nbr of CCDs active in each frame
+        self.data = np.where((count_active_ccd<len(ccd_bins)-1)&(np.median(ccdlightcurves, axis=0)>10),
+                             np.empty(self.data.shape) * np.nan,
+                             self.data)
 
     @property
     def info(self):

@@ -22,7 +22,7 @@ def compute_expected_cube_using_templates(cube, rejected):
 
     #GTI template: compute the estimated GTI background
     kept = [ind for ind in range(cube.shape[2]) if ind not in rejected] #Indices of GTIs
-    image_GTI = np.sum(cube[:,:,kept], axis=2) #Image of all GTIs combined, with sources
+    image_GTI = np.nansum(cube[:,:,kept], axis=2) #Image of all GTIs combined, with sources
     source_threshold=np.nanpercentile(image_GTI.flatten(), 99) #This or from detected sources
     boolean_mask_source = image_GTI > source_threshold #Mask to get only sources afterwards
 
@@ -59,31 +59,33 @@ def compute_expected_cube_using_templates(cube, rejected):
     estimated_cube = np.empty(cube.shape)
     estimated_cube[:,:,kept] = background_GTI_template[:,:,np.newaxis]*lightcurve_outside_sources[kept]
     estimated_cube[:,:,rejected] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[rejected]
+    # print(np.min(lightcurve_outside_sources), np.nanmin(lightcurve_outside_sources))
     estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis],cube.shape[2],axis=2)
+    estimated_cube=np.where(np.nansum(cube,axis=(0,1))>5,estimated_cube,np.empty(cube.shape)*np.nan)
 
     return estimated_cube
 
-def compute_variability(observed_cube, estimated_cube):
-    """We have access to an expected and observed cubes. Variability is residuals between them.
-    It can be positive or negative, and exceed thresholds several times. V_cube is the basic tool to exploit for this,
-    it corresponds to the residuals cube. A variability map can be built then, taking the largest excess (> or < 0)."""
-    V_cube = (observed_cube-estimated_cube)/np.sqrt(observed_cube+estimated_cube)
-    V_map_positive = np.nanmax(V_cube, axis=2)
-    V_map_negative = np.nanmin(V_cube, axis=2)
-    final_V_map = np.where(V_map_positive>-V_map_negative, V_map_positive, V_map_negative)
-    return final_V_map
-
-def compute_likelihood_variability(observed_cube, estimated_cube):
-    """We have access to an expected and observed cubes. Variability is the log likelihood of observing counts above
-    (resp. below) the observed value, knowing it follows a Poisson variable of expectation the estimated_cube.
-    Here, this log likelihood takes negative values for eclipses. We take the largest of both possibilities."""
-    V_cube = np.where(observed_cube>estimated_cube,
-                      -np.log10(1-poisson.cdf(observed_cube,estimated_cube)),
-                      +np.log10(poisson.cdf(observed_cube,estimated_cube)))
-    image_V_min = np.nanmin(V_cube, axis=2)
-    image_V_max = np.nanmax(V_cube, axis=2)
-    final_V_map = np.where(image_V_max>-image_V_min, image_V_max, image_V_min)
-    return np.where(expected_image>0,final_V_map,np.empty(cube.shape[:2])*np.nan)
+# def compute_variability(observed_cube, estimated_cube):
+#     """We have access to an expected and observed cubes. Variability is residuals between them.
+#     It can be positive or negative, and exceed thresholds several times. V_cube is the basic tool to exploit for this,
+#     it corresponds to the residuals cube. A variability map can be built then, taking the largest excess (> or < 0)."""
+#     V_cube = (observed_cube-estimated_cube)/np.sqrt(observed_cube+estimated_cube)
+#     V_map_positive = np.nanmax(V_cube, axis=2)
+#     V_map_negative = np.nanmin(V_cube, axis=2)
+#     final_V_map = np.where(V_map_positive>-V_map_negative, V_map_positive, V_map_negative)
+#     return final_V_map
+#
+# def compute_likelihood_variability(observed_cube, estimated_cube):
+#     """We have access to an expected and observed cubes. Variability is the log likelihood of observing counts above
+#     (resp. below) the observed value, knowing it follows a Poisson variable of expectation the estimated_cube.
+#     Here, this log likelihood takes negative values for eclipses. We take the largest of both possibilities."""
+#     V_cube = np.where(observed_cube>estimated_cube,
+#                       -np.log10(1-poisson.cdf(observed_cube,estimated_cube)),
+#                       +np.log10(poisson.cdf(observed_cube,estimated_cube)))
+#     image_V_min = np.nanmin(V_cube, axis=2)
+#     image_V_max = np.nanmax(V_cube, axis=2)
+#     final_V_map = np.where(image_V_max>-image_V_min, image_V_max, image_V_min)
+#     return np.where(expected_image>0,final_V_map,np.empty(cube.shape[:2])*np.nan)
 
 
 if __name__=="__main__":
@@ -134,9 +136,9 @@ if __name__=="__main__":
     cbar.set_label(r'Max residuals ($\sigma$)')
     plt.show()
 
-    # estimated_cube = compute_expected_cube_using_templates(cube, rejected)
-    # image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
-    #
+    estimated_cube = compute_expected_cube_using_templates(cube, rejected)
+    image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
+
     # Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
     # fig, axes = plt.subplots(1, 3)
     # axes[0].imshow(image, norm=LogNorm(), interpolation='none')
