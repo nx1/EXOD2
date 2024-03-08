@@ -7,6 +7,7 @@ from exod.xmm.observation import Observation
 from exod.utils.path import data_processed
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
+from scipy.ndimage import gaussian_filter
 from scipy.stats import poisson
 from tqdm import tqdm
 import cmasher as cmr
@@ -20,6 +21,9 @@ def compute_expected_cube_using_templates(cube, rejected):
     The sources are dealt with assuming they are constant. We take their net emission, and distribute it evenly across
     all frames."""
 
+    sigma_blurring = 0.5
+    image_total = np.nansum(cube,axis=2)
+
     #GTI template: compute the estimated GTI background
     kept = [ind for ind in range(cube.shape[2]) if ind not in rejected] #Indices of GTIs
     image_GTI = np.nansum(cube[:,:,kept], axis=2) #Image of all GTIs combined, with sources
@@ -29,14 +33,15 @@ def compute_expected_cube_using_templates(cube, rejected):
     countGTI_outside_sources = np.nansum(image_GTI[~boolean_mask_source]) #The total background count of GTIs, outside of the source regions
     mask_source = np.uint8(boolean_mask_source[:, :, np.newaxis]) #Convert the boolean mask to int8 for inpainting
     no_source_image_GTI = inpaint(image_GTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
-    background_GTI_template = no_source_image_GTI/countGTI_outside_sources #Divide the inpainted background by the total count to have a template
-
+    unblurred_background_GTI_template = no_source_image_GTI/countGTI_outside_sources #Divide the inpainted background by the total count to have a template
+    background_GTI_template = np.where(image_total>0,gaussian_filter(unblurred_background_GTI_template, sigma_blurring),np.empty(image_total.shape)*np.nan)
 
     #BTI template: compute the estimated BTI background
     image_BTI = np.nansum(cube[:,:,rejected], axis=2) #Image of all BTIs combined, with sources
     countBTI_outside_sources = np.nansum(image_BTI[~boolean_mask_source]) #The total background count of BTIs, outside of the source regions
     no_source_image_BTI = inpaint(image_BTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
-    background_BTI_template = no_source_image_BTI/countBTI_outside_sources #Divide the inpainted background by the total count to have a template
+    unblurred_background_BTI_template = no_source_image_BTI/countBTI_outside_sources #Divide the inpainted background by the total count to have a template
+    background_BTI_template = np.where(image_total>0,gaussian_filter(unblurred_background_BTI_template, sigma_blurring),np.empty(image_total.shape)*np.nan)
 
 
     #Source contribution
@@ -61,7 +66,7 @@ def compute_expected_cube_using_templates(cube, rejected):
     estimated_cube[:,:,rejected] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[rejected]
     # print(np.min(lightcurve_outside_sources), np.nanmin(lightcurve_outside_sources))
     estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis],cube.shape[2],axis=2)
-    estimated_cube=np.where(np.nansum(cube,axis=(0,1))>5,estimated_cube,np.empty(cube.shape)*np.nan)
+    # estimated_cube=np.where(np.nansum(cube,axis=(0,1))>5,estimated_cube,np.empty(cube.shape)*np.nan)
 
     return estimated_cube
 

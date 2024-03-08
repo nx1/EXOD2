@@ -79,8 +79,8 @@ class EventList:
         event_list.event_lists   = list(event_lists)
         event_list.N_event_lists = len(event_lists)
         event_list.obsid         = event_lists[0].obsid
-        event_list.instrument    = str([e.instrument  for e in event_lists])
-        event_list.submode       = str([e.submode for e in event_lists])
+        event_list.instrument    = [e.instrument  for e in event_lists]#str([e.instrument  for e in event_lists])
+        event_list.submode       = [e.submode for e in event_lists]#str([e.submode for e in event_lists])
         event_list.date          = event_lists[0].date
         event_list.object        = event_lists[0].object
         event_list.time_min      = latest_start #np.min(data_stacked['TIME'])
