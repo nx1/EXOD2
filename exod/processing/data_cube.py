@@ -97,7 +97,7 @@ class DataCubeXMM(DataCube):
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
         # self.remove_bad_frames()
-        self.remove_frames_partial_CCDexposure()
+        # self.remove_frames_partial_CCDexposure() #Now done in data_loader.run()
         super().__init__(self.data)
 
 
@@ -142,21 +142,17 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_bad_frames(self):
-        """Sets frames with total counts below 5 to zero"""
-        self.data = np.where(np.nansum(self.data, axis=(0, 1)) > 5,
-                             self.data,
-                             np.empty(self.data.shape) * np.nan)
-
     def remove_frames_partial_CCDexposure(self):
-        """Allows to remove the frames where at least one CCD is down, while the others are bright (median of the
-        remaining CCDs is over 10). Might need to be adapted to the working CCDs in MOS archive"""
+        """Allows to remove the frames with irregular exposures between CCDs. We remove the frames with no CCDs,
+        the frames with at least one CCD off while the others are bright, and the EPIC pn frames in BTI where
+        there is more than a factor of 2 difference between the brightest and dimmest CCD.
+         Might need to be adapted to the working CCDs in MOS archive"""
 
         for indx_evt_list in range(self.event_list.N_event_lists):
             if self.event_list.instrument[indx_evt_list] == 'EPN':
                 ccd_bins = [1, 4, 7, 10] #We work in quadrants for EPIC pn
             elif self.event_list.instrument[indx_evt_list] == "EMOS1":
-                ccd_bins = [1, 2, 4, 5, 7] #Maybe list(set(self.event_list.data['CCDNR']))?
+                ccd_bins = list(set(self.event_list.data['CCDNR']))
             elif self.event_list.instrument[indx_evt_list] == "EMOS2":
                 ccd_bins = [1, 2, 3, 4, 5, 6, 7]
             ccd_bins.append(13) #Just to get a right edge for the final bin
@@ -164,7 +160,12 @@ class DataCubeXMM(DataCube):
             ccdlightcurves, bin_edges, bin_number  = binned_statistic_dd(sample,
                                                   values=None, statistic='count', bins=[ccd_bins, self.bin_t])
             count_active_ccd = np.sum(ccdlightcurves > 0, axis=0) #Nbr of CCDs active in each frame
-            frames_to_remove = (count_active_ccd<len(ccd_bins)-1)&(np.median(ccdlightcurves, axis=0)>10)
+            frames_to_remove = (count_active_ccd==0) #Remove empty frames
+            if self.event_list.instrument[indx_evt_list] == 'EPN':
+                frames_to_remove = (frames_to_remove |
+                    ((count_active_ccd<len(ccd_bins)-1)&(np.max(ccdlightcurves, axis=0) > 50)) | #Frames with at least one CCD inactive
+                    ((np.array(self.bti_bin_idx_bool[:-1])&((np.max(ccdlightcurves,axis=0)/np.min(ccdlightcurves,axis=0))>3))))
+
             logger.info(f'Removing {np.sum(frames_to_remove)} incomplete frames from {self.event_list.instrument[indx_evt_list]}')
             self.data = np.where(frames_to_remove,
                                  np.empty(self.data.shape) * np.nan,

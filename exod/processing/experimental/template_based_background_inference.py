@@ -47,7 +47,7 @@ def compute_expected_cube_using_templates(cube, rejected):
     #Source contribution
     source_only_image_GTI = image_GTI-no_source_image_GTI #Get the net image of sources in GTIs (after inpainting to have background below sources)
     source_constant_contribution = source_only_image_GTI/len(kept) #Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
-
+    #This line may not work if there are bad frames in GTI
 
     #Create expected cube
     # We don't create this cube because of memory usage. We do it below in a single line
@@ -66,7 +66,7 @@ def compute_expected_cube_using_templates(cube, rejected):
     estimated_cube[:,:,rejected] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[rejected]
     # print(np.min(lightcurve_outside_sources), np.nanmin(lightcurve_outside_sources))
     estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis],cube.shape[2],axis=2)
-    # estimated_cube=np.where(np.nansum(cube,axis=(0,1))>5,estimated_cube,np.empty(cube.shape)*np.nan)
+    estimated_cube=np.where(np.nansum(cube,axis=(0,1))>0,estimated_cube,np.empty(cube.shape)*np.nan)
 
     return estimated_cube
 

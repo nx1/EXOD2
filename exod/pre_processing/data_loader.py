@@ -39,11 +39,12 @@ class DataLoader:
 
         if self.gti_only:
             self.mask_bti_from_data_cube()
+        self.data_cube.remove_frames_partial_CCDexposure()
 
     def get_high_energy_lc(self):
         min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
         max_energy_he = 12.0     # maximum extraction energy for High Energy Background events
-        time_interval_gti = 100  # Window Size to use for GTI extraction
+        time_interval_gti = self.time_interval#100  # Window Size to use for GTI extraction
         data = self.event_list.data
         time_min = self.event_list.time_min
         time_max = self.event_list.time_max
