@@ -23,7 +23,8 @@ def get_bti(time, data, threshold):
     mask = data > threshold  # you can flip this to get the gti instead (it works)
     if mask.all():
         logger.info('All values above threshold! Entire observation is bad :(')
-        raise ValueError(f'Entire Observation is a BTI')
+        return [{'START': time[0], 'STOP': time[-1]}]
+        # raise ValueError(f'Entire Observation is a BTI')
     elif (~mask).all():
         logger.info('All values below Threshold! Entire observation is good :)')
         return []
