@@ -19,6 +19,11 @@ def run_cmd(cmd):
         return ret
 
 
+def check_for_timing_mode(filename):
+    if 'TI' in filename:
+        raise NotImplementedError(f'Timing mode is not supported!')
+
+
 def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clobber=False):
     if outfile.exists() and clobber is False:
         logger.info(f'File {outfile} exists and clobber={clobber}!')
@@ -59,6 +64,7 @@ def filter_obsid_events(obsid, min_energy=0.2, max_energy=12.0, clobber=False):
     for event in observation.events_raw:
         raw_filepath = event.path
         stem = raw_filepath.stem  # The stem is the name of the file without extensions
+        check_for_timing_mode(stem)
         filtered_filename = stem + '_FILT.fits' # The output filename
         filtered_filepath = observation.path_processed / filtered_filename # The output filepath
         if 'PN' in stem:
@@ -90,6 +96,7 @@ def create_obsid_images(obsid, ximagebinsize=80, yimagebinsize=80, clobber=False
     for event in observation.events_raw:
         raw_filepath = event.path
         stem = raw_filepath.stem  # The stem is the name of the file without extensions
+        check_for_timing_mode(stem)
         img_filename = stem + '_IMG.fits' # The output filename
         img_filepath = observation.path_processed / img_filename # The output filepath
         create_image_file(infile=raw_filepath, outfile=img_filepath,
