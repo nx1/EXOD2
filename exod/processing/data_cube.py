@@ -148,25 +148,28 @@ class DataCubeXMM(DataCube):
         there is more than a factor of 2 difference between the brightest and dimmest CCD.
          Might need to be adapted to the working CCDs in MOS archive"""
 
-        for indx_evt_list in range(self.event_list.N_event_lists):
-            if self.event_list.instrument[indx_evt_list] == 'EPN':
+        for evt_list in self.event_list.event_lists:
+            if evt_list.instrument == 'EPN':
                 ccd_bins = [1, 4, 7, 10] #We work in quadrants for EPIC pn
-            elif self.event_list.instrument[indx_evt_list] == "EMOS1":
+            elif evt_list.instrument == "EMOS1":
                 ccd_bins = list(set(self.event_list.data['CCDNR']))
-            elif self.event_list.instrument[indx_evt_list] == "EMOS2":
+            elif evt_list.instrument == "EMOS2":
                 ccd_bins = [1, 2, 3, 4, 5, 6, 7]
             ccd_bins.append(13) #Just to get a right edge for the final bin
-            sample = self.event_list.data['CCDNR'], self.event_list.data['TIME']
+            sample = evt_list.data['CCDNR'], evt_list.data['TIME']
             ccdlightcurves, bin_edges, bin_number  = binned_statistic_dd(sample,
                                                   values=None, statistic='count', bins=[ccd_bins, self.bin_t])
             count_active_ccd = np.sum(ccdlightcurves > 0, axis=0) #Nbr of CCDs active in each frame
             frames_to_remove = (count_active_ccd==0) #Remove empty frames
-            if self.event_list.instrument[indx_evt_list] == 'EPN':
-                frames_to_remove = (frames_to_remove |
-                    ((count_active_ccd<len(ccd_bins)-1)&(np.max(ccdlightcurves, axis=0) > 50)) | #Frames with at least one CCD inactive
-                    ((np.array(self.bti_bin_idx_bool[:-1])&((np.max(ccdlightcurves,axis=0)/np.min(ccdlightcurves,axis=0))>3))))
+            if evt_list.instrument == 'EPN':
+                # Frames with at least one CCD inactive
+                mask1 = ((count_active_ccd < len(ccd_bins) - 1) & (np.max(ccdlightcurves, axis=0) > 50))
+                # Frames in BTI with large differences between CCDs, being combination of frames with inactive CCDs
+                mask2 = (np.array(self.bti_bin_idx_bool[:-1]) &
+                         ((np.max(ccdlightcurves, axis=0) / np.min(ccdlightcurves, axis=0)) > 3))
+                frames_to_remove = frames_to_remove | mask1 | mask2
 
-            logger.info(f'Removing {np.sum(frames_to_remove)} incomplete frames from {self.event_list.instrument[indx_evt_list]}')
+            logger.info(f'Removing {np.sum(frames_to_remove)} incomplete frames from {evt_list.instrument}')
             self.data = np.where(frames_to_remove,
                                  np.empty(self.data.shape) * np.nan,
                                  self.data)

@@ -63,8 +63,8 @@ class EventList:
         data_stacked = data_stacked[(data_stacked['TIME']>latest_start)&(data_stacked['TIME']<earliest_stop)]
 
         # Unload the data from the constituent event lists to save memory
-        for e in event_lists:
-            e.unload_data()
+        # for e in event_lists:
+        #     e.unload_data()
 
         # Write Attributes
         event_list.path     = 'merged'
