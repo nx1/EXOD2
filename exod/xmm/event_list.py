@@ -76,7 +76,7 @@ class EventList:
         event_list.header = None
         event_list.data   = data_stacked
 
-        event_list.event_lists   = list(event_lists)
+        event_list.event_lists   = event_lists
         event_list.N_event_lists = len(event_lists)
         event_list.obsid         = event_lists[0].obsid
         event_list.instrument    = [e.instrument  for e in event_lists]#str([e.instrument  for e in event_lists])
