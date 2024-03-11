@@ -113,9 +113,9 @@ def get_overlapping_eventlist_subsets(event_lists):
         logger.debug('=============')
 
     subsets = disjoint_set.subsets()
-    subsets = [list(s) for s in subsets]  # Convert to list of lists
     logger.info(f'Found {len(subsets)} overlapping subsets.')
 
+    subsets_to_return = []
     for s in subsets:
         if len(s) > 3:
             logger.info(f'Overlapping subset has more than 3 event files ({len(s)})')
@@ -128,8 +128,10 @@ def get_overlapping_eventlist_subsets(event_lists):
             m2_longest = max(m2_evt, key=lambda x: x.exposure)
             pn_longest = max(pn_evt, key=lambda x: x.exposure)
             subset = [[m1_longest, m2_longest, pn_longest]]
-            return subset
-    return subsets
+            subsets_to_return.append(subset)
+        else:
+            subsets_to_return.append(list(s))
+    return subsets_to_return
 
 
 def get_events_overlapping_subsets(observation):
@@ -155,3 +157,12 @@ def get_events_overlapping_subsets(observation):
             evt.read()  # Read all the eventlists to get the times.
         subsets = get_overlapping_eventlist_subsets(observation.events_processed)
         return subsets
+
+
+
+if __name__ == "__main__":
+    observation = Observation('0792180301')
+    observation.get_files()
+    observation.get_events_overlapping_subsets()
+    for subset in observation.events_overlapping_subsets:
+        print(subset)
