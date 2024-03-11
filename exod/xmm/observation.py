@@ -127,7 +127,7 @@ def get_overlapping_eventlist_subsets(event_lists):
             m1_longest = max(m1_evt, key=lambda x: x.exposure)
             m2_longest = max(m2_evt, key=lambda x: x.exposure)
             pn_longest = max(pn_evt, key=lambda x: x.exposure)
-            subset = [[m1_longest, m2_longest, pn_longest]]
+            subset = [m1_longest, m2_longest, pn_longest]
             subsets_to_return.append(subset)
         else:
             subsets_to_return.append(list(s))
