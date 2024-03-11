@@ -78,7 +78,20 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
 
 
 
+def clean_up_peaks(cube, peaks):
+    """Removes peaks coming from flaring CCD edges"""
+    peak_x, peak_y, peak_t = np.where(peaks==True)
+    for (x,y,t) in zip(peak_x, peak_y, peak_t):
+        local_flux = np.nansum(cube[x-5:x+5,y-5:y+5,t])
+        #We reject peaks for which the local emission is bright, more than twice the peak and 10% of the total frame
+        if (local_flux> 2*cube[x,y,t])&(local_flux>0.1*np.nansum(cube[:,:,t])):
+            peaks[x,y,t]=False
+    return peaks
 
+def count_peaks(peaks_or_eclipses):
+    """Counts the individual number of times the lightcurve went above the threshold for variability"""
+    nbr_of_variability_events = np.nansum(np.abs(np.diff(peaks_or_eclipses, axis=2)),axis=2)/2
+    return nbr_of_variability_events
 
 
 
