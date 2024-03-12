@@ -33,9 +33,10 @@ class EventList:
         self.time_min   = np.min(self.data['TIME'])
         self.time_max   = np.max(self.data['TIME'])
 
-        self.check_submode()
-        self.remove_bad_rows()
-        self.remove_borders()
+        self.compatible_mode = self.check_submode()
+        if self.compatible_mode:
+            self.remove_bad_rows()
+            self.remove_borders()
         self.is_read = True
 
     @classmethod
@@ -50,17 +51,20 @@ class EventList:
             if not e.is_read:
                 e.read()
 
+        #Remove the non-compatible modes
+        event_lists = [e for e in event_lists if e.compatible_mode]
+
         #Store the starts and ends of all event lists
-        starts = [e.time_min for e in event_lists]
-        stops = [e.time_max for e in event_lists]
-        latest_start = max(starts)
-        earliest_stop = min(stops)
+        # starts = [e.time_min for e in event_lists]
+        # stops = [e.time_max for e in event_lists]
+        # latest_start = max(starts)
+        # earliest_stop = min(stops)
 
         # Combine the data into a single table
         data_stacked = vstack([e.data for e in event_lists])
 
         #Crop when instruments are not all online
-        data_stacked = data_stacked[(data_stacked['TIME']>latest_start)&(data_stacked['TIME']<earliest_stop)]
+        # data_stacked = data_stacked[(data_stacked['TIME']>latest_start)&(data_stacked['TIME']<earliest_stop)]
 
         # Unload the data from the constituent event lists to save memory
         # for e in event_lists:
@@ -83,8 +87,8 @@ class EventList:
         event_list.submode       = [e.submode for e in event_lists]#str([e.submode for e in event_lists])
         event_list.date          = event_lists[0].date
         event_list.object        = event_lists[0].object
-        event_list.time_min      = latest_start #np.min(data_stacked['TIME'])
-        event_list.time_max      = earliest_stop #np.max(data_stacked['TIME'])
+        event_list.time_min      = np.min(data_stacked['TIME'])#latest_start #
+        event_list.time_max      = np.max(data_stacked['TIME'])#earliest_stop #
         event_list.exposure      = event_list.time_max - event_list.time_min
         event_list.N_events      = len(data_stacked)
         event_list.mean_rate     = event_list.N_events / event_list.exposure
@@ -96,7 +100,9 @@ class EventList:
 
     def check_submode(self):
         if not ALL_SUBMODES[self.submode]:
-            raise NotImplementedError(f"The submode {self.submode} is not supported")
+            # raise NotImplementedError(f"The submode {self.submode} is not supported")
+            logger.info(f"The submode {self.submode} for {self.instrument} is not supported - event list ignored")
+        return ALL_SUBMODES[self.submode]
 
     def remove_bad_rows(self):
         if self.instrument == 'EPN':
