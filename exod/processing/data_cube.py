@@ -166,9 +166,13 @@ class DataCubeXMM(DataCube):
                 mask1 = ((count_active_ccd < len(ccd_bins) - 1) & (np.max(ccdlightcurves, axis=0) > 50))
                 # Frames in BTI with large differences between CCDs, being combination of frames with inactive CCDs
                 mask2 = (np.array(self.bti_bin_idx_bool[:-1]) &
-                         ((np.max(ccdlightcurves, axis=0) / np.min(ccdlightcurves, axis=0)) > 3))
+                         ((np.max(ccdlightcurves, axis=0) / np.min(ccdlightcurves[np.nonzero(ccdlightcurves)], axis=0)) > 3))
                 frames_to_remove = frames_to_remove | mask1 | mask2
-
+            elif evt_list.instrument in ('EMOS1','EMOS2'):
+                if evt_list.submode.startswith('PrimePartial'):
+                    mask3 = (ccdlightcurves[0]==0)&(np.mean(ccdlightcurves[0])>5) #When the main central CCD is off
+                    mask4 = np.concatenate(([False],mask3[:-1])) #We also remove the next frame
+                    frames_to_remove = frames_to_remove | mask3 | mask4
             logger.info(f'Removing {np.sum(frames_to_remove)} incomplete frames from {evt_list.instrument}')
             self.data = np.where(frames_to_remove,
                                  np.empty(self.data.shape) * np.nan,
