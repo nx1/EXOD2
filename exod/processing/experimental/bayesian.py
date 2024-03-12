@@ -9,7 +9,7 @@ from exod.utils.synthetic_data import create_fake_burst,create_fake_onebin_burst
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from scipy.stats import poisson
+from scipy.stats import poisson, binned_statistic_dd
 from scipy.interpolate import interp1d
 from scipy.special import gammainc, gammaincc, gammaincinv
 from tqdm import tqdm
@@ -28,8 +28,8 @@ def bayes_factor_eclipse(n, mu):
 def precompute_bayes_limits(threshold_sigma):
     """Computes the maximum and minimum accepted observed counts, for a given range of mu, so that it is an acceptable
     Poissonian realisation at a given confidence threshold. It is faster to precompute them rather than computing it
-    on the fly during the observation treatment"""
-    range_mu = np.geomspace(1e-7, 5e3, 50000)
+    on the fly during the observation treatment. For large numbers, we use a Gaussian approximation"""
+    range_mu = np.geomspace(1e-7, 1e3, 50000)
     if threshold_sigma==3:
         threshold_peak=5.94
         threshold_eclipse=5.70
@@ -48,10 +48,19 @@ def precompute_bayes_limits(threshold_sigma):
         result=bayes_factor_eclipse(range_n_eclipse,mu)
         tab_neclipse.append(range_n_eclipse[result<threshold_eclipse][0])
 
+    range_mu_large=np.geomspace(1e3,1e6,1000)
+    def delta_largemu(x, sigma_threshold):
+        return np.sqrt((2*x + sigma_threshold**2)**2 -4*(x**2-x*(sigma_threshold**2)))
+
+    tab_npeak+=list((2*range_mu_large+threshold_sigma**2+delta_largemu(range_mu_large,sigma_threshold=threshold_sigma))/2)
+    tab_neclipse+=list((2*range_mu_large+threshold_sigma**2-delta_largemu(range_mu_large,sigma_threshold=threshold_sigma))/2)
+    range_mu=np.concatenate((range_mu,range_mu_large))
+
+
     plt.figure(figsize=(5, 5))
-    plt.plot(range_mu, range_mu, label=r'$\mu=B$')
-    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'$B_{{peak}} > 10^{threshold_peak}$', lw=1.0)
-    plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'$B_{{eclipse}} > 10^{threshold_eclipse}$', lw=1.0)
+    plt.plot(range_mu, range_mu, label=r'$N=\mu$')
+    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'$B_{{peak}} > 10^{{{threshold_peak}}}$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'$B_{{eclipse}} > 10^{{{threshold_eclipse}}}$', lw=1.0)
     plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.2, label=fr'$3 \sigma$ Region')
     plt.yscale('log')
     plt.xscale('log')
@@ -95,129 +104,105 @@ def variability_maps(cube, expected, threshold_sigma):
     eclipse =  cube<maximum_for_eclipse(np.where(expected>range_mu[0], expected, np.nan))
     return peaks, eclipse
 
-def clean_up_peaks(cube, peaks):
-    """Removes peaks coming from flaring CCD edges"""
-    peak_x, peak_y, peak_t = np.where(peaks==True)
-    for (x,y,t) in zip(peak_x, peak_y, peak_t):
-        local_flux = np.nansum(cube[x-5:x+5,y-5:y+5,t])
-        #We reject peaks for which the local emission is bright, more than twice the peak and 10% of the total frame
-        if (local_flux> 2*cube[x,y,t])&(local_flux>0.1*np.nansum(cube[:,:,t])):
-            peaks[x,y,t]=False
-    return peaks
-
-def repeated_peaks(cube,expected,threshold_sigma):
-    peaks, eclipses = variability_maps(cube, expected, threshold_sigma)
-    nbr_of_peaks = np.nansum(np.abs(np.diff(peaks, axis=2)),axis=2)/2
-    return nbr_of_peaks
-
 if __name__=="__main__":
-    obsid='0765080801'#'0872390901' #'0886121001'#
-    size_arcsec = 20
-    time_interval = 5
-    gti_only = False
-    gti_threshold = 1.5
-    min_energy = 0.2
-    max_energy = 2.0
+    from exod.pre_processing.download_observations import read_observation_ids
+    from exod.utils.path import data
 
-    threshold_sigma=3
+    obsids = read_observation_ids(data / 'observations.txt')
+    # obsids=['0792180301']
+    # obsids=['0112570701']
+    # obsids=['0761690301']#'0764420101',
+    for obsid in tqdm(obsids[:10]):
+        # obsid='0765080801'#'0886121001'#'0872390901' #
+        print(obsid)
+        size_arcsec = 20
+        time_interval = 5
+        gti_only = False
+        gti_threshold = 1.5
+        min_energy = 0.2
+        max_energy = 12.0
 
-    # Load data
-    observation = Observation(obsid)
-    observation.get_files()
-    observation.get_events_overlapping_subsets()
-    event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
-    # event_list = observation.events_processed_pn[0]
-    # event_list.read()
-    dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
-                    gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
-    dl.run()
-    cube = dl.data_cube.data
-    rejected = dl.data_cube.bti_bin_idx
-    print("Cube loaded ! Adding synthetic data...")
-    cube_with_peak = cube + create_fake_Nbins_burst(dl.data_cube, 20, 30,
-                                                     time_peak_fractions=(0.3,0.4,0.6,0.7), amplitude=30)
-    estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
+        threshold_sigma=3
 
-    print("Computing variability...")
-    peaks, eclipses=variability_maps(cube_with_peak, estimated_cube, threshold_sigma=threshold_sigma)
-    nbr_of_peaks = repeated_peaks(cube_with_peak,estimated_cube,threshold_sigma=threshold_sigma)
-    range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
-    range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(threshold_sigma=5)
+        # Load data
+        observation = Observation(obsid)
+        observation.get_files()
+        try:
+            observation.get_events_overlapping_subsets()
+            for ind_exp,subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+                event_list = EventList.from_event_lists(subset_overlapping_exposures)
+                # event_list = observation.events_processed_pn[0]
+                # event_list.read()
+                dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
+                                gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+                dl.run()
+                cube = dl.data_cube.data
+                rejected = dl.data_cube.bti_bin_idx
+                print("Cube loaded ! Adding synthetic data...")
+                cube_with_peak = cube + create_fake_Nbins_burst(dl.data_cube, 20, 30,
+                                                                 time_peak_fractions=(0.3,0.4,0.6,0.7), amplitude=20)
+                estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
 
-    fig, axes= plt.subplots(2,2)
-    colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.5))
-    plt.suptitle(f'Binning {time_interval}s')
-    axes[0][0].imshow(np.nansum(cube_with_peak, axis=2), norm=LogNorm(), interpolation='none')
-    axes[1][0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
-                      vmax=1,vmin=0, interpolation='none')
-    m=axes[1][1].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(eclipses, axis=2),np.empty(cube.shape[:2])*np.nan), interpolation='none')
-    # m=axes[1][1].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,nbr_of_peaks,np.empty(cube.shape[:2])*np.nan), interpolation='none')
-    # cbar=plt.colorbar(ax=axes[1][1],mappable=m)
-    # cbar.set_label("Nbr of peaks")
+                print("Computing variability...")
+                peaks, eclipses=variability_maps(cube_with_peak, estimated_cube, threshold_sigma=threshold_sigma)
+                range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
+                range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(threshold_sigma=5)
+                fig, axes= plt.subplots(2,2)
+                colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.5))
+                plt.suptitle(f'ObsID {obsid} -- Exposure {ind_exp} --  Binning {time_interval}s')
+                axes[0][0].imshow(np.nansum(cube_with_peak, axis=2), norm=LogNorm(), interpolation='none')
+                axes[1][0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
+                                  vmax=1,vmin=0, interpolation='none')
+                m=axes[1][1].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(eclipses, axis=2),np.empty(cube.shape[:2])*np.nan), interpolation='none')
+                # cbar=plt.colorbar(ax=axes[1][1],mappable=m)
+                # cbar.set_label("Nbr of peaks")
 
-    legend_plots=[]
-    legend_labels=[]
-    x,y = 82,62
-    p3=axes[0][1].plot(range(estimated_cube.shape[2]), cube_with_peak[x,y],c=colors[0])
-    p1=axes[0][1].plot(range(estimated_cube.shape[2]), estimated_cube[x,y],c=colors[1])
-    axes[0][1].set_yscale('log')
-    axes[0][1].fill_between(range(cube.shape[2]),
-                            maximum_for_eclipse_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
-                            minimum_for_peak_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
-                            alpha=0.3,facecolor=colors[1])
-    axes[0][1].fill_between(range(cube.shape[2]),
-                            maximum_for_eclipse_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
-                            minimum_for_peak_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
-                            alpha=0.3,facecolor=colors[1])
-    p2=axes[0][1].fill(np.NaN,np.NaN,c=colors[1],alpha=0.3)
-    legend_plots.append((p1[0],p2[0]))
-    legend_labels.append("Expected")
-    legend_plots.append((p3[0],))
-    legend_labels.append("Observed")
-    axes[0][1].scatter(range(len(estimated_cube[x,y])), peaks[x,y],c='r',marker='^',zorder=1)
-    axes[0][1].scatter(range(len(estimated_cube[x,y])), eclipses[x,y],c='r',marker='v',zorder=1)
+                legend_plots=[]
+                legend_labels=[]
+                x,y = 80,44
+                time_axis = np.arange(estimated_cube.shape[2])*time_interval
+                p3=axes[0][1].plot(time_axis, cube_with_peak[x,y],c=colors[0])
+                p1=axes[0][1].plot(time_axis, estimated_cube[x,y],c=colors[1])
+                axes[0][1].set_yscale('log')
+                axes[0][1].fill_between(time_axis,
+                                        maximum_for_eclipse_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
+                                        minimum_for_peak_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
+                                        alpha=0.3,facecolor=colors[1])
+                axes[0][1].fill_between(time_axis,
+                                        maximum_for_eclipse_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
+                                        minimum_for_peak_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
+                                        alpha=0.3,facecolor=colors[1])
+                p2=axes[0][1].fill(np.NaN,np.NaN,c=colors[1],alpha=0.3)
+                axes[0][1].set_xlabel("Time (s)")
+                axes[0][1].scatter(time_axis, peaks[x,y],c='r',marker='^',zorder=1)
+                axes[0][1].scatter(time_axis, eclipses[x,y],c='r',marker='v',zorder=1)
 
-    axes[0][1].legend(legend_plots,legend_labels)
-    print(np.nansum(cube_with_peak[x, y]), np.sum(peaks[x,y]),
-              np.nansum(cube_with_peak[x,y])-np.nansum(cube[x,y]),
-              np.nansum(cube_with_peak)-np.nansum(cube))
+                second_axis_func = (lambda x: x/time_interval, lambda x: time_interval*x)
+                secax = axes[0][1].secondary_xaxis('top', functions=second_axis_func)
+                secax.set_xlabel("Time (frame #)")
+                legend_plots.append((p1[0],p2[0]))
+                legend_labels.append("Expected")
+                legend_plots.append((p3[0],))
+                legend_labels.append("Observed")
 
-    axes[0][0].axis('off')
-    axes[1][0].axis('off')
-    axes[1][1].axis('off')
-    plt.show()
+                axes[0][1].legend(legend_plots,legend_labels)
+                print(np.nansum(peaks), np.nansum(np.where(np.nansum(peaks, axis=2)>0)))
+                axes[0][0].axis('off')
+                axes[1][0].axis('off')
+                axes[1][1].axis('off')
+                plt.show()
+                # plt.figure()
+                # plt.imshow(dl.data_cube.data[:, :, 1000], norm=LogNorm(), interpolation='none')
+                # plt.figure()
+                # plt.imshow(dl.data_cube.data[:, :, 1500], norm=LogNorm(), interpolation='none')
+        except KeyError:
+            pass
+        #
+        # fig,axes=plt.subplots(1,2)
+        # axes[0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
+        #                   vmax=1,vmin=0, interpolation='none')
+        # cleaned_peaks=clean_up_peaks(cube_with_peak,peaks)
+        # axes[1].imshow(
+        #     np.where(np.nansum(cube_with_peak, axis=2) > 0, np.nansum(cleaned_peaks, axis=2), np.empty(cube.shape[:2]) * np.nan),
+        #     vmax=1, vmin=0, interpolation='none')
 
-    fig,axes=plt.subplots(1,2)
-    axes[0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
-                      vmax=1,vmin=0, interpolation='none')
-    cleaned_peaks=clean_up_peaks(cube_with_peak,peaks)
-    axes[1].imshow(
-        np.where(np.nansum(cube_with_peak, axis=2) > 0, np.nansum(cleaned_peaks, axis=2), np.empty(cube.shape[:2]) * np.nan),
-        vmax=1, vmin=0, interpolation='none')
-    # for time_interval in (5,10,100,1000):
-    #
-    #     dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
-    #                     gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
-    #     dl.run()
-    #
-    #     cube = dl.data_cube.data
-    #     rejected = dl.data_cube.bti_bin_idx
-    #
-    #     cube_with_peak = cube+create_fake_onebin_burst(dl.data_cube,25, 25,
-    #                                                    time_peak_fraction=0.3, amplitude=10)
-    #
-    #     estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
-    #     peaks, eclipses=variability_maps(cube_with_peak, estimated_cube, threshold_sigma=5)
-    #     fig, axes= plt.subplots(2,2)
-    #     plt.suptitle(f'Binning {time_interval}s')
-    #     axes[0][0].imshow(np.nansum(cube_with_peak, axis=2), norm=LogNorm(), interpolation='none')
-    #     axes[1][0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
-    #                       vmax=1,vmin=0, interpolation='none')
-    #     axes[1][1].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(eclipses, axis=2),np.empty(cube.shape[:2])*np.nan),
-    #                       vmax=1,vmin=0, interpolation='none')
-    #     axes[0][1].plot(cube_with_peak[25,25])
-    #     axes[0][1].plot(estimated_cube[25,25],ls=':')
-    #     axes[0][1].set_yscale('log')
-    #     print(np.nansum(cube_with_peak[25,25]),
-    #           np.nansum(cube_with_peak[25,25])-np.nansum(cube[25,25]),
-    #           np.nansum(cube_with_peak)-np.sum(cube))
