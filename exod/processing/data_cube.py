@@ -162,12 +162,11 @@ class DataCubeXMM(DataCube):
             count_active_ccd = np.sum(ccdlightcurves > 0, axis=0) #Nbr of CCDs active in each frame
             frames_to_remove = (count_active_ccd==0) #Remove empty frames
             if evt_list.instrument == 'EPN':
-                # Frames with at least one CCD inactive
-                mask1 = ((count_active_ccd < len(ccd_bins) - 1) & (np.max(ccdlightcurves, axis=0) > 50))
-                # Frames in BTI with large differences between CCDs, being combination of frames with inactive CCDs
-                mask2 = (np.array(self.bti_bin_idx_bool[:-1]) &
-                         ((np.max(ccdlightcurves, axis=0) / np.min(ccdlightcurves[np.nonzero(ccdlightcurves)], axis=0)) > 3))
-                frames_to_remove = frames_to_remove | mask1 | mask2
+                # We remove bright frames in BTI, that have either one inactive CCD or a ratio between brightest and faintest over 3
+                # This corresponds to fully or partially inactive quadrants for pn
+                mask1 = (np.max(ccdlightcurves, axis=0) > 10) & (np.array(self.bti_bin_idx_bool[:-1])) & \
+                ((count_active_ccd < len(ccd_bins) - 1) | ((np.max(ccdlightcurves, axis=0) / np.min(ccdlightcurves, axis=0)) > 3))
+                frames_to_remove = frames_to_remove | mask1
             elif evt_list.instrument in ('EMOS1','EMOS2'):
                 if evt_list.submode.startswith('PrimePartial'):
                     mask3 = (ccdlightcurves[0]==0)&(np.mean(ccdlightcurves[0])>5) #When the main central CCD is off

@@ -1,53 +1,78 @@
+from exod.pre_processing.data_loader import DataLoader
+from exod.xmm.event_list import EventList
+from exod.xmm.observation import Observation
+from exod.utils.path import data_processed
+from exod.pre_processing.read_events import get_PN_image_file
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
-import os
-from exod.pre_processing.data_loader import DataLoader
-from exod.xmm.observation import Observation
-from exod.utils.path import data_processed
-from exod.utils.synthetic_data import create_fake_burst
-from cv2 import inpaint, INPAINT_NS, filter2D
+from cv2 import inpaint, INPAINT_NS, INPAINT_TELEA, filter2D
 from scipy.ndimage import gaussian_filter
-from scipy.stats import poisson
-from tqdm import tqdm
-import cmasher as cmr
-from scipy.stats import poisson
+from skimage.draw import disk
+from astropy.table import Table
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+import astropy.units as u
+from astropy.io import fits
+from astropy.convolution import convolve, Gaussian2DKernel
+from scipy.interpolate import interp1d
 
-def compute_expected_cube_using_templates(cube, rejected):
+
+def compute_expected_cube_using_templates(data_cube):
     """Computes a baseline expected cube, combining background and sources. Any departure from this expected cube
     corresponds to variability.
     The background is dealt with by assuming that all GTIs and BTIs follow respective templates (i.e., once each frame
     is divided by its total counts, they all look the same).
     The sources are dealt with assuming they are constant. We take their net emission, and distribute it evenly across
     all frames."""
+    cube=data_cube.data
+    bti_indices=data_cube.bti_bin_idx
 
     sigma_blurring = 0.5
     image_total = np.nansum(cube,axis=2)
 
     #GTI template: compute the estimated GTI background
-    kept = [ind for ind in range(cube.shape[2]) if ind not in rejected] #Indices of GTIs
-    image_GTI = np.nansum(cube[:,:,kept], axis=2) #Image of all GTIs combined, with sources
-    source_threshold=np.nanpercentile(image_GTI.flatten(), 99) #This or from detected sources
-    boolean_mask_source = image_GTI > source_threshold #Mask to get only sources afterwards
+    gti_indices = [ind for ind in range(cube.shape[2]) if ind not in bti_indices] #Indices of GTIs
+    image_GTI = np.nansum(cube[:,:,gti_indices], axis=2)
+    image_GTI = np.where(image_GTI>0,image_GTI,np.full(cube.shape[:2],np.nan))#Image of all GTIs combined, with sources
+    # source_threshold=np.nanpercentile(image_GTI.flatten(), 99) #This or from detected sources
+    # boolean_mask_source = image_GTI > source_threshold #Mask to get only sources afterwards
+    boolean_mask_source = mask_known_sources(data_cube)
+    boolean_mask_source = boolean_mask_source|(image_GTI>3*np.nanpercentile(image_GTI[~boolean_mask_source],75))
 
     countGTI_outside_sources = np.nansum(image_GTI[~boolean_mask_source]) #The total background count of GTIs, outside of the source regions
     mask_source = np.uint8(boolean_mask_source[:, :, np.newaxis]) #Convert the boolean mask to int8 for inpainting
     no_source_image_GTI = inpaint(image_GTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
     unblurred_background_GTI_template = no_source_image_GTI/countGTI_outside_sources #Divide the inpainted background by the total count to have a template
-    background_GTI_template = np.where(image_total>0,gaussian_filter(unblurred_background_GTI_template, sigma_blurring),np.empty(image_total.shape)*np.nan)
+    blurred_background_GTI_template = convolve(unblurred_background_GTI_template, Gaussian2DKernel(sigma_blurring))
+    mask_missing_pixels = np.uint8(((image_GTI>0)&np.isnan(blurred_background_GTI_template))[:, :, np.newaxis])
+    blurred_background_GTI_template = inpaint(blurred_background_GTI_template.astype(np.float32)[:,:,np.newaxis], mask_missing_pixels, 2, flags=INPAINT_NS)
+    background_GTI_template = np.where(image_total>0, blurred_background_GTI_template ,np.empty(image_total.shape)*np.nan)
+    # background_GTI_template=unblurred_background_GTI_template
 
     #BTI template: compute the estimated BTI background
-    image_BTI = np.nansum(cube[:,:,rejected], axis=2) #Image of all BTIs combined, with sources
-    countBTI_outside_sources = np.nansum(image_BTI[~boolean_mask_source]) #The total background count of BTIs, outside of the source regions
-    no_source_image_BTI = inpaint(image_BTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
-    unblurred_background_BTI_template = no_source_image_BTI/countBTI_outside_sources #Divide the inpainted background by the total count to have a template
-    background_BTI_template = np.where(image_total>0,gaussian_filter(unblurred_background_BTI_template, sigma_blurring),np.empty(image_total.shape)*np.nan)
-
+    if len(bti_indices)>0:
+        image_BTI = np.nansum(cube[:,:,bti_indices], axis=2) #Image of all BTIs combined, with sources
+        countBTI_outside_sources = np.nansum(image_BTI[~boolean_mask_source]) #The total background count of BTIs, outside of the source regions
+        no_source_image_BTI = inpaint(image_BTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
+        unblurred_background_BTI_template = no_source_image_BTI/countBTI_outside_sources #Divide the inpainted background by the total count to have a template
+        blurred_background_BTI_template = convolve(unblurred_background_BTI_template, Gaussian2DKernel(sigma_blurring))
+        mask_missing_pixels = np.uint8(((image_GTI > 0) & np.isnan(blurred_background_GTI_template))[:, :, np.newaxis])
+        blurred_background_BTI_template = inpaint(blurred_background_BTI_template.astype(np.float32)[:, :, np.newaxis],
+                                                  mask_missing_pixels, 2, flags=INPAINT_NS)
+        background_BTI_template = np.where(image_total>0, blurred_background_BTI_template, np.empty(image_total.shape)*np.nan)
+    # background_BTI_template=unblurred_background_BTI_template
 
     #Source contribution
-    source_only_image_GTI = image_GTI-no_source_image_GTI #Get the net image of sources in GTIs (after inpainting to have background below sources)
-    source_constant_contribution = source_only_image_GTI/len(kept) #Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
-    #This line may not work if there are bad frames in GTI
+    if len(bti_indices)<cube.shape[2]/2:
+        source_only_image_GTI = np.where(boolean_mask_source, image_GTI-background_GTI_template*countGTI_outside_sources,np.zeros(image_GTI.shape))#Get the net image of sources in GTIs (after inpainting to have background below sources)
+        source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI,np.zeros(image_GTI.shape))
+        source_constant_contribution = source_only_image_GTI / len(gti_indices)  # Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
+    else:
+        source_only_image_BTI = np.where(boolean_mask_source, image_BTI-background_BTI_template*countGTI_outside_sources,np.zeros(image_BTI.shape)) #Get the net image of sources in BTIs (after inpainting to have background below sources)
+        source_only_image_BTI = np.where(source_only_image_BTI>0, source_only_image_BTI,np.zeros(image_GTI.shape))
+        source_constant_contribution = source_only_image_BTI / np.sum(np.nansum(cube[:,:,bti_indices], axis=(0,1))>0)
 
     #Create expected cube
     # We don't create this cube because of memory usage. We do it below in a single line
@@ -62,130 +87,129 @@ def compute_expected_cube_using_templates(cube, rejected):
     #We then create the estimated cube. For both GTI and BTI, we estimate their background by using the lightcurve and
     #the templates. We then add the expected constant source contribution
     estimated_cube = np.empty(cube.shape)
-    estimated_cube[:,:,kept] = background_GTI_template[:,:,np.newaxis]*lightcurve_outside_sources[kept]
-    estimated_cube[:,:,rejected] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[rejected]
+    estimated_cube[:,:,gti_indices] = background_GTI_template[:,:,np.newaxis]*lightcurve_outside_sources[gti_indices]
+    if len(bti_indices)>0:
+        estimated_cube[:,:,bti_indices] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[bti_indices]
     # print(np.min(lightcurve_outside_sources), np.nanmin(lightcurve_outside_sources))
     estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis],cube.shape[2],axis=2)
     estimated_cube=np.where(np.nansum(cube,axis=(0,1))>0,estimated_cube,np.empty(cube.shape)*np.nan)
 
     return estimated_cube
 
-# def compute_variability(observed_cube, estimated_cube):
-#     """We have access to an expected and observed cubes. Variability is residuals between them.
-#     It can be positive or negative, and exceed thresholds several times. V_cube is the basic tool to exploit for this,
-#     it corresponds to the residuals cube. A variability map can be built then, taking the largest excess (> or < 0)."""
-#     V_cube = (observed_cube-estimated_cube)/np.sqrt(observed_cube+estimated_cube)
-#     V_map_positive = np.nanmax(V_cube, axis=2)
-#     V_map_negative = np.nanmin(V_cube, axis=2)
-#     final_V_map = np.where(V_map_positive>-V_map_negative, V_map_positive, V_map_negative)
-#     return final_V_map
-#
-# def compute_likelihood_variability(observed_cube, estimated_cube):
-#     """We have access to an expected and observed cubes. Variability is the log likelihood of observing counts above
-#     (resp. below) the observed value, knowing it follows a Poisson variable of expectation the estimated_cube.
-#     Here, this log likelihood takes negative values for eclipses. We take the largest of both possibilities."""
-#     V_cube = np.where(observed_cube>estimated_cube,
-#                       -np.log10(1-poisson.cdf(observed_cube,estimated_cube)),
-#                       +np.log10(poisson.cdf(observed_cube,estimated_cube)))
-#     image_V_min = np.nanmin(V_cube, axis=2)
-#     image_V_max = np.nanmax(V_cube, axis=2)
-#     final_V_map = np.where(image_V_max>-image_V_min, image_V_max, image_V_min)
-#     return np.where(expected_image>0,final_V_map,np.empty(cube.shape[:2])*np.nan)
+def mask_known_sources(data_cube):
+    obsid= data_cube.event_list.obsid
+    path_source_file = data_processed / f'{obsid}'
+    source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
+    tab_src = Table(fits.open(source_file_path)[1].data)
 
+    # We include bright (i.e. large DET_ML) point sources & extended sources
+    point_sources = tab_src[(tab_src['EP_DET_ML']>8)&(tab_src['EP_EXTENT']==0.)]
+    radius_point_sources = [cropping_radius_counts(data_cube,counts) for counts in point_sources['EP_TOT']]
+    extended_sources = tab_src[(tab_src['EP_DET_ML']>8)&(tab_src['EP_EXTENT']>0.)]
+    radius_extended_sources = extended_sources['EP_EXTENT']
+
+    # Get Image Coordinates
+    img_file = get_PN_image_file(obsid=obsid)
+    hdul = fits.open(img_file)
+    header = hdul[0].header
+    wcs = WCS(header=header)
+
+    mask = np.full(data_cube.shape[:2],False)
+    # Plot
+    # im = np.nansum(data_cube.data, axis=2)
+    # plt.figure(figsize=(10, 10))
+    for tab_data, tab_radius, color in zip((point_sources,extended_sources),
+                                           (radius_point_sources,radius_extended_sources),
+                                           ('r','y')):
+        if len(tab_data)>0:
+            # Create skycoord
+            sc = SkyCoord(ra=tab_data['RA'], dec=tab_data['DEC'], unit='deg')
+            x_img, y_img = wcs.world_to_pixel(sc)
+
+            # Convert to Sky Coordinates
+            X = x_img * 80
+            Y = y_img * 80
+
+            # Remove values outside the cube
+            xcube_max, xcube_min = data_cube.bin_x[-1], data_cube.bin_x[0]
+            ycube_max, ycube_min = data_cube.bin_y[-1], data_cube.bin_y[0]
+            XY = np.array([[x, y] for x, y in zip(X, Y) if ((x < xcube_max) and
+                                                            (y < ycube_max) and
+                                                            (x > xcube_min) and
+                                                            (y > ycube_min))]).T
+            X = XY[0]
+            Y = XY[1]
+
+            # Interpolate to Cube coordinates & Round to int
+            interp_x_cube = interp1d(x=data_cube.bin_x, y=range(data_cube.shape[0]))
+            interp_y_cube = interp1d(x=data_cube.bin_y, y=range(data_cube.shape[1]))
+            x_cube = interp_x_cube(X)
+            y_cube = interp_y_cube(Y)
+
+            # # Plot
+            # im = np.nansum(data_cube.data, axis=2)
+            # plt.figure(figsize=(10, 10))
+            # plt.imshow(im.T, origin='lower', norm=LogNorm(), interpolation='none')
+            # plt.scatter(x_cube, y_cube, color='red', marker='x', s=5)
+            for x,y,rad in zip(x_cube, y_cube, tab_radius):
+                radius_image = rad/data_cube.size_arcsec
+                rr, cc = disk((x, y), radius_image)
+                kept_pixels = (rr>0) & (rr<data_cube.shape[0]-1) & (cc>0) & (cc<data_cube.shape[1]-1) #Keep mask pixels only if in image
+                rr, cc = rr[kept_pixels], cc[kept_pixels]
+                mask[rr, cc]=True
+                # im[rr,cc]=np.nan
+                # circle=plt.Circle((x, y), radius_image, color=color,fill=False)
+                # plt.gca().add_patch(circle)
+    # plt.imshow(im.T, origin='lower', norm=LogNorm(vmax=1e3), interpolation='none')
+    # plt.show()
+    # for x, y in zip(x_cube, y_cube):
+    #     im[x - 1:x + 1, y - 1:y + 1] = 0
+    #
+    # plt.figure(figsize=(10, 10))
+    # plt.imshow(im.T, origin='lower', norm=LogNorm(), interpolation='none')
+    return mask
+
+def cropping_radius_counts(datacube, epic_total_rate):
+    if epic_total_rate>1:
+        return 80
+    elif epic_total_rate>0.1:
+        return 40
+    else:
+        return datacube.size_arcsec
 
 if __name__=="__main__":
-    obsid='0872390901'#'0886121001'#'0831790701' #
-    size_arcsec = 20
-    time_interval = 5
-    gti_only = False
-    gti_threshold = 0.5
-    min_energy = 0.5
-    max_energy = 12.0
 
-    observation = Observation(obsid)
-    observation.get_files()
+    from exod.pre_processing.download_observations import read_observation_ids
+    from exod.utils.path import data
+    obsids = read_observation_ids(data / 'observations.txt')
+    for obsid in obsids[:5]:
+        size_arcsec = 20
+        time_interval = 10
+        gti_only = False
+        gti_threshold = 1.5
+        min_energy = 0.2
+        max_energy = 12.0
 
-    event_list = observation.events_processed_pn[0]
-    event_list.read()
+        threshold_sigma = 3
 
-    img = observation.images[0]
-    img.read(wcs_only=True)
-
-    dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
-                    gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
-    dl.run()
-
-    cube = dl.data_cube.data
-    rejected = dl.data_cube.bti_bin_idx
-
-    plt.figure()
-    plt.plot(np.nansum(cube,axis=(0,1)))
-    plt.yscale('log')
-
-    estimated_cube = compute_expected_cube_using_templates(cube, rejected)
-    image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
-
-
-    # fig, ax = plt.subplots(1,3)
-    # ax[0].imshow(image, norm=LogNorm())
-    # ax[1].imshow(expected_image, norm=LogNorm())
-    # ax[2].imshow((image-expected_image)/np.sqrt(image+expected_image), vmin=-1, vmax=1)
-    # plt.show()
-
-    Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
-    fig, axes = plt.subplots(1, 3)
-    axes[0].imshow(image, norm=LogNorm(), interpolation='none')
-    axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
-    cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
-    cbar.set_label(r'Max residuals ($\sigma$)')
-    plt.show()
-
-    estimated_cube = compute_expected_cube_using_templates(cube, rejected)
-    image, expected_image = np.nansum(cube, axis=2), np.nansum(estimated_cube, axis=2)
-
-    # Vmap = np.where(expected_image>0,compute_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
-    # fig, axes = plt.subplots(1, 3)
-    # axes[0].imshow(image, norm=LogNorm(), interpolation='none')
-    # axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    # m=axes[2].imshow(Vmap, vmin=-3, vmax=3, cmap='cmr.redshift_r', interpolation='none')
-    # cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
-    # cbar.set_label(r'Max residuals ($\sigma$)')
-    # plt.show()
-    #
-    # Vmap = np.where(expected_image>0,compute_likelihood_variability(cube, estimated_cube),np.empty(cube.shape[:2])*np.nan)
-    # fig, axes = plt.subplots(1, 3)
-    # axes[0].imshow(image, norm=LogNorm(), interpolation='none')
-    # axes[1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    # m=axes[2].imshow(Vmap, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
-    # cbar=plt.colorbar(mappable=m, ax=axes[2],fraction=0.046, pad=0.04)
-    # cbar.set_label(r'Transient log likelihood')
-    # plt.show()
-
-    #Check result on frames. This uses pre-computed frames, run the code in compute_expected_cube_using_templates in the console to use this
-    # for frame_index in range(cube.shape[2]):
-    #     fig, ax = plt.subplots(2, 2)
-    #     image = cube[:, :, frame_index]
-    #     expected_image = estimated_cube[:, :, frame_index]
-    #     # image = np.where(cube[:,:,frame_index]>0,cube[:,:,frame_index],np.nan)
-    #     # expected_image=np.where(estimated_cube[:,:,frame_index]>0,estimated_cube[:,:,frame_index],np.nan)
-    #     ax[0][0].imshow(image, norm=LogNorm(), interpolation='none')
-    #     ax[0][1].imshow(expected_image, norm=LogNorm(), interpolation='none')
-    #     m=ax[1][0].imshow((image - expected_image) / np.sqrt(image + expected_image), vmin=-2, vmax=2, cmap='cmr.redshift_r', interpolation='none')
-    #     cbar = plt.colorbar(mappable=m, ax=ax[1][0], fraction=0.046, pad=0.04)
-    #     cbar.set_label(r'Max residuals ($\sigma$)')
-    #
-    #     poisson_cdf = poisson.cdf(image,expected_image)
-    #     residuals_poisson = np.where(image>expected_image,-np.log10(1-poisson.cdf(image,expected_image)),+np.log10(poisson.cdf(image,expected_image)))
-    #     m=ax[1][1].imshow(residuals_poisson, vmin=-4, vmax=4, cmap='cmr.redshift_r', interpolation='none')
-    #     cbar = plt.colorbar(mappable=m, ax=ax[1][1], fraction=0.046, pad=0.04)
-    #     cbar.set_label(r'Transient log likelihood')
-    #     fig.set_figwidth(10)
-    #     fig.set_figheight(10)
-    #
-    #     for ax in ax.flatten():
-    #         ax.axis("off")
-    #     plt.show()
-
+        try:
+            # Load data
+            observation = Observation(obsid)
+            observation.get_files()
+            observation.get_events_overlapping_subsets()
+            for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+                event_list = EventList.from_event_lists(subset_overlapping_exposures)
+                # event_list = observation.events_processed_pn[0]
+                # event_list.read()
+                dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval,
+                                gti_only=gti_only,
+                                gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+                dl.run()
+                data_cube=dl.data_cube
+                estimated_cube=compute_expected_cube_using_templates(data_cube)
+        except FileNotFoundError:
+            pass
+        except KeyError:
+            pass
 
 

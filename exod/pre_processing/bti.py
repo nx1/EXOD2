@@ -105,6 +105,7 @@ def get_bti_bin_idx(bti, bin_t):
         idxs = np.arange(idx_starts[i], idx_stops[i], 1)
         bti_bin_idx = np.append(bti_bin_idx, idxs)
     bti_bin_idx = bti_bin_idx.astype(int)
+    logger.info(f'{len(bti_bin_idx)} bins in BTI out of {len(bin_t)}')
     return bti_bin_idx
 
 

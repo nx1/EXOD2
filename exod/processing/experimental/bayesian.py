@@ -85,17 +85,6 @@ def load_precomputed_bayes_limits(threshold_sigma):
     return range_mu, minimum_for_peak, maximum_for_eclipse
 
 
-def peak_rate_estimate(fraction, N, mu):
-    """Estimate the upper limit on the rate of the peak, given an expected and observed counts,
-     and a confidence fraction"""
-    return gammaincinv(N+1, fraction*gammaincc(N+1, mu) + gammainc(N+1, mu)) - mu
-
-
-def eclipse_rate_estimate(fraction, N, mu):
-    """Estimate the upper limit on the rate of the eclipse, given an expected and observed counts,
-     and a confidence fraction"""
-    return mu - gammaincinv(N+1, gammainc(N+1, mu) - fraction*gammainc(N+1, mu))
-
 
 def variability_maps(cube, expected, threshold_sigma):
     """Returns two cubes with booleans where the rate correspond to a peak or an eclipse"""
@@ -111,18 +100,19 @@ if __name__=="__main__":
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids=['0792180301']
     # obsids=['0112570701']
-    # obsids=['0761690301']#'0764420101',
-    for obsid in tqdm(obsids[:10]):
+    # obsids=['0810811801']#'0764420101',
+    # obsids=['0911990501']
+    for obsid in tqdm(obsids):
         # obsid='0765080801'#'0886121001'#'0872390901' #
         print(obsid)
         size_arcsec = 20
-        time_interval = 5
+        time_interval = 10
         gti_only = False
         gti_threshold = 1.5
         min_energy = 0.2
-        max_energy = 12.0
+        max_energy = 2.0
 
-        threshold_sigma=3
+        threshold_sigma=5
 
         # Load data
         observation = Observation(obsid)
@@ -136,34 +126,45 @@ if __name__=="__main__":
                 dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
                                 gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
                 dl.run()
-                cube = dl.data_cube.data
-                rejected = dl.data_cube.bti_bin_idx
-                print("Cube loaded ! Adding synthetic data...")
-                cube_with_peak = cube + create_fake_Nbins_burst(dl.data_cube, 20, 30,
-                                                                 time_peak_fractions=(0.3,0.4,0.6,0.7), amplitude=20)
-                estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
+                # cube = dl.data_cube.data
+                # rejected = dl.data_cube.bti_bin_idx
+                # print("Cube loaded ! Adding synthetic data...")
+                # cube_with_peak = cube + create_fake_Nbins_burst(dl.data_cube, 20, 30,
+                #                                                  time_peak_fractions=(0.3,0.4,0.6,0.7), amplitude=20)
+                # dl.data_cube.data=cube_with_peak
+                estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
 
                 print("Computing variability...")
-                peaks, eclipses=variability_maps(cube_with_peak, estimated_cube, threshold_sigma=threshold_sigma)
+                peaks, eclipses=variability_maps(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
                 range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
                 range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(threshold_sigma=5)
                 fig, axes= plt.subplots(2,2)
                 colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.5))
                 plt.suptitle(f'ObsID {obsid} -- Exposure {ind_exp} --  Binning {time_interval}s')
-                axes[0][0].imshow(np.nansum(cube_with_peak, axis=2), norm=LogNorm(), interpolation='none')
-                axes[1][0].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(peaks, axis=2),np.empty(cube.shape[:2])*np.nan),
+                axes[0][0].imshow(np.nansum(dl.data_cube.data, axis=2), norm=LogNorm(), interpolation='none')
+                axes[1][0].imshow(np.where(np.nansum(dl.data_cube.data, axis=2)>0,np.nansum(peaks, axis=2),np.empty(dl.data_cube.shape[:2])*np.nan),
                                   vmax=1,vmin=0, interpolation='none')
-                m=axes[1][1].imshow(np.where(np.nansum(cube_with_peak, axis=2)>0,np.nansum(eclipses, axis=2),np.empty(cube.shape[:2])*np.nan), interpolation='none')
+                m=axes[1][1].imshow(np.where(np.nansum(dl.data_cube.data, axis=2)>0,np.nansum(eclipses, axis=2),np.empty(dl.data_cube.shape[:2])*np.nan), interpolation='none')
                 # cbar=plt.colorbar(ax=axes[1][1],mappable=m)
                 # cbar.set_label("Nbr of peaks")
 
                 legend_plots=[]
                 legend_labels=[]
-                x,y = 80,44
+                if np.max(np.nansum(peaks, axis=2))>0:
+                    x,y = np.where(np.nansum(peaks, axis=2)==np.max(np.nansum(peaks, axis=2)))
+                else:
+                    x, y = np.where(np.nansum(eclipses, axis=2) == np.max(np.nansum(eclipses, axis=2)))
+                x,y=x[0],y[0]
+
                 time_axis = np.arange(estimated_cube.shape[2])*time_interval
-                p3=axes[0][1].plot(time_axis, cube_with_peak[x,y],c=colors[0])
-                p1=axes[0][1].plot(time_axis, estimated_cube[x,y],c=colors[1])
+                p1=axes[0][1].step(time_axis, estimated_cube[x,y],c=colors[1], where='mid', lw=3)
+                p3=axes[0][1].step(time_axis, dl.data_cube.data[x,y],c=colors[0], where='mid')
                 axes[0][1].set_yscale('log')
+                # axes[0][1].bar(time_axis,minimum_for_peak_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),alpha=0.3,color=colors[1])
+                # axes[0][1].bar(time_axis,maximum_for_eclipse_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)), color='w')
+                # axes[0][1].bar(time_axis,maximum_for_eclipse_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
+                #                         minimum_for_peak_5sig(np.where(estimated_cube[x,y]>range_mu_5sig[0], estimated_cube[x,y], np.nan)),
+                #                         alpha=0.3,facecolor=colors[1])
                 axes[0][1].fill_between(time_axis,
                                         maximum_for_eclipse_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
                                         minimum_for_peak_3sig(np.where(estimated_cube[x,y]>range_mu_3sig[0], estimated_cube[x,y], np.nan)),
@@ -183,19 +184,18 @@ if __name__=="__main__":
                 legend_plots.append((p1[0],p2[0]))
                 legend_labels.append("Expected")
                 legend_plots.append((p3[0],))
-                legend_labels.append("Observed")
+                legend_labels.append(f"Observed {x}-{y}")
 
                 axes[0][1].legend(legend_plots,legend_labels)
-                print(np.nansum(peaks), np.nansum(np.where(np.nansum(peaks, axis=2)>0)))
                 axes[0][0].axis('off')
                 axes[1][0].axis('off')
                 axes[1][1].axis('off')
                 plt.show()
                 # plt.figure()
-                # plt.imshow(dl.data_cube.data[:, :, 1000], norm=LogNorm(), interpolation='none')
-                # plt.figure()
-                # plt.imshow(dl.data_cube.data[:, :, 1500], norm=LogNorm(), interpolation='none')
+                # plt.imshow(dl.data_cube.data[:, :, 1], norm=LogNorm(), interpolation='none')
         except KeyError:
+            pass
+        except FileNotFoundError:
             pass
         #
         # fig,axes=plt.subplots(1,2)

@@ -5,9 +5,11 @@ import os
 from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
-from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates,compute_likelihood_variability
-from exod.processing.experimental.bayesian import load_precomputed_bayes_limits, peak_rate_estimate
-from exod.utils.synthetic_data import create_fake_burst
+from exod.xmm.event_list import EventList
+from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.experimental.bayesian import load_precomputed_bayes_limits, variability_maps
+from exod.post_processing.estimate_variability_properties import peak_count_estimate,eclipse_count_estimate
+from exod.utils.synthetic_data import create_fake_burst, create_multipe_fake_eclipses
 from scipy.stats import poisson
 import cmasher as cmr
 
@@ -151,15 +153,15 @@ def accepted_n_values():
     for mu in tqdm(range_mu):
         range_n_peak =  np.arange(max(10*mu, 100))
         result=bayes_factor_peak(mu,range_n_peak)
-        tab_npeak.append(range_n_peak[result>3][0])
+        tab_npeak.append(range_n_peak[result>5.94][0])
 
         range_n_eclipse = np.arange(2*int(mu)+1)
         result=bayes_factor_eclipse(mu,range_n_eclipse)
-        tab_neclipse.append(range_n_eclipse[result<3][0])
+        tab_neclipse.append(range_n_eclipse[result<5.70][0])
     plt.figure()
     plt.plot(range_mu, range_mu)
-    plt.plot(range_mu, range_mu-3*np.sqrt(range_mu), ls='--',c='k')
-    plt.plot(range_mu, range_mu+3*np.sqrt(range_mu), ls='--',c='k')
+    plt.plot(range_mu, range_mu-6*np.sqrt(range_mu), ls='--',c='k')
+    plt.plot(range_mu, range_mu+6*np.sqrt(range_mu), ls='--',c='k')
 
     plt.fill_between(range_mu,tab_neclipse, tab_npeak,alpha=0.5)
     plt.loglog()
@@ -216,11 +218,11 @@ def bayes_rate_estimate(obsid='0886121001'):
             if int(time_fraction * cube.shape[2]) in rejected:
                 if np.max(peaks[x_pos, y_pos]) > 0:
                     tab_current_bti.append(
-                        peak_rate_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
+                        peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
             else:
                 if np.max(peaks[x_pos, y_pos]) > 0:
                     tab_current_gti.append(
-                        peak_rate_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
+                        peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
         tab_result_gti.append(np.mean(tab_current_gti))
         tab_err_gti.append(np.std(tab_current_gti))
         tab_result_bti.append(np.mean(tab_current_bti))
@@ -417,4 +419,51 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     plt.xscale('log')
     plt.show()
 
+def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_interval=1000):
+    size_arcsec = 20
+    gti_only = False
+    gti_threshold = 0.5
+    min_energy = 0.2
+    max_energy = 12.0
+
+    tab_eclipse_amplitudes=np.linspace(0,1,20)
+    nbr_draws = 50
+
+    tab_result_3sig = []
+    tab_result_5sig = []
+    for obsid in obsids:
+        observation = Observation(obsid)
+        observation.get_files()
+        observation.get_events_overlapping_subsets()
+        for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+            event_list = EventList.from_event_lists(subset_overlapping_exposures)
+            dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval,
+                            gti_only=gti_only,
+                            gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+            dl.run()
+            cube = dl.data_cube.data
+            rejected = dl.data_cube.bti_bin_idx
+            for amplitude in tqdm(tab_eclipse_amplitudes):
+                caught_at_amplitude_3sig = 0
+                caught_at_amplitude_5sig = 0
+                tab_time_peak_fraction=np.random.random(nbr_draws)
+                tab_x_pos, tab_y_pos = np.random.randint(5, cube.shape[0] - 5, nbr_draws), np.random.randint(5, cube.shape[1] - 5,nbr_draws)
+                cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction,
+                                                                        [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
+                estimated_cube = compute_expected_cube_using_templates(cube_with_eclipse, rejected)
+                peaks_3, eclipses_3 = variability_maps(cube_with_eclipse, estimated_cube, threshold_sigma=3)
+                peaks_5, eclipses_5 = variability_maps(cube_with_eclipse, estimated_cube, threshold_sigma=5)
+                for x_pos, y_pos in zip(tab_x_pos,tab_y_pos):
+                    if np.sum(eclipses_3[x_pos,y_pos])>0:
+                        caught_at_amplitude_3sig+=1
+                    if np.sum(eclipses_5[x_pos,y_pos])>0:
+                        caught_at_amplitude_5sig+=1
+                tab_result_3sig.append(caught_at_amplitude_3sig/nbr_draws)
+                tab_result_5sig.append(caught_at_amplitude_5sig/nbr_draws)
+    plt.figure()
+    plt.plot(tab_eclipse_amplitudes,tab_result_3sig,label=r'$3\sigma$')
+    plt.plot(tab_eclipse_amplitudes,tab_result_5sig,label=r'$5\sigma$')
+    plt.legend()
+    plt.xlabel("Relative amplitude of eclipse")
+    plt.ylabel("Fraction of detected eclipses")
 

@@ -55,10 +55,10 @@ class EventList:
         event_lists = [e for e in event_lists if e.compatible_mode]
 
         #Store the starts and ends of all event lists
-        # starts = [e.time_min for e in event_lists]
-        # stops = [e.time_max for e in event_lists]
-        # latest_start = max(starts)
-        # earliest_stop = min(stops)
+        starts = [e.time_min for e in event_lists]
+        stops = [e.time_max for e in event_lists]
+        latest_start = max(starts)
+        earliest_stop = min(stops)
 
         # Combine the data into a single table
         data_stacked = vstack([e.data for e in event_lists])
@@ -87,8 +87,8 @@ class EventList:
         event_list.submode       = [e.submode for e in event_lists]#str([e.submode for e in event_lists])
         event_list.date          = event_lists[0].date
         event_list.object        = event_lists[0].object
-        event_list.time_min      = np.min(data_stacked['TIME'])#latest_start #
-        event_list.time_max      = np.max(data_stacked['TIME'])#earliest_stop #
+        event_list.time_min      = latest_start #np.min(data_stacked['TIME'])#
+        event_list.time_max      = earliest_stop #np.max(data_stacked['TIME'])#
         event_list.exposure      = event_list.time_max - event_list.time_min
         event_list.N_events      = len(data_stacked)
         event_list.mean_rate     = event_list.N_events / event_list.exposure

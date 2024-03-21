@@ -18,7 +18,7 @@ class DataLoader:
     gti_threshold : Count rate below which will be considered good time intervals
     """
     def __init__(self, event_list, time_interval=50, size_arcsec=10,
-                 gti_only=True, min_energy=0.2, max_energy=12.0,
+                 gti_only=False, min_energy=0.2, max_energy=12.0,
                  gti_threshold=0.5):
         self.event_list    = event_list
         self.time_interval = time_interval
@@ -36,15 +36,14 @@ class DataLoader:
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
         self.get_bti_bins()
-
+        self.data_cube.remove_frames_partial_CCDexposure()
         if self.gti_only:
             self.mask_bti_from_data_cube()
-        self.data_cube.remove_frames_partial_CCDexposure()
 
     def get_high_energy_lc(self):
         min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
         max_energy_he = 12.0     # maximum extraction energy for High Energy Background events
-        time_interval_gti = self.time_interval#100  # Window Size to use for GTI extraction
+        time_interval_gti = min(self.time_interval, 100) #100  # Window Size to use for GTI extraction
         data = self.event_list.data
         time_min = self.event_list.time_min
         time_max = self.event_list.time_max
