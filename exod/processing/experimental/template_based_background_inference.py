@@ -4,56 +4,18 @@ from exod.xmm.observation import Observation
 from exod.utils.path import data_processed
 from exod.pre_processing.read_events import get_PN_image_file
 from exod.utils.logger import logger
-from exod.utils.plotting import cmap_image
+from exod.utils.plotting import plot_image, compare_images
 
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-from matplotlib.animation import FuncAnimation
 import numpy as np
-from cv2 import inpaint, INPAINT_NS, INPAINT_TELEA, filter2D
-from scipy.ndimage import gaussian_filter
+from cv2 import inpaint, INPAINT_NS
 from skimage.draw import disk
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
-import astropy.units as u
 from astropy.io import fits
 from astropy.convolution import convolve, Gaussian2DKernel
 from scipy.interpolate import interp1d
 
-def plot_image(image_arr, title, log=False):
-    plt.figure(figsize=(7,7))
-    plt.title(title)
-    norm = None
-    if log:
-        norm = LogNorm()
-
-    plt.imshow(image_arr, norm=norm, cmap=cmap_image(), interpolation='none')
-    plt.colorbar(shrink=0.75)
-    plt.tight_layout()
-    plt.show()
-    
-def compare_images(images, titles, log=False):
-    N_images = len(images)
-
-    fig, ax = plt.subplots(figsize=(7, 7))
-    ax.set_title(f'images[0]={titles[0]}')
-    norm = None
-    if log:
-        norm = LogNorm()
-
-    im = ax.imshow(images[0], norm=norm, cmap=cmap_image(), interpolation='none')
-    plt.colorbar(im, ax=ax, shrink=0.75)
-    plt.tight_layout()
-
-    def update(frame):
-        i = frame % N_images
-        im.set_array(images[i])
-        ax.set_title(f'images[{i}]={titles[i]}')
-
-    ani = FuncAnimation(fig, update, frames=range(N_images), interval=1000)  # Adjust frames and interval as needed
-    plt.show()
-    
 
 def compute_expected_cube_using_templates(data_cube):
     """Computes a baseline expected cube, combining background and sources. Any departure from this expected cube
@@ -137,14 +99,9 @@ def compute_expected_cube_using_templates(data_cube):
                        titles=['image_BTI', 'image_BTI_no_source', 'image_BTI_no_source_template', 'image_BTI_no_source_template_blur'])
 
         image_mask_missing_pixels = (image_GTI > 0) & np.isnan(image_GTI_no_source_template_blur)
-        plot_image(image_mask_missing_pixels, 'image_mask_missing_pixels')
-        
         image_BTI_no_source_template_blur = inpaint(image_BTI_no_source_template_blur.astype(np.float32),
                                                     image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=INPAINT_NS)
-        plot_image(image_BTI_no_source_template_blur, 'image_BTI_no_source_template_blur')
-
         image_BTI_no_source_template_blur = np.where(image_total > 0, image_BTI_no_source_template_blur, image_nan)
-        plot_image(image_BTI_no_source_template_blur, 'image_BTI_no_source_template_blur')
 
     # image_BTI_no_source_template_blur=image_BTI_no_source_template
 
@@ -154,25 +111,16 @@ def compute_expected_cube_using_templates(data_cube):
 
         # Get the net image of sources in GTIs (after inpainting to have background below sources)
         source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
-        plot_image(source_only_image_GTI, 'source_only_image_GTI')
-
         source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI, np.zeros(image_GTI.shape))
-        plot_image(source_only_image_GTI, 'source_only_image_GTI>0', log=True)
 
         # Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
         source_constant_contribution = source_only_image_GTI / len(gti_indices)
-        plot_image(source_constant_contribution, 'source_constant_contribution>0', log=True)
     else:
         logger.info(f'len(bti_indices)={len(bti_indices)}')
         # Get the net image of sources in BTIs (after inpainting to have background below sources)
         source_only_image_BTI = np.where(image_mask_source, image_BTI-image_BTI_no_source_template_blur*count_GTI_outside_sources, np.zeros(image_BTI.shape))
-        plot_image(source_only_image_BTI, 'source_only_image_BTI')
-
         source_only_image_BTI = np.where(source_only_image_BTI>0, source_only_image_BTI,np.zeros(image_GTI.shape))
-        plot_image(source_only_image_BTI, 'source_only_image_BTI', log=True)
-
         source_constant_contribution = source_only_image_BTI / np.sum(np.nansum(cube[:,:,bti_indices], axis=(0,1)) > 0)
-        plot_image(source_constant_contribution, 'source_constant_contribution', log=True)
 
     #Create expected cube
     observed_cube_outside_sources = np.where(np.repeat(image_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
@@ -305,11 +253,13 @@ if __name__=="__main__":
                                 gti_only=gti_only,
                                 gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
                 dl.run()
-                data_cube=dl.data_cube
-                estimated_cube=compute_expected_cube_using_templates(data_cube)
+                data_cube = dl.data_cube
+                estimated_cube = compute_expected_cube_using_templates(data_cube)
         except FileNotFoundError:
             pass
         except KeyError:
             pass
+        except Exception as e:
+            print(e)
 
 
