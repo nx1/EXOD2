@@ -102,7 +102,6 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        run_pipeline(**args)
         try:
             run_pipeline(**args)
             res['status'] = 'Run'

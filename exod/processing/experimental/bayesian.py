@@ -96,15 +96,16 @@ def variability_maps(cube, expected, threshold_sigma):
 if __name__=="__main__":
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
+    from random import shuffle
 
     obsids = read_observation_ids(data / 'observations.txt')
+    # shuffle(obsids)
     # obsids=['0792180301']
     # obsids=['0112570701']
     # obsids=['0810811801']#'0764420101',
     # obsids=['0911990501']
     for obsid in tqdm(obsids):
         # obsid='0765080801'#'0886121001'#'0872390901' #
-        print(obsid)
         size_arcsec = 20
         time_interval = 10
         gti_only = False
@@ -112,17 +113,16 @@ if __name__=="__main__":
         min_energy = 0.2
         max_energy = 2.0
 
-        threshold_sigma=5
+        threshold_sigma = 5
 
         # Load data
         observation = Observation(obsid)
         observation.get_files()
         try:
             observation.get_events_overlapping_subsets()
-            for ind_exp,subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+            for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
                 event_list = EventList.from_event_lists(subset_overlapping_exposures)
-                # event_list = observation.events_processed_pn[0]
-                # event_list.read()
+                event_list.info
                 dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
                                 gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
                 dl.run()
@@ -138,7 +138,8 @@ if __name__=="__main__":
                 peaks, eclipses=variability_maps(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
                 range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
                 range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(threshold_sigma=5)
-                fig, axes= plt.subplots(2,2)
+
+                fig, axes = plt.subplots(2,2, figsize=(10,10))
                 colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.5))
                 plt.suptitle(f'ObsID {obsid} -- Exposure {ind_exp} --  Binning {time_interval}s')
                 axes[0][0].imshow(np.nansum(dl.data_cube.data, axis=2), norm=LogNorm(), interpolation='none')
@@ -190,9 +191,12 @@ if __name__=="__main__":
                 axes[0][0].axis('off')
                 axes[1][0].axis('off')
                 axes[1][1].axis('off')
-                plt.show()
+                # plt.show()
                 # plt.figure()
                 # plt.imshow(dl.data_cube.data[:, :, 1], norm=LogNorm(), interpolation='none')
+
+        except Exception as e:
+            print(e)
         except KeyError:
             pass
         except FileNotFoundError:

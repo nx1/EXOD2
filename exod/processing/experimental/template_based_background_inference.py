@@ -3,9 +3,12 @@ from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.utils.path import data_processed
 from exod.pre_processing.read_events import get_PN_image_file
+from exod.utils.logger import logger
+from exod.utils.plotting import cmap_image
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.animation import FuncAnimation
 import numpy as np
 from cv2 import inpaint, INPAINT_NS, INPAINT_TELEA, filter2D
 from scipy.ndimage import gaussian_filter
@@ -18,6 +21,39 @@ from astropy.io import fits
 from astropy.convolution import convolve, Gaussian2DKernel
 from scipy.interpolate import interp1d
 
+def plot_image(image_arr, title, log=False):
+    plt.figure(figsize=(7,7))
+    plt.title(title)
+    norm = None
+    if log:
+        norm = LogNorm()
+
+    plt.imshow(image_arr, norm=norm, cmap=cmap_image(), interpolation='none')
+    plt.colorbar(shrink=0.75)
+    plt.tight_layout()
+    plt.show()
+    
+def compare_images(images, titles, log=False):
+    N_images = len(images)
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_title(f'images[0]={titles[0]}')
+    norm = None
+    if log:
+        norm = LogNorm()
+
+    im = ax.imshow(images[0], norm=norm, cmap=cmap_image(), interpolation='none')
+    plt.colorbar(im, ax=ax, shrink=0.75)
+    plt.tight_layout()
+
+    def update(frame):
+        i = frame % N_images
+        im.set_array(images[i])
+        ax.set_title(f'images[{i}]={titles[i]}')
+
+    ani = FuncAnimation(fig, update, frames=range(N_images), interval=1000)  # Adjust frames and interval as needed
+    plt.show()
+    
 
 def compute_expected_cube_using_templates(data_cube):
     """Computes a baseline expected cube, combining background and sources. Any departure from this expected cube
@@ -26,74 +62,138 @@ def compute_expected_cube_using_templates(data_cube):
     is divided by its total counts, they all look the same).
     The sources are dealt with assuming they are constant. We take their net emission, and distribute it evenly across
     all frames."""
-    cube=data_cube.data
-    bti_indices=data_cube.bti_bin_idx
-
+    logger.info(f'Computing Expected Cube using templates.')
+    cube = data_cube.data
+    bti_indices = data_cube.bti_bin_idx
+    gti_indices = data_cube.gti_bin_idx
     sigma_blurring = 0.5
-    image_total = np.nansum(cube,axis=2)
 
-    #GTI template: compute the estimated GTI background
-    gti_indices = [ind for ind in range(cube.shape[2]) if ind not in bti_indices] #Indices of GTIs
-    image_GTI = np.nansum(cube[:,:,gti_indices], axis=2)
-    image_GTI = np.where(image_GTI>0,image_GTI,np.full(cube.shape[:2],np.nan))#Image of all GTIs combined, with sources
-    # source_threshold=np.nanpercentile(image_GTI.flatten(), 99) #This or from detected sources
-    # boolean_mask_source = image_GTI > source_threshold #Mask to get only sources afterwards
-    boolean_mask_source = mask_known_sources(data_cube)
-    boolean_mask_source = boolean_mask_source|(image_GTI>3*np.nanpercentile(image_GTI[~boolean_mask_source],75))
+    # Get the summed Images.
+    image_nan   = np.full(cube.shape[:2], np.nan) # nan image, used for np.where operations
+    image_total = np.nansum(cube, axis=2)
+    image_GTI   = np.nansum(cube[:,:,gti_indices], axis=2)
+    image_GTI   = np.where(image_GTI > 0, image_GTI, image_nan) # Replace 0s with NAN
 
-    countGTI_outside_sources = np.nansum(image_GTI[~boolean_mask_source]) #The total background count of GTIs, outside of the source regions
-    mask_source = np.uint8(boolean_mask_source[:, :, np.newaxis]) #Convert the boolean mask to int8 for inpainting
-    no_source_image_GTI = inpaint(image_GTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
-    unblurred_background_GTI_template = no_source_image_GTI/countGTI_outside_sources #Divide the inpainted background by the total count to have a template
-    blurred_background_GTI_template = convolve(unblurred_background_GTI_template, Gaussian2DKernel(sigma_blurring))
-    mask_missing_pixels = np.uint8(((image_GTI>0)&np.isnan(blurred_background_GTI_template))[:, :, np.newaxis])
-    blurred_background_GTI_template = inpaint(blurred_background_GTI_template.astype(np.float32)[:,:,np.newaxis], mask_missing_pixels, 2, flags=INPAINT_NS)
-    background_GTI_template = np.where(image_total>0, blurred_background_GTI_template ,np.empty(image_total.shape)*np.nan)
-    # background_GTI_template=unblurred_background_GTI_template
+    # Create the source masks.
+    # Two source masks are calculated then combined, the first comes from the pipeline detected
+    # sources in the OBSMLI file. The second mask takes the remaining image and masks pixels that are
+    # above 3 x 75% of the total image. These two masks are then combined using an OR statement.
+    # This works well in most cases but often struggles when there are extended sources.
+    image_mask_source_list = mask_known_sources(data_cube) # Image mask from OBSMLI file.
+    # source_threshold = np.nanpercentile(image_GTI.flatten(), 99) # This or from detected sources
+    source_threshold = 3 * np.nanpercentile(image_GTI[~image_mask_source_list], q=75)
+    image_mask_source_percentile = image_GTI > source_threshold
+    image_mask_source = image_mask_source_list | image_mask_source_percentile
 
-    #BTI template: compute the estimated BTI background
-    if len(bti_indices)>0:
-        image_BTI = np.nansum(cube[:,:,bti_indices], axis=2) #Image of all BTIs combined, with sources
-        countBTI_outside_sources = np.nansum(image_BTI[~boolean_mask_source]) #The total background count of BTIs, outside of the source regions
-        no_source_image_BTI = inpaint(image_BTI.astype(np.float32)[:,:,np.newaxis], mask_source, 2, flags=INPAINT_NS) #Remove and inpaint on source regions
-        unblurred_background_BTI_template = no_source_image_BTI/countBTI_outside_sources #Divide the inpainted background by the total count to have a template
-        blurred_background_BTI_template = convolve(unblurred_background_BTI_template, Gaussian2DKernel(sigma_blurring))
-        mask_missing_pixels = np.uint8(((image_GTI > 0) & np.isnan(blurred_background_GTI_template))[:, :, np.newaxis])
-        blurred_background_BTI_template = inpaint(blurred_background_BTI_template.astype(np.float32)[:, :, np.newaxis],
-                                                  mask_missing_pixels, 2, flags=INPAINT_NS)
-        background_BTI_template = np.where(image_total>0, blurred_background_BTI_template, np.empty(image_total.shape)*np.nan)
-    # background_BTI_template=unblurred_background_BTI_template
+    compare_images(images=[image_mask_source_list, image_mask_source_percentile, image_mask_source],
+                   titles=['image_mask_source_list', 'image_mask_source_percentile', 'image_mask_source'])
 
-    #Source contribution
-    if len(bti_indices)<cube.shape[2]/2:
-        source_only_image_GTI = np.where(boolean_mask_source, image_GTI-background_GTI_template*countGTI_outside_sources,np.zeros(image_GTI.shape))#Get the net image of sources in GTIs (after inpainting to have background below sources)
-        source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI,np.zeros(image_GTI.shape))
-        source_constant_contribution = source_only_image_GTI / len(gti_indices)  # Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
+    # inpaint on source regions
+    image_GTI_no_source               = inpaint(image_GTI.astype(np.float32), image_mask_source.astype(np.uint8), inpaintRadius=2, flags=INPAINT_NS)
+    count_GTI_outside_sources         = np.nansum(image_GTI[~image_mask_source]) # The total background count of GTIs, outside of the source regions
+    image_GTI_no_source_template      = image_GTI_no_source / count_GTI_outside_sources
+    image_GTI_no_source_template_blur = convolve(image_GTI_no_source_template, Gaussian2DKernel(sigma_blurring))
+
+
+    compare_images(images=[image_GTI,
+                           image_GTI_no_source,
+                           image_GTI_no_source_template,
+                           image_GTI_no_source_template_blur],
+                   titles=['image_GTI',
+                           'image_GTI_no_source',
+                           'image_GTI_no_source_template',
+                           'image_GTI_no_source_template_blur'],
+                   log=True)
+
+    # Perform the inpainting a second time to fill in missing pixels (gaps)
+    image_mask_missing_pixels = (image_GTI > 0) & np.isnan(image_GTI_no_source_template_blur)
+    image_GTI_no_source_template_blur_inpaint = inpaint(image_GTI_no_source_template_blur.astype(np.float32),
+                                                        image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=INPAINT_NS)
+
+    # Remove the pixels that were inpainted outside the original image
+    image_GTI_background_template = np.where(image_total > 0, image_GTI_no_source_template_blur_inpaint, image_nan)
+
+    # Plot the steps
+    compare_images(images=[image_GTI_no_source_template,
+                           image_GTI_no_source_template_blur,
+                           image_GTI_no_source_template_blur_inpaint,
+                           image_GTI_background_template],
+                   titles=['GTI no source template',
+                           'GTI no source template blur',
+                           'GTI no source template inpainted',
+                           'final GTI background template'])
+
+
+    # BTI template: compute the estimated BTI background
+    if len(bti_indices) > 0:
+        logger.info(f'len(bti_indices)>0 ({len(bti_indices)} > 0)')
+        image_BTI                         = np.nansum(cube[:,:,bti_indices], axis=2) # Image of all BTIs combined, with sources
+        image_BTI_no_source               = inpaint(image_BTI.astype(np.float32), image_mask_source.astype(np.uint8), inpaintRadius=2, flags=INPAINT_NS)
+        count_BTI_outside_sources         = np.nansum(image_BTI[~image_mask_source])
+        image_BTI_no_source_template      = image_BTI_no_source / count_BTI_outside_sources
+        image_BTI_no_source_template_blur = convolve(image_BTI_no_source_template, Gaussian2DKernel(sigma_blurring))
+
+        compare_images(images=[image_BTI, image_BTI_no_source, image_BTI_no_source_template, image_BTI_no_source_template_blur],
+                       titles=['image_BTI', 'image_BTI_no_source', 'image_BTI_no_source_template', 'image_BTI_no_source_template_blur'])
+
+        image_mask_missing_pixels = (image_GTI > 0) & np.isnan(image_GTI_no_source_template_blur)
+        plot_image(image_mask_missing_pixels, 'image_mask_missing_pixels')
+        
+        image_BTI_no_source_template_blur = inpaint(image_BTI_no_source_template_blur.astype(np.float32),
+                                                    image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=INPAINT_NS)
+        plot_image(image_BTI_no_source_template_blur, 'image_BTI_no_source_template_blur')
+
+        image_BTI_no_source_template_blur = np.where(image_total > 0, image_BTI_no_source_template_blur, image_nan)
+        plot_image(image_BTI_no_source_template_blur, 'image_BTI_no_source_template_blur')
+
+    # image_BTI_no_source_template_blur=image_BTI_no_source_template
+
+    # Source contribution
+    if len(bti_indices) < cube.shape[2]/2:
+        logger.info(f'len(bti_indices)<cube.shape[2]/2 {len(bti_indices)}<{cube.shape[2]/2}')
+
+        # Get the net image of sources in GTIs (after inpainting to have background below sources)
+        source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
+        plot_image(source_only_image_GTI, 'source_only_image_GTI')
+
+        source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI, np.zeros(image_GTI.shape))
+        plot_image(source_only_image_GTI, 'source_only_image_GTI>0', log=True)
+
+        # Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
+        source_constant_contribution = source_only_image_GTI / len(gti_indices)
+        plot_image(source_constant_contribution, 'source_constant_contribution>0', log=True)
     else:
-        source_only_image_BTI = np.where(boolean_mask_source, image_BTI-background_BTI_template*countGTI_outside_sources,np.zeros(image_BTI.shape)) #Get the net image of sources in BTIs (after inpainting to have background below sources)
+        logger.info(f'len(bti_indices)={len(bti_indices)}')
+        # Get the net image of sources in BTIs (after inpainting to have background below sources)
+        source_only_image_BTI = np.where(image_mask_source, image_BTI-image_BTI_no_source_template_blur*count_GTI_outside_sources, np.zeros(image_BTI.shape))
+        plot_image(source_only_image_BTI, 'source_only_image_BTI')
+
         source_only_image_BTI = np.where(source_only_image_BTI>0, source_only_image_BTI,np.zeros(image_GTI.shape))
-        source_constant_contribution = source_only_image_BTI / np.sum(np.nansum(cube[:,:,bti_indices], axis=(0,1))>0)
+        plot_image(source_only_image_BTI, 'source_only_image_BTI', log=True)
+
+        source_constant_contribution = source_only_image_BTI / np.sum(np.nansum(cube[:,:,bti_indices], axis=(0,1)) > 0)
+        plot_image(source_constant_contribution, 'source_constant_contribution', log=True)
 
     #Create expected cube
-    # We don't create this cube because of memory usage. We do it below in a single line
-    # observed_cube_outside_sources = np.where(np.repeat(boolean_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
-    #                                          np.empty(cube.shape) * np.nan,
-    #                                          cube)
-    # lightcurve_outside_sources = np.nansum(observed_cube_outside_sources, axis=(0, 1))
-    lightcurve_outside_sources = np.nansum(np.where(np.repeat(boolean_mask_source[:,:,np.newaxis],cube.shape[2],axis=2),
-                                                    np.empty(cube.shape) * np.nan,
-                                                    cube),
-                                           axis=(0, 1)) #Lightcurve of background, outside of source regions
-    #We then create the estimated cube. For both GTI and BTI, we estimate their background by using the lightcurve and
-    #the templates. We then add the expected constant source contribution
-    estimated_cube = np.empty(cube.shape)
-    estimated_cube[:,:,gti_indices] = background_GTI_template[:,:,np.newaxis]*lightcurve_outside_sources[gti_indices]
-    if len(bti_indices)>0:
-        estimated_cube[:,:,bti_indices] = background_BTI_template[:,:,np.newaxis]*lightcurve_outside_sources[bti_indices]
-    # print(np.min(lightcurve_outside_sources), np.nanmin(lightcurve_outside_sources))
-    estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis],cube.shape[2],axis=2)
-    estimated_cube=np.where(np.nansum(cube,axis=(0,1))>0,estimated_cube,np.empty(cube.shape)*np.nan)
+    observed_cube_outside_sources = np.where(np.repeat(image_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
+                                              np.empty(cube.shape) * np.nan,
+                                              cube)
+    lightcurve_outside_sources = np.nansum(observed_cube_outside_sources, axis=(0, 1))
+    # plt.figure(figsize=(10, 3))
+    # plt.title('lightcurve_outside_sources')
+    # plt.plot(lightcurve_outside_sources)
+    # plt.show()
 
+    # We then create the estimated cube. For both GTI and BTI, we estimate their background by using the lightcurve and
+    # the templates. We then add the expected constant source contribution.
+    logger.info('Creating Estimated Cube')
+    estimated_cube = np.empty(cube.shape)
+    estimated_cube[:,:,gti_indices] = image_GTI_background_template[:,:,np.newaxis] * lightcurve_outside_sources[gti_indices]
+    if len(bti_indices) > 0:
+        estimated_cube[:,:,bti_indices] = image_BTI_no_source_template_blur[:,:,np.newaxis] * lightcurve_outside_sources[bti_indices]
+    logger.info(f'lc_min={np.min(lightcurve_outside_sources)} lc_nanmin={np.nanmin(lightcurve_outside_sources)}')
+    estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis], cube.shape[2], axis=2)
+    estimated_cube = np.where(np.nansum(cube, axis=(0,1)) > 0, estimated_cube, np.empty(cube.shape)*np.nan)
     return estimated_cube
 
 def mask_known_sources(data_cube):

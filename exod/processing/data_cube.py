@@ -1,5 +1,6 @@
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
+from exod.pre_processing.bti import get_bti_bin_idx, get_bti_bin_idx_bool
 
 import numpy as np
 from scipy.stats import binned_statistic_dd
@@ -92,16 +93,13 @@ class DataCubeXMM(DataCube):
 
         self.bti_bin_idx = []
         self.bti_bin_idx_bool = []
+        self.gti_bin_idx = []
+        self.gti_bin_idx_bool = []
 
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
-        # self.remove_bad_frames()
-        # self.remove_frames_partial_CCDexposure() #Now done in data_loader.run()
         super().__init__(self.data)
-
-
-
 
     def calc_time_bins(self):
         t_lo = self.event_list.time_min
@@ -136,6 +134,25 @@ class DataCubeXMM(DataCube):
         bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
                     np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
         return bbox_img
+
+    def calc_gti_bti_bins(self, bti):
+        """
+        Calculate the good and bad time interval indexes & masks.
+
+        Parameters
+        ----------
+        bti : {['START':344.2, 'STOP':454.2], ...}
+        """
+        self.bti_bin_idx      = get_bti_bin_idx(bti=bti, bin_t=self.bin_t)
+        self.bti_bin_idx_bool = get_bti_bin_idx_bool(rejected_idx=self.bti_bin_idx, bin_t=self.bin_t)
+        self.gti_bin_idx_bool = ~self.bti_bin_idx_bool
+        self.gti_bin_idx      = np.where(self.gti_bin_idx_bool)[0][:-1]
+
+    def mask_bti(self):
+        logger.info('Masking bad frames from Data Cube (setting to nan)')
+        img_shape = (self.shape[0], self.shape[1], 1)
+        img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
+        self.data[:, :, self.bti_bin_idx] = img_nan
 
     def remove_bti_frames(self):
         """Return the cube without the masked nan frames."""

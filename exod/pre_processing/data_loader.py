@@ -35,10 +35,10 @@ class DataLoader:
         self.calculate_bti() # This needs to be called first as the next step filters the eventlist.
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
-        self.get_bti_bins()
+        self.data_cube.calc_gti_bti_bins(bti=self.bti)
         self.data_cube.remove_frames_partial_CCDexposure()
         if self.gti_only:
-            self.mask_bti_from_data_cube()
+            self.data_cube.mask_bti()
 
     def get_high_energy_lc(self):
         min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
@@ -57,28 +57,13 @@ class DataLoader:
     def calculate_bti(self):
         self.t_bin_he, self.lc_he = self.get_high_energy_lc()
         self.bti = get_bti(time=self.t_bin_he, data=self.lc_he, threshold=self.gti_threshold)
-
         self.df_bti = pd.DataFrame(self.bti)
         
-
     def create_data_cube(self):
         logger.info('Creating Data Cube...')
         data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
         self.data_cube = data_cube
         return data_cube
-
-    def get_bti_bins(self):
-        self.bti_bin_idx = get_bti_bin_idx(bti=self.bti, bin_t=self.data_cube.bin_t)
-        self.bti_bin_idx_bool = get_bti_bin_idx_bool(self.bti_bin_idx, bin_t=self.data_cube.bin_t)
-
-        self.data_cube.bti_bin_idx = self.bti_bin_idx
-        self.data_cube.bti_bin_idx_bool = self.bti_bin_idx_bool
-
-    def mask_bti_from_data_cube(self):
-        logger.info('Masking bad frames from Data Cube (setting to nan)')
-        img_shape = (self.data_cube.shape[0], self.data_cube.shape[1], 1)
-        img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
-        self.data_cube.data[:, :, self.bti_bin_idx] = img_nan
 
     @property
     def info(self):
