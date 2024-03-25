@@ -255,11 +255,7 @@ if __name__=="__main__":
                 dl.run()
                 data_cube = dl.data_cube
                 estimated_cube = compute_expected_cube_using_templates(data_cube)
-        except FileNotFoundError:
-            pass
-        except KeyError:
-            pass
         except Exception as e:
-            print(e)
+            logger.warning(e)
 
 

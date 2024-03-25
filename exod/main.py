@@ -50,7 +50,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    # dl.data_cube.video(savepath=None)
+    dl.data_cube.video(savepath=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     for obsid in obsids:
         args = {'obsid'         : obsid,
                 'size_arcsec'   : 15.0,
-                'time_interval' : 50,
+                'time_interval' : 20,
                 'gti_only'      : False,
                 'gti_threshold' : 0.5,
                 'min_energy'    : 0.5,
@@ -102,8 +102,9 @@ if __name__ == "__main__":
 
         res = args.copy()
 
+        run_pipeline(**args)
         try:
-            run_pipeline(**args)
+            # run_pipeline(**args)
             res['status'] = 'Run'
         except Exception as e:
             logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')

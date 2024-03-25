@@ -95,8 +95,7 @@ def clean_up_peaks(data_cube, peaks):
     cube=data_cube.data
     for (x,y,t) in zip(peak_x, peak_y, peak_t):
         non_source_peakframe = np.nansum(cube[:, :, t]) - np.nansum(cube[x - 1:x + 2, y - 1:y + 2, t])
-        non_source_around_peakframe = (np.nansum(cube[:, :, t - 5:t + 6]) - np.nansum(
-            cube[x - 1:x + 2, y - 1:y + 2, t - 5:t + 6]) - non_source_peakframe) / 10
+        non_source_around_peakframe = (np.nansum(cube[:, :, t - 5:t + 6]) - np.nansum(cube[x - 1:x + 2, y - 1:y + 2, t - 5:t + 6]) - non_source_peakframe) / 10
         source_peakframe = np.nansum(cube[x - 1:x + 2, y - 1:y + 2, t])
         source_around_peakframe = (np.nansum(cube[x - 1:x + 2, y - 1:y + 2, t - 5:t + 6]) - source_peakframe) / 10
         #We reject peaks for which the rest of the frame has a peak as well, and the source peak
@@ -135,12 +134,12 @@ def count_peaks(peaks_or_eclipses):
     return nbr_of_variability_events
 
 def peak_count_estimate(fraction, N, mu):
-    """Estimate the upper limit on the rate of the peak, given an expected and observed counts,
+    """Estimate the upper limit on the count of the peak, given an expected and observed counts,
      and a confidence fraction"""
     return gammaincinv(N+1, fraction*gammaincc(N+1, mu) + gammainc(N+1, mu)) - mu
 
 def eclipse_count_estimate(fraction, N, mu):
-    """Estimate the upper limit on the rate of the eclipse, given an expected and observed counts,
+    """Estimate the upper limit on the count of the eclipse, given an expected and observed counts,
      and a confidence fraction"""
     return mu - gammaincinv(N+1, gammainc(N+1, mu) - fraction*gammainc(N+1, mu))
 
@@ -150,6 +149,20 @@ def convert_count_to_flux(count, position, data_cube):
     # Find the EEF (Encircled Energy Frac.), maybe with ARFGEN if we manage to convert datacube regions to XY regions
     # Think about which Energy Conversion Factor (ECF) to use. Maybe depends on spectral search (hard or soft).
     """Used to convert count rates to fluxes, using vignetting / EEF / ECF"""
+
+    """
+    ds9 --> square region
+    from this create an ARF for the region. http://xmm-tools.cosmos.esa.int/external/sas/current/doc/arfgen/
+    This will allow you to convert a count to a count rate.
+    from a count rate, you can get the flux by using an ECF.
+    
+    A spectral should be assumed that will likely depend on the band you're looking at:
+    0.2 - 2.0 --> bbody
+    2.0 - 12.0 --> something else
+    this will change the flux by a factor of 2-3x
+    
+    this will give us an L for a given distance. :)
+    """
 
     return count/data_cube.time_interval
 
