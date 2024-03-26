@@ -54,14 +54,14 @@ def compare_images(images, titles, log=False, plot=False):
     plt.show()
 
 
-def plot_frame_masks(masks, labels, plot=False):
+def plot_frame_masks(instrum, masks, labels, plot=False):
     if not plot:
         return None
 
     cmap = ListedColormap([[1, 0, 0], [0, 1, 0]])
     mask_stack = np.vstack(masks)
     fig, ax = plt.subplots(figsize=(13, 5))
-    ax.set_title('Frame Masks | Green=True, Red=False')
+    ax.set_title(f'{instrum} | Frame Masks | Green=True, Red=False')
     ax.imshow(mask_stack, cmap=cmap, aspect='auto', interpolation='none')
     ax.set_yticks(np.arange(len(labels)))
     ax.set_yticklabels(labels)

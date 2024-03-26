@@ -36,6 +36,7 @@ class EventList:
         # self.check_submode()
         self.remove_bad_rows()
         self.remove_borders()
+        self.remove_MOS_central_pixel()
         self.is_read = True
 
     @classmethod
@@ -105,6 +106,11 @@ class EventList:
 
     def is_supported_submode(self):
         return ALL_SUBMODES[self.submode]
+
+    def remove_MOS_central_pixel(self):
+        if (self.instrument in ('EMOS1','EMOS2')) and (self.submode!='PrimeFullWindow'):
+            logger.info('Removing central CCD of MOS because not in Full Frame mode')
+            self.data = self.data[~(self.data['CCDNR'] == 1)]
 
     def remove_bad_rows(self):
         if self.instrument == 'EPN':

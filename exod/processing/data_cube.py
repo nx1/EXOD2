@@ -174,9 +174,10 @@ class DataCubeXMM(DataCube):
         for evt_list in self.event_list.event_lists:
             logger.info(f'{evt_list.filename}, {evt_list.instrument} {evt_list.submode}')
             if evt_list.instrument == 'EPN':
-                ccd_bins = [1, 4, 7, 10] # We work in quadrants for EPIC pn
+                ccd_bins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
             elif evt_list.instrument == "EMOS1":
-                ccd_bins = list(set(self.event_list.data['CCDNR']))
+                ccd_bins = list(set(evt_list.data['CCDNR']))
+                print('MOS 1 CCDS:', ccd_bins)
             elif evt_list.instrument == "EMOS2":
                 ccd_bins = [1, 2, 3, 4, 5, 6, 7]
             ccd_bins.append(13) # Just to get a right edge for the final bin
@@ -184,6 +185,11 @@ class DataCubeXMM(DataCube):
             # Get the lightcurves for each CCD.
             sample = evt_list.data['CCDNR'], evt_list.data['TIME']
             lcs_ccd, bin_edges, bin_number = binned_statistic_dd(sample, values=None, statistic='count', bins=[ccd_bins, self.bin_t])
+            if evt_list.instrument == 'EPN': #We rebin pn into quadrant-wise lightcurve, and use the median CCD of each quadrant
+                quadrant_split = np.split(lcs_ccd, (3,6,9))
+                # quadrant_std = np.median(quadrant_split, axis=1)
+                lcs_ccd = np.median(quadrant_split, axis=1) #np.sum(quadrant_split, axis=1)
+                ccd_bins = [1, 4, 7, 10, 13]
             lcs_ccd_max = np.max(lcs_ccd, axis=0)
             lcs_ccd_min = np.min(lcs_ccd, axis=0)
             # lcs_ccd_min[lcs_ccd_min == 0] = 1
@@ -191,11 +197,12 @@ class DataCubeXMM(DataCube):
 
             # Plot all Lightcurves
             fig, ax = plt.subplots(nrows=len(lcs_ccd)+3, ncols=1, figsize=(10,10), sharex=True)
+            plt.suptitle(evt_list.instrument)
             for i, lc in enumerate(lcs_ccd):
                 ax[i].plot(lc, label=f'ccd={i}')
             ax[-3].plot(lcs_ccd_min, label='ccd min')
             ax[-2].plot(lcs_ccd_max, label='ccd max')
-            # ax[-1].plot(lcs_ccd_max/lcs_ccd_min, label='max/min')
+            ax[-1].plot(np.where(lcs_ccd_min>0, lcs_ccd_max/lcs_ccd_min, np.nan), label='max/min')
             ax[-1].axhline(3, color='red', lw=1.0)
 
             for a in ax:
@@ -207,32 +214,33 @@ class DataCubeXMM(DataCube):
             m0 = count_active_ccd == 0 # Frame is entirely empty
 
             if evt_list.instrument == 'EPN':
-                # We remove bright frames in BTI, that have either one inactive CCD or a ratio between brightest and faintest over 3
+                # We remove bright frames in EPICpn that have either one inactive CCD or a ratio between brightest and faintest over 3
                 # This corresponds to fully or partially inactive quadrants for pn
                 m1 = lcs_ccd_max > 10                       # Frame is more than 10 counts in the brightest CCD
                 # m2 = self.bti_bin_idx_bool[:-1]           # Frame is a bad time index
                 m2 = np.full(self.shape[-1:], True)
-                m3 = count_active_ccd < len(ccd_bins) - 1 # Frame is not running all CCDs
-                m4 = (lcs_ccd_max / lcs_ccd_min) > 3      # Frame is max/min > 3
+                m3 = count_active_ccd < len(ccd_bins) - 1   # Frame is not running all CCDs
+                m4 = (lcs_ccd_max / lcs_ccd_min) > 5        # Frame is max/min > 3
+                # m5 = brightest_quadrant_std > 50          # Internal STD of the brightest quadrant is above 50
                 m5 = m1 & m2 & (m3 | m4)
                 frames_to_remove = m0 | m5
 
                 # Plot masks
                 masks  = [m0, m1, m3, m4, m5, frames_to_remove]
                 labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
-                plot_frame_masks(masks=masks, labels=labels, plot=True)
+                plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=True)
 
-            elif evt_list.submode.startswith('PrimePartial'):
-                logger.info(f'PrimePartial submode!')
-                m6 = lcs_ccd[0] == 0                    # Main central CCD is off
-                m7 = np.mean(lcs_ccd[0]) > 5            # Main Central CCD has > 5 mean counts (NOT AN ARRAY)
-                m8 = np.concatenate(([False], m6[:-1])) # We also remove the next frame
-                frames_to_remove = m0 | (m6 & m7) | m8
-
-                logger.info(f'central ccd mean>5? {m7}')
-                # Plot masks
-                labels = ['empty', 'central off', 'central + 1', 'to remove']
-                plot_frame_masks(masks=[m0, m6, m8, frames_to_remove], labels=labels, plot=True)
+            # elif evt_list.submode.startswith('PrimePartial'):
+            #     logger.info(f'PrimePartial submode!')
+            #     m6 = lcs_ccd[0] == 0                    # Main central CCD is off
+            #     m7 = np.mean(lcs_ccd[0]) > 5            # Main Central CCD has > 5 mean counts (NOT AN ARRAY)
+            #     m8 = np.concatenate(([False], m6[:-1])) # We also remove the next frame
+            #     frames_to_remove = m0 | (m6 & m7) | m8
+            #
+            #     logger.info(f'central ccd mean>5? {m7}')
+            #     # Plot masks
+            #     labels = ['empty', 'central off', 'central + 1', 'to remove']
+            #     plot_frame_masks(instrum=evt_list.instrument, masks=[m0, m6, m8, frames_to_remove], labels=labels, plot=True)
             else:
                 frames_to_remove = m0
             logger.info(f'Removing {np.sum(frames_to_remove)} / {len(frames_to_remove)} incomplete frames from {evt_list.instrument}')
