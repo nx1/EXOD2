@@ -163,7 +163,7 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_frames_partial_CCDexposure(self):
+    def remove_frames_partial_CCDexposure(self, plot=False):
         """
         Remove the frames with irregular exposures between CCDs.
         
@@ -197,20 +197,26 @@ class DataCubeXMM(DataCube):
             # lcs_ccd_min[lcs_ccd_min == 0] = 1
             count_active_ccd = np.sum(lcs_ccd > 0, axis=0) # Nbr of CCDs active in each frame
 
-            # Plot all Lightcurves
-            fig, ax = plt.subplots(nrows=len(lcs_ccd)+3, ncols=1, figsize=(10,10), sharex=True)
-            plt.suptitle(evt_list.instrument)
-            for i, lc in enumerate(lcs_ccd):
-                ax[i].plot(lc, label=f'ccd={i}')
-            ax[-3].plot(lcs_ccd_min, label='ccd min')
-            ax[-2].plot(lcs_ccd_max, label='ccd max')
-            ax[-1].plot(np.where(lcs_ccd_min>0, lcs_ccd_max/lcs_ccd_min, np.nan), label='max/min')
-            ax[-1].axhline(3, color='red', lw=1.0)
+            if plot:
+                # Plot all Lightcurves
+                fig, ax = plt.subplots(nrows=len(lcs_ccd)+3, ncols=1, figsize=(10,10), sharex=True)
+                plt.suptitle(evt_list.instrument)
+                for i, lc in enumerate(lcs_ccd):
+                    ax[i].plot(lc, label=f'ccd={i}')
+                if evt_list.instrument == 'EPN':
+                    ax[-3].plot(lc_median_quadrant_min, label='ccd min')
+                    ax[-2].plot(lc_median_quadrant_max, label='ccd max')
+                    ax[-1].plot(np.where(lc_median_quadrant_min > 0, lc_median_quadrant_max / lc_median_quadrant_min, np.nan), label='max/min')
+                else:
+                    ax[-3].plot(lcs_ccd_min, label='ccd min')
+                    ax[-2].plot(lcs_ccd_max, label='ccd max')
+                    ax[-1].plot(np.where(lcs_ccd_min>0, lcs_ccd_max/lcs_ccd_min, np.nan), label='max/min')
+                ax[-1].axhline(3, color='red', lw=1.0)
 
-            for a in ax:
-                a.legend(loc='right')
-            plt.tight_layout()
-            plt.show()
+                for a in ax:
+                    a.legend(loc='right')
+                plt.tight_layout()
+                plt.show()
             #############################
 
             m0 = count_active_ccd == 0 # Frame is entirely empty
@@ -219,18 +225,19 @@ class DataCubeXMM(DataCube):
                 # We remove bright frames in EPICpn that have either one inactive CCD or a ratio between brightest and faintest over 3
                 # This corresponds to fully or partially inactive quadrants for pn
                 m1 = lcs_ccd_max > 10                       # Frame is more than 10 counts in the brightest CCD
-                # m2 = self.bti_bin_idx_bool[:-1]           # Frame is a bad time index
-                m2 = np.full(self.shape[-1:], True)
+                m2 = self.bti_bin_idx_bool[:-1]           # Frame is a bad time index
+                # m2 = np.full(self.shape[-1:], True)
                 m3 = count_active_ccd < len(ccd_bins) - 1   # Frame is not running all CCDs
                 m4 = (lc_median_quadrant_max / lc_median_quadrant_min) > 3        # Frame is max/min > 3
-                # m5 = brightest_quadrant_std > 50          # Internal STD of the brightest quadrant is above 50
-                m5 = m1 & m2 & (m3 | m4)
+                # We remove frames when one quadrant is off or (BTI & ratio of medians >3)
+                m5 =  m1 & (m3 | (m2 & m4)) # m1 & m2 & (m3 | m4)
                 frames_to_remove = m0 | m5
 
-                # Plot masks
-                masks  = [m0, m1, m3, m4, m5, frames_to_remove]
-                labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
-                plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=True)
+                if plot:
+                    # Plot masks
+                    masks  = [m0, m1, m3, m4, m5, frames_to_remove]
+                    labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
+                    plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=True)
 
             # elif evt_list.submode.startswith('PrimePartial'):
             #     logger.info(f'PrimePartial submode!')

@@ -113,8 +113,8 @@ def compute_expected_cube_using_templates(data_cube):
         source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
         source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI, np.zeros(image_GTI.shape))
 
-        # Assume sources are constant, counts per frame are obtained by dividing by # of GTI frames
-        source_constant_contribution = source_only_image_GTI / len(gti_indices)
+        # Assume sources are constant, counts per frame are obtained by dividing by # of non-NaN GTI frames
+        source_constant_contribution = source_only_image_GTI / np.sum(np.nansum(cube[:,:,gti_indices], axis=(0,1)) > 0)
     else:
         logger.info(f'len(bti_indices)={len(bti_indices)}')
         # Get the net image of sources in BTIs (after inpainting to have background below sources)
