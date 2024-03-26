@@ -187,8 +187,10 @@ class DataCubeXMM(DataCube):
             lcs_ccd, bin_edges, bin_number = binned_statistic_dd(sample, values=None, statistic='count', bins=[ccd_bins, self.bin_t])
             if evt_list.instrument == 'EPN': #We rebin pn into quadrant-wise lightcurve, and use the median CCD of each quadrant
                 quadrant_split = np.split(lcs_ccd, (3,6,9))
-                # quadrant_std = np.median(quadrant_split, axis=1)
-                lcs_ccd = np.median(quadrant_split, axis=1) #np.sum(quadrant_split, axis=1)
+                lcs_ccd = np.sum(quadrant_split, axis=1)
+                lc_median_quadrant = np.median(quadrant_split, axis=1)
+                lc_median_quadrant_max = np.max(lc_median_quadrant, axis=0)
+                lc_median_quadrant_min = np.min(lc_median_quadrant, axis=0)
                 ccd_bins = [1, 4, 7, 10, 13]
             lcs_ccd_max = np.max(lcs_ccd, axis=0)
             lcs_ccd_min = np.min(lcs_ccd, axis=0)
@@ -220,7 +222,7 @@ class DataCubeXMM(DataCube):
                 # m2 = self.bti_bin_idx_bool[:-1]           # Frame is a bad time index
                 m2 = np.full(self.shape[-1:], True)
                 m3 = count_active_ccd < len(ccd_bins) - 1   # Frame is not running all CCDs
-                m4 = (lcs_ccd_max / lcs_ccd_min) > 5        # Frame is max/min > 3
+                m4 = (lc_median_quadrant_max / lc_median_quadrant_min) > 3        # Frame is max/min > 3
                 # m5 = brightest_quadrant_std > 50          # Internal STD of the brightest quadrant is above 50
                 m5 = m1 & m2 & (m3 | m4)
                 frames_to_remove = m0 | m5
