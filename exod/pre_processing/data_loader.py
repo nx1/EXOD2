@@ -65,6 +65,14 @@ class DataLoader:
         self.data_cube = data_cube
         return data_cube
 
+    def multiply_time_interval(self, n_factor):
+        logger.info(f'Rebinning the cube with longer timebins by factor {n_factor}...')
+        self.data_cube.multiply_time_interval(n_factor)
+        self.time_interval = self.data_cube.time_interval
+        self.calculate_bti()
+        self.data_cube.calc_gti_bti_bins(bti=self.bti)
+
+
     @property
     def info(self):
         info = {
@@ -83,14 +91,21 @@ class DataLoader:
 
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
+    from exod.xmm.event_list import EventList
     obs = Observation('0860302501')
     obs.get_files()
-    evt = obs.events_processed[0]
-    evt.read()
-    dl = DataLoader(evt)
+    obs.get_events_overlapping_subsets()
+    event_list = EventList.from_event_lists(obs.events_overlapping_subsets[0])
+    dl = DataLoader(event_list=event_list, size_arcsec=15, time_interval=100, gti_only=False,
+                    gti_threshold=1.5, min_energy=0.2, max_energy=12)
     dl_info = dl.info
     dl.run()
-    import matplotlib.pyplot as plt
-    plt.show()
+    print(dl.data_cube.shape, dl.data_cube.time_interval)
+    dl.multiply_time_interval(3)
+    print(dl.data_cube.shape, dl.data_cube.time_interval)
+
+
+    # import matplotlib.pyplot as plt
+    # plt.show()
 
 

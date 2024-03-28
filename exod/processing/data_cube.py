@@ -268,6 +268,7 @@ class DataCubeXMM(DataCube):
         # np.split(X, np.arange(N, len(X), N)) allows to cut X in chunks of size N (plus the remaining bit)
         datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2) #Splits in groups of n_factor along the time axis
         self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube again
+        self.shape = self.data.shape
 
         #Update the relative exposures of each frame
         frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor)) #Splits in groups of n_factor along the time axis
