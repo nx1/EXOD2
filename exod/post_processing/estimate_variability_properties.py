@@ -181,8 +181,8 @@ if __name__=="__main__":
         time_interval = 10
         gti_only = False
         gti_threshold = 1.5
-        min_energy = 6.3
-        max_energy = 6.7
+        min_energy = 0.2
+        max_energy = 2.
 
         threshold_sigma=5
 

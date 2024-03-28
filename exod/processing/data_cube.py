@@ -103,6 +103,7 @@ class DataCubeXMM(DataCube):
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
+        self.relative_frame_exposures = np.ones(self.shape[2])
         super().__init__(self.data)
 
     def calc_time_bins(self):
@@ -254,6 +255,26 @@ class DataCubeXMM(DataCube):
                 frames_to_remove = m0
             logger.info(f'Removing {np.sum(frames_to_remove)} / {len(frames_to_remove)} incomplete frames from {evt_list.instrument}')
             self.data = np.where(frames_to_remove, np.empty(self.data.shape) * np.nan, self.data)
+            self.relative_frame_exposures = np.where(frames_to_remove, 0, self.relative_frame_exposures)
+
+    def multiply_time_interval(self, n_factor):
+        """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
+        Important: the BTI need to be re-computed as well, at the DataLoader level most likely"""
+
+        self.time_interval=n_factor*self.time_interval
+        self.bin_t = self.calc_time_bins()
+
+        #Update the data cube
+        # np.split(X, np.arange(N, len(X), N)) allows to cut X in chunks of size N (plus the remaining bit)
+        datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2) #Splits in groups of n_factor along the time axis
+        self.data = np.array([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups]) #Nansum each group along the time axis, and makes it into a cube again
+
+        #Update the relative exposures of each frame
+        frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor)) #Splits in groups of n_factor along the time axis
+        self.relative_frame_exposures = np.array([np.sum(exp_frame_grp) for exp_frame_grp in frame_exposures_twoframegroups])
+
+
+
 
     @property
     def info(self):
