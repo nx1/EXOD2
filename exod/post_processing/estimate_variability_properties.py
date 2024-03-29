@@ -129,7 +129,7 @@ def clean_up_eclipses(data_cube, eclipses):
             # data_cube.data[:,:,t]=np.full(data_cube.shape[:2],np.nan)
     return new_eclipses
 
-def find_sigma(n, mu,):
+def find_sigma(n, mu):
     """Uses the interpolated values of B(n,mu) to convert (n,mu) to a sigma level.
     The idea is that, whether it's a peak or eclipse, you want to find the sigma level of B(n,mu). To do this,
      we go to large counts along the iso-B lines: in this case, N*(mu=1000,sigma) is the observed counts that
@@ -140,23 +140,23 @@ def find_sigma(n, mu,):
         b = bayes_factor_peak(n,mu)
         function_to_invert = lambda sigma : b - bayes_factor_peak(N_peaks_large_mu(1000, sigma), 1000)
         #We need to provide a range for the inversion method. To exclude edge cases, we check if it's above 10 sigma
-        #or below 3 sigma, which we both exclude. We can then look in the region in between
+        #or below 1 sigma, which we both exclude. We can then look in the region in between
         if function_to_invert(10)>0:
             return 10
-        elif function_to_invert(3)<0:
+        elif function_to_invert(1)<0:
             return 0
         else:
-            return root_scalar(function_to_invert, bracket=(3,10)).root
+            return root_scalar(function_to_invert, bracket=(1,10)).root
 
     else: #Means it's an eclipse
         b = bayes_factor_eclipse(n,mu)
         function_to_invert = lambda sigma : b - bayes_factor_eclipse(N_eclipses_large_mu(1000, sigma), 1000)
         if function_to_invert(10) > 0:
             return 10
-        elif function_to_invert(3)<0:
+        elif function_to_invert(1)<0:
             return 0
         else:
-            return root_scalar(function_to_invert, bracket=(3, 10)).root
+            return root_scalar(function_to_invert, bracket=(1, 10)).root
 
 def count_peaks(peaks_or_eclipses):
     """Counts the individual number of times the lightcurve went above the threshold for variability"""
