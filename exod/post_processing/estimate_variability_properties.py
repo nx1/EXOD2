@@ -7,7 +7,7 @@ from exod.processing.data_cube import DataCube
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
-from exod.processing.experimental.bayesian import variability_maps, load_precomputed_bayes_limits
+from exod.processing.experimental.bayesian import variability_maps, load_precomputed_bayes_limits, bayes_factor_peak, bayes_factor_eclipse, N_eclipses_large_mu, N_peaks_large_mu
 
 import numpy as np
 import os
@@ -17,6 +17,8 @@ import cmasher as cmr
 from scipy.stats import poisson
 from scipy.special import gammainc, gammaincc, gammaincinv
 from tqdm import tqdm
+from scipy.optimize import root_scalar
+
 
 def plot_lightcurve_alerts_with_background(cube, cube_background, cube_background_withsource, tab_boundingboxes):
     """
@@ -127,6 +129,34 @@ def clean_up_eclipses(data_cube, eclipses):
             # data_cube.data[:,:,t]=np.full(data_cube.shape[:2],np.nan)
     return new_eclipses
 
+def find_sigma(n, mu,):
+    """Uses the interpolated values of B(n,mu) to convert (n,mu) to a sigma level.
+    The idea is that, whether it's a peak or eclipse, you want to find the sigma level of B(n,mu). To do this,
+     we go to large counts along the iso-B lines: in this case, N*(mu=1000,sigma) is the observed counts that
+     correspond to a sigma-level departure from mu=1000. This is the solution of the 2nd degree polynomial (see doc).
+    We want to find sigma such that B(N*(mu=1000,sigma),mu=1000) is the same as the observed B. This is done by inverting
+    the function (by finding the root of B(n,mu)-B(N*(mu=1000,sigma),mu=1000)"""
+    if n>mu: #Means it's a peak
+        b = bayes_factor_peak(n,mu)
+        function_to_invert = lambda sigma : b - bayes_factor_peak(N_peaks_large_mu(1000, sigma), 1000)
+        #We need to provide a range for the inversion method. To exclude edge cases, we check if it's above 10 sigma
+        #or below 3 sigma, which we both exclude. We can then look in the region in between
+        if function_to_invert(10)>0:
+            return 10
+        elif function_to_invert(3)<0:
+            return 0
+        else:
+            return root_scalar(function_to_invert, bracket=(3,10)).root
+
+    else: #Means it's an eclipse
+        b = bayes_factor_eclipse(n,mu)
+        function_to_invert = lambda sigma : b - bayes_factor_eclipse(N_eclipses_large_mu(1000, sigma), 1000)
+        if function_to_invert(10) > 0:
+            return 10
+        elif function_to_invert(3)<0:
+            return 0
+        else:
+            return root_scalar(function_to_invert, bracket=(3, 10)).root
 
 def count_peaks(peaks_or_eclipses):
     """Counts the individual number of times the lightcurve went above the threshold for variability"""

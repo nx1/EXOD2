@@ -25,20 +25,21 @@ def bayes_factor_eclipse(n, mu):
     """Computes the Bayes factors of the presence of a peak, given the expected and observed counts mu and n"""
     return np.log10(gammainc(n + 1, mu)) - np.log10(poisson.pmf(n, mu))
 
+def N_peaks_large_mu(mu, sigma):
+    return np.ceil((2*mu+sigma**2+np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
+
+def N_eclipses_large_mu(mu, sigma):
+    return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
 
 def precompute_bayes_limits(threshold_sigma):
     """Computes the maximum and minimum accepted observed counts, for a given range of mu, so that it is an acceptable
     Poissonian realisation at a given confidence threshold. It is faster to precompute them rather than computing it
     on the fly during the observation treatment. For large numbers, we use a Gaussian approximation"""
     range_mu = np.geomspace(1e-7, 1e3, 50000)
-    if threshold_sigma==3:
-        threshold_peak=5.94
-        threshold_eclipse=5.70
-    elif threshold_sigma==5:
-        threshold_peak=13.27
-        threshold_eclipse=12.38
-    else:
-        print("You need to precompute the corresponding values !")
+
+    threshold_peak=bayes_factor_peak(N_peaks_large_mu(1000,threshold_sigma),1000)
+    threshold_eclipse=bayes_factor_eclipse(N_eclipses_large_mu(1000,threshold_sigma),1000)
+
     tab_npeak, tab_neclipse = [],[]
     for mu in tqdm(range_mu):
         range_n_peak =  np.arange(max(10*mu, 100))
@@ -50,11 +51,9 @@ def precompute_bayes_limits(threshold_sigma):
         tab_neclipse.append(range_n_eclipse[result<threshold_eclipse][0])
 
     range_mu_large=np.geomspace(1e3,1e6,1000)
-    def delta_largemu(x, sigma_threshold):
-        return np.sqrt((2*x + sigma_threshold**2)**2 -4*(x**2-x*(sigma_threshold**2)))
 
-    tab_npeak+=list((2*range_mu_large+threshold_sigma**2+delta_largemu(range_mu_large,sigma_threshold=threshold_sigma))/2)
-    tab_neclipse+=list((2*range_mu_large+threshold_sigma**2-delta_largemu(range_mu_large,sigma_threshold=threshold_sigma))/2)
+    tab_npeak+=list(N_peaks_large_mu(range_mu_large, threshold_sigma))
+    tab_neclipse+=list(N_eclipses_large_mu(range_mu_large, threshold_sigma))
     range_mu=np.concatenate((range_mu,range_mu_large))
 
 
@@ -85,7 +84,21 @@ def load_precomputed_bayes_limits(threshold_sigma):
     maximum_for_eclipse = interp1d(range_mu, data[2])
     return range_mu, minimum_for_peak, maximum_for_eclipse
 
+def precompute_bayes_1000():
+    """Precomputes the Bayes factor at mu=1000 for a bunch of values of N. Will be interpolated to estimate the sigma"""
+    range_N = np.arange(10000)
+    tab_B_peaks = bayes_factor_peak(range_N, 1000)
+    tab_B_eclipses = bayes_factor_eclipse(range_N, 1000)
+    data = np.array([range_N, tab_B_peaks, tab_B_eclipses])
+    np.savetxt(path.utils / f'bayesfactor_mu1000.txt', data)
 
+def load_precomputed_bayes1000():
+    """Loads & interpolates the precomputed values of Bayes factors at mu=1000"""
+    data = np.loadtxt(path.utils / f'bayesfactor_mu1000.txt')
+    range_N = data[0]
+    B_values_peaks = interp1d(range_N, data[1])
+    B_values_eclipses = interp1d(range_N, data[2])
+    return range_N, B_values_peaks, B_values_eclipses
 
 def variability_maps(cube, expected, threshold_sigma):
     """Returns two cubes with booleans where the rate correspond to a peak or an eclipse"""
@@ -110,7 +123,7 @@ if __name__=="__main__":
     for obsid in tqdm(obsids[:1]):
         # obsid='0765080801'#'0886121001'#'0872390901' #
         size_arcsec = 20
-        time_interval = 5
+        time_interval = 25
         gti_only = False
         gti_threshold = 1.5
         min_energy = 0.2
@@ -130,14 +143,6 @@ if __name__=="__main__":
                     dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
                                     gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
                     dl.run()
-                    # dl.data_cube.video()
-
-                    # cube = dl.data_cube.data
-                    # rejected = dl.data_cube.bti_bin_idx
-                    # print("Cube loaded ! Adding synthetic data...")
-                    # cube_with_peak = cube + create_fake_Nbins_burst(dl.data_cube, 20, 30,
-                    #                                                  time_peak_fractions=(0.3,0.4,0.6,0.7), amplitude=20)
-                    # dl.data_cube.data=cube_with_peak
                     estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
 
                     print("Computing variability...")
@@ -199,6 +204,7 @@ if __name__=="__main__":
                     axes[0][0].axis('off')
                     axes[1][0].axis('off')
                     axes[1][1].axis('off')
+
                     # plt.show()
                     # plt.figure()
                     # plt.imshow(dl.data_cube.data[:, :, 1], norm=LogNorm(), interpolation='none')
