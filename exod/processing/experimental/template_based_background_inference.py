@@ -113,14 +113,16 @@ def compute_expected_cube_using_templates(data_cube):
         source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
         source_only_image_GTI = np.where(source_only_image_GTI>0, source_only_image_GTI, np.zeros(image_GTI.shape))
 
-        # Assume sources are constant, counts per frame are obtained by dividing by # of non-NaN GTI frames
-        source_constant_contribution = source_only_image_GTI / np.sum(np.nansum(cube[:,:,gti_indices], axis=(0,1)) > 0)
+        # Assume sources are constant, counts per frame are obtained by dividing by relative exposures of each frame
+        effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[gti_indices])
+        source_base_contribution = source_only_image_GTI / effective_exposed_frames
     else:
         logger.info(f'len(bti_indices)={len(bti_indices)}')
         # Get the net image of sources in BTIs (after inpainting to have background below sources)
         source_only_image_BTI = np.where(image_mask_source, image_BTI-image_BTI_no_source_template_blur*count_GTI_outside_sources, np.zeros(image_BTI.shape))
         source_only_image_BTI = np.where(source_only_image_BTI>0, source_only_image_BTI,np.zeros(image_GTI.shape))
-        source_constant_contribution = source_only_image_BTI / np.sum(np.nansum(cube[:,:,bti_indices], axis=(0,1)) > 0)
+        effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[bti_indices])
+        source_base_contribution = source_only_image_BTI / effective_exposed_frames
 
     #Create expected cube
     observed_cube_outside_sources = np.where(np.repeat(image_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
@@ -140,7 +142,7 @@ def compute_expected_cube_using_templates(data_cube):
     if len(bti_indices) > 0:
         estimated_cube[:,:,bti_indices] = image_BTI_no_source_template_blur[:,:,np.newaxis] * lightcurve_outside_sources[bti_indices]
     logger.info(f'lc_min={np.min(lightcurve_outside_sources)} lc_nanmin={np.nanmin(lightcurve_outside_sources)}')
-    estimated_cube += np.repeat(source_constant_contribution[:,:,np.newaxis], cube.shape[2], axis=2)
+    estimated_cube += source_base_contribution[:,:,np.newaxis]*data_cube.relative_frame_exposures
     estimated_cube = np.where(np.nansum(cube, axis=(0,1)) > 0, estimated_cube, np.empty(cube.shape)*np.nan)
     return estimated_cube
 
