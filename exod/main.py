@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        run_pipeline(**args)
+        # run_pipeline(**args)
         baysian.run_pipeline(obsid=obsid)
         try:
             # run_pipeline(**args)

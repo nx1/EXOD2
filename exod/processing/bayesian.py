@@ -4,7 +4,7 @@ from exod.utils.logger import logger
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 
 import numpy as np
@@ -16,7 +16,6 @@ from scipy.interpolate import interp1d
 from scipy.special import gammainc, gammaincc
 from tqdm import tqdm
 import cmasher as cmr
-from skimage.measure import label, regionprops_table
 
 
 def bayes_factor_peak_nonlog(n, mu):

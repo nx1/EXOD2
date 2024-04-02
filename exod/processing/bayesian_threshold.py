@@ -4,7 +4,7 @@ from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
-from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
 from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, bayes_factor_peak, bayes_factor_eclipse
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_multipe_fake_eclipses
@@ -137,7 +137,7 @@ def test_bayes_on_false_cube(size):
     return np.sum(peaks), np.sum(eclipse)
 
 def test_on_data(cube, expected, threshold):
-    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=threshold)
+    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=threshold)
     peaks = cube>minimum_for_peak(np.where(expected>0, expected, np.nan))
     eclipse =  cube<maximum_for_eclipse(np.where(expected>0, expected, np.nan))
     return peaks, eclipse
@@ -149,11 +149,11 @@ def accepted_n_values():
     tab_npeak, tab_neclipse = [],[]
     for mu in tqdm(range_mu):
         range_n_peak =  np.arange(max(10*mu, 100))
-        result=bayes_factor_peak(mu,range_n_peak)
+        result=bayes_factor_peak(n=range_n_peak, mu=mu)
         tab_npeak.append(range_n_peak[result>5.94][0])
 
         range_n_eclipse = np.arange(2*int(mu)+1)
-        result=bayes_factor_eclipse(mu,range_n_eclipse)
+        result=bayes_factor_eclipse(n=range_n_eclipse, mu=mu)
         tab_neclipse.append(range_n_eclipse[result<5.70][0])
     plt.figure()
     plt.plot(range_mu, range_mu)
@@ -187,10 +187,10 @@ def bayes_rate_estimate(obsid='0886121001'):
     n_draws = 50
     colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.7))
 
-    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=3)
+    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
 
     dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold)
+                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=False)
     dl.run()
     cube = dl.data_cube.data
     rejected = dl.data_cube.bti_bin_idx

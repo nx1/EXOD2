@@ -1,11 +1,10 @@
-from exod.utils.logger import logger
 from exod.utils.path import data_processed
 from exod.pre_processing.download_observations import read_observation_ids
 from exod.utils.path import data
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
 from exod.processing.bayesian import get_cube_masks_peak_and_eclipse, load_precomputed_bayes_limits
 
 import numpy as np
@@ -218,96 +217,87 @@ if __name__=="__main__":
         # Load data
         observation = Observation(obsid)
         observation.get_files()
-        try:
-            observation.get_events_overlapping_subsets()
-            for ind_exp,subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
-                event_list = EventList.from_event_lists(subset_overlapping_exposures)
-                if event_list.exposure>2*time_interval:
-                    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
-                                    gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
-                                    gti_threshold=gti_threshold)
-                    dl.run()
-                    estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
-                    peaks, eclipses = get_cube_masks_peak_and_eclipse(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
-                    tab_old_peaks.append(np.sum(np.nansum(peaks,axis=2)>0))
-                    tab_old_eclipses.append(np.sum(np.nansum(eclipses,axis=2)>0))
-                    new_peaks = clean_up_peaks(dl.data_cube,peaks)
-                    new_eclipses = clean_up_eclipses(dl.data_cube,eclipses)
-                    tab_new_peaks.append(np.sum(np.nansum(new_peaks,axis=2)>0))
-                    tab_new_eclipses.append(np.sum(np.nansum(new_eclipses,axis=2)>0))
-                    # if np.sum(np.nansum(new_eclipses,axis=2)>0)>0:
-                    if tab_new_peaks[-1]>0:#tab_new_peaks[-1]<tab_old_peaks[-1]:
-                        range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(
-                            threshold_sigma=3)
-                        range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(
-                            threshold_sigma=5)
-                        fig, axes = plt.subplots(2, 2)
-                        colors = cmr.take_cmap_colors('cmr.ocean', N=2, cmap_range=(0, 0.5))
-                        plt.suptitle(f'ObsID {obsid} -- Exposure {ind_exp} --  Binning {time_interval}s')
-                        axes[0][0].imshow(np.nansum(dl.data_cube.data, axis=2), norm=LogNorm(), interpolation='none')
-                        axes[1][0].imshow(np.where(np.nansum(dl.data_cube.data, axis=2) > 0, np.nansum(new_peaks, axis=2),
-                                                   np.empty(dl.data_cube.shape[:2]) * np.nan),
-                                          vmax=1, vmin=0, interpolation='none')
-                        m = axes[1][1].imshow(
-                            np.where(np.nansum(dl.data_cube.data, axis=2) > 0, np.nansum(new_eclipses, axis=2),
-                                     np.empty(dl.data_cube.shape[:2]) * np.nan), vmax=1, vmin=0, interpolation='none')
-                        # cbar=plt.colorbar(ax=axes[1][1],mappable=m)
-                        # cbar.set_label("Nbr of peaks")
-
-                        legend_plots = []
-                        legend_labels = []
-                        x, y = np.where(np.nansum(new_peaks, axis=2) == np.max(np.nansum(new_peaks, axis=2)))
-                        #x, y = np.where((np.nansum(new_peaks,axis=2)==0)&(np.nansum(peaks,axis=2)>0))
-                        # print(x,y)
-                        x, y = x[0], y[0]
-
-                        time_axis = np.arange(estimated_cube.shape[2]) * time_interval
-                        p1 = axes[0][1].step(time_axis, estimated_cube[x, y], c=colors[1], where='mid', lw=3)
-                        p3 = axes[0][1].step(time_axis, dl.data_cube.data[x, y], c=colors[0], where='mid')
-                        axes[0][1].set_yscale('log')
-                        axes[0][1].fill_between(time_axis,
-                                                maximum_for_eclipse_3sig(
-                                                    np.where(estimated_cube[x, y] > range_mu_3sig[0], estimated_cube[x, y],
-                                                             np.nan)),
-                                                minimum_for_peak_3sig(
-                                                    np.where(estimated_cube[x, y] > range_mu_3sig[0], estimated_cube[x, y],
-                                                             np.nan)),
-                                                alpha=0.3, facecolor=colors[1])
-                        axes[0][1].fill_between(time_axis,
-                                                maximum_for_eclipse_5sig(
-                                                    np.where(estimated_cube[x, y] > range_mu_5sig[0], estimated_cube[x, y],
-                                                             np.nan)),
-                                                minimum_for_peak_5sig(
-                                                    np.where(estimated_cube[x, y] > range_mu_5sig[0], estimated_cube[x, y],
-                                                             np.nan)),
-                                                alpha=0.3, facecolor=colors[1])
-                        p2 = axes[0][1].fill(np.NaN, np.NaN, c=colors[1], alpha=0.3)
-                        axes[0][1].set_xlabel("Time (s)")
-                        axes[0][1].scatter(time_axis, peaks[x, y], c='r', marker='^', zorder=1)
-                        axes[0][1].scatter(time_axis, new_peaks[x, y]+.5, c='g', marker='^', zorder=1)
-                        axes[0][1].scatter(time_axis, eclipses[x, y], c='r', marker='v', zorder=1)
-                        axes[0][1].scatter(time_axis, new_eclipses[x, y]+.5, c='g', marker='v', zorder=1)
-
-                        second_axis_func = (lambda x: x / time_interval, lambda x: time_interval * x)
-                        secax = axes[0][1].secondary_xaxis('top', functions=second_axis_func)
-                        secax.set_xlabel("Time (frame #)")
-                        legend_plots.append((p1[0], p2[0]))
-                        legend_labels.append("Expected")
-                        legend_plots.append((p3[0],))
-                        legend_labels.append(f"Observed {x}-{y}")
-
-                        axes[0][1].legend(legend_plots, legend_labels)
-                        axes[0][0].axis('off')
-                        axes[1][0].axis('off')
-                        axes[1][1].axis('off')
-                        plt.show()
-        except Exception as e:
-            logger.warning(f'{e}')
-        except KeyError:
-            print(f'No data found for {obsid}')
-            pass
-        except FileNotFoundError:
-            print(f'No data found for {obsid}')
-            pass
+        observation.get_events_overlapping_subsets()
+        for ind_exp,subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+            event_list = EventList.from_event_lists(subset_overlapping_exposures)
+            if event_list.exposure>2*time_interval:
+                dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
+                                gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
+                                gti_threshold=gti_threshold)
+                dl.run()
+                estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
+                peaks, eclipses = get_cube_masks_peak_and_eclipse(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
+                tab_old_peaks.append(np.sum(np.nansum(peaks,axis=2)>0))
+                tab_old_eclipses.append(np.sum(np.nansum(eclipses,axis=2)>0))
+                new_peaks = clean_up_peaks(dl.data_cube,peaks)
+                new_eclipses = clean_up_eclipses(dl.data_cube,eclipses)
+                tab_new_peaks.append(np.sum(np.nansum(new_peaks,axis=2)>0))
+                tab_new_eclipses.append(np.sum(np.nansum(new_eclipses,axis=2)>0))
+                # if np.sum(np.nansum(new_eclipses,axis=2)>0)>0:
+                if tab_new_peaks[-1]>0:#tab_new_peaks[-1]<tab_old_peaks[-1]:
+                    range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(
+                        threshold_sigma=3)
+                    range_mu_5sig, minimum_for_peak_5sig, maximum_for_eclipse_5sig = load_precomputed_bayes_limits(
+                        threshold_sigma=5)
+                    fig, axes = plt.subplots(2, 2)
+                    colors = cmr.take_cmap_colors('cmr.ocean', N=2, cmap_range=(0, 0.5))
+                    plt.suptitle(f'ObsID {obsid} -- Exposure {ind_exp} --  Binning {time_interval}s')
+                    axes[0][0].imshow(np.nansum(dl.data_cube.data, axis=2), norm=LogNorm(), interpolation='none')
+                    axes[1][0].imshow(np.where(np.nansum(dl.data_cube.data, axis=2) > 0, np.nansum(new_peaks, axis=2),
+                                               np.empty(dl.data_cube.shape[:2]) * np.nan),
+                                      vmax=1, vmin=0, interpolation='none')
+                    m = axes[1][1].imshow(
+                        np.where(np.nansum(dl.data_cube.data, axis=2) > 0, np.nansum(new_eclipses, axis=2),
+                                 np.empty(dl.data_cube.shape[:2]) * np.nan), vmax=1, vmin=0, interpolation='none')
+                    # cbar=plt.colorbar(ax=axes[1][1],mappable=m)
+                    # cbar.set_label("Nbr of peaks")
+ 
+                    legend_plots = []
+                    legend_labels = []
+                    x, y = np.where(np.nansum(new_peaks, axis=2) == np.max(np.nansum(new_peaks, axis=2)))
+                    #x, y = np.where((np.nansum(new_peaks,axis=2)==0)&(np.nansum(peaks,axis=2)>0))
+                    # print(x,y)
+                    x, y = x[0], y[0]
+ 
+                    time_axis = np.arange(estimated_cube.shape[2]) * time_interval
+                    p1 = axes[0][1].step(time_axis, estimated_cube[x, y], c=colors[1], where='mid', lw=3)
+                    p3 = axes[0][1].step(time_axis, dl.data_cube.data[x, y], c=colors[0], where='mid')
+                    axes[0][1].set_yscale('log')
+                    axes[0][1].fill_between(time_axis,
+                                            maximum_for_eclipse_3sig(
+                                                np.where(estimated_cube[x, y] > range_mu_3sig[0], estimated_cube[x, y],
+                                                         np.nan)),
+                                            minimum_for_peak_3sig(
+                                                np.where(estimated_cube[x, y] > range_mu_3sig[0], estimated_cube[x, y],
+                                                         np.nan)),
+                                            alpha=0.3, facecolor=colors[1])
+                    axes[0][1].fill_between(time_axis,
+                                            maximum_for_eclipse_5sig(
+                                                np.where(estimated_cube[x, y] > range_mu_5sig[0], estimated_cube[x, y],
+                                                         np.nan)),
+                                            minimum_for_peak_5sig(
+                                                np.where(estimated_cube[x, y] > range_mu_5sig[0], estimated_cube[x, y],
+                                                         np.nan)),
+                                            alpha=0.3, facecolor=colors[1])
+                    p2 = axes[0][1].fill(np.NaN, np.NaN, c=colors[1], alpha=0.3)
+                    axes[0][1].set_xlabel("Time (s)")
+                    axes[0][1].scatter(time_axis, peaks[x, y], c='r', marker='^', zorder=1)
+                    axes[0][1].scatter(time_axis, new_peaks[x, y]+.5, c='g', marker='^', zorder=1)
+                    axes[0][1].scatter(time_axis, eclipses[x, y], c='r', marker='v', zorder=1)
+                    axes[0][1].scatter(time_axis, new_eclipses[x, y]+.5, c='g', marker='v', zorder=1)
+ 
+                    second_axis_func = (lambda x: x / time_interval, lambda x: time_interval * x)
+                    secax = axes[0][1].secondary_xaxis('top', functions=second_axis_func)
+                    secax.set_xlabel("Time (frame #)")
+                    legend_plots.append((p1[0], p2[0]))
+                    legend_labels.append("Expected")
+                    legend_plots.append((p3[0],))
+                    legend_labels.append(f"Observed {x}-{y}")
+ 
+                    axes[0][1].legend(legend_plots, legend_labels)
+                    axes[0][0].axis('off')
+                    axes[1][0].axis('off')
+                    axes[1][1].axis('off')
+                    plt.show()
     print("Peaks before vs. after:",np.sum(tab_old_peaks), np.sum(tab_new_peaks))
     print("Eclipses before vs. after:",np.sum(tab_old_eclipses), np.sum(tab_new_eclipses))

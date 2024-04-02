@@ -176,8 +176,7 @@ def run_computation(data_cube, with_peak=False, size_arcsec=15):
     plt.plot(lightcurve_no_source_image)
     # plt.savefig(savedir / "lightcurve_background_test.png")
     plt.show()
-    extrapolated_images = [normalized_background*frame_value + source_only_image/(cube.shape[2])
-                           for frame_value in lightcurve_no_source_image]
+    extrapolated_images = [normalized_background*frame_value + source_only_image/(cube.shape[2]) for frame_value in lightcurve_no_source_image]
 
     for ind, extrapolated_image in enumerate(extrapolated_images):
         true_image = cube[:,:,ind]
@@ -261,7 +260,7 @@ if __name__=="__main__":
 
     # Initialize the Data Loader
     dl = DataLoader(event_list=event_list, time_interval=100, size_arcsec=10, gti_only=True, min_energy=0.5,
-                    max_energy=12.0, gti_threshold=0.5)
+                    max_energy=12.0, gti_threshold=0.5, remove_partial_ccd_frames=False)
     dl.run()
 
     lc_HE, time_HE = dl.get_high_energy_lc()
@@ -271,22 +270,17 @@ if __name__=="__main__":
     background_images_new, background_withsource_new = compute_background_two_templates(cube, lc_HE, dl.time_interval)
     background_images, background_withsource = compute_background(cube)
     maxi_value = np.max(np.sum(cube, axis=(0,1))) / (cube.shape[0] * cube.shape[1])
+    print(background_images_new)
+    print(background_images_new)
+    print(maxi_value)
     for i in tqdm(range(background_images.shape[2])):
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        fig.set_figheight(5)
-        fig.set_figwidth(15)
-        m1 = ax1.imshow(background_withsource[:,:,i].T, origin='lower', interpolation='none', norm=LogNorm(1,maxi_value))
-        # plt.colorbar(mappable=m1, ax=ax1,fraction=0.046, pad=0.04)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15,5))
+        ax1.imshow(background_withsource[:,:,i].T, origin='lower', interpolation='none')
+        ax2.imshow(background_withsource_new[:, :, i].T, origin='lower', interpolation='none')
+        ax3.imshow(cube[:,:,i].T, origin='lower', interpolation='none')
         ax1.set_title("Expected image (old)")
-        ax1.axis('off')
-        m2 = ax2.imshow(background_withsource_new[:, :, i].T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
-        # plt.colorbar(mappable=m2, ax=ax2,fraction=0.046, pad=0.04)
         ax2.set_title("Expected image (new)")
-        ax2.axis('off')
-        m3 = ax3.imshow(cube[:,:,i].T, origin='lower', interpolation='none', norm=LogNorm(1, maxi_value))
-        # plt.colorbar(mappable=m3, ax=ax3,fraction=0.046, pad=0.04)
         ax3.set_title("True image")
-        ax3.axis('off')
 
         plt.show()
 
