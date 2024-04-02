@@ -31,6 +31,14 @@ def bayes_factor_peak(n, mu):
     return np.log10(gammaincc(n + 1, mu)) - np.log10(poisson.pmf(n, mu))
 
 
+def N_peaks_large_mu(mu, sigma):
+    return np.ceil((2*mu+sigma**2+np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
+
+
+def N_eclipses_large_mu(mu, sigma):
+    return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
+
+
 def bayes_factor_eclipse(n, mu):
     """Computes the Bayes factors of the presence of a eclipse, given the expected (mu) and observed (n) counts"""
     return np.log10(gammainc(n + 1, mu)) - np.log10(poisson.pmf(n, mu))
@@ -41,16 +49,9 @@ def get_bayes_thresholds(threshold_sigma):
     B > B_threshold_peak for a peak detection
     B < B_eclipse_threshold for an eclipse detection
     """
-    if threshold_sigma == 3:
-        B_peak_threshold = 5.94
-        B_eclipse_threshold = 5.70
-        return B_peak_threshold, B_eclipse_threshold
-    elif threshold_sigma == 5:
-        B_peak_threshold = 13.27
-        B_eclipse_threshold = 12.38
-        return B_peak_threshold, B_eclipse_threshold
-    else:
-        raise ValueError("threshold_sigma must be 3 or 5. You need to precompute the corresponding values!")
+    B_peak_threshold = bayes_factor_peak(N_peaks_large_mu(1000, threshold_sigma), 1000)
+    B_eclipse_threshold = bayes_factor_eclipse(N_eclipses_large_mu(1000, threshold_sigma), 1000)
+    return B_peak_threshold, B_eclipse_threshold
 
 
 def precompute_bayes_limits(threshold_sigma):
@@ -107,13 +108,10 @@ def precompute_bayes_limits(threshold_sigma):
         n_eclipse_min = range_n_eclipse[B_factors < B_eclipse_threshold][0]
         tab_neclipse.append(n_eclipse_min)
         
-
-    def delta_largemu(mu, sigma_threshold):
-        return np.sqrt((2 * mu + sigma_threshold ** 2) ** 2 - 4 * (mu ** 2 - mu * (sigma_threshold ** 2)))
-
-    tab_npeak    += list((2*range_mu_large + threshold_sigma**2 + delta_largemu(range_mu_large, sigma_threshold=threshold_sigma)) / 2)
-    tab_neclipse += list((2*range_mu_large + threshold_sigma**2 - delta_largemu(range_mu_large, sigma_threshold=threshold_sigma)) / 2)
-    range_mu      = np.concatenate((range_mu, range_mu_large))
+    tab_npeak    += list(N_peaks_large_mu(range_mu_large, threshold_sigma))
+    tab_neclipse += list(N_eclipses_large_mu(range_mu_large, threshold_sigma))
+    
+    range_mu = np.concatenate((range_mu, range_mu_large))
 
     data = np.array([range_mu, tab_npeak, tab_neclipse])
     savepath = path.utils / f'bayesfactorlimits_{threshold_sigma}.txt'
@@ -123,8 +121,8 @@ def precompute_bayes_limits(threshold_sigma):
     # Visualization
     plt.figure(figsize=(5, 5))
     plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='red')
-    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'N with $B_{{peak}} > 10^{{{B_peak_threshold}}}$', lw=1.0)
-    plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'N with $B_{{eclipse}} > 10^{{{B_eclipse_threshold}}}$', lw=1.0)
+    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'N with $B_{{peak}} > 10^{{{B_peak_threshold:.2f}}}$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'N with $B_{{eclipse}} > 10^{{{B_eclipse_threshold:.2f}}}$', lw=1.0)
     plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.2, label=fr'$5 \sigma$ Region', color='blue')
     plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'$3 \sigma$ Region', color='blue')
     plt.yscale('log')
@@ -137,6 +135,24 @@ def precompute_bayes_limits(threshold_sigma):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+def precompute_bayes_1000():
+    """Precomputes the Bayes factor at mu=1000 for a bunch of values of N. Will be interpolated to estimate the sigma"""
+    range_N = np.arange(10000)
+    tab_B_peaks = bayes_factor_peak(range_N, 1000)
+    tab_B_eclipses = bayes_factor_eclipse(range_N, 1000)
+    data = np.array([range_N, tab_B_peaks, tab_B_eclipses])
+    np.savetxt(path.utils / f'bayesfactor_mu1000.txt', data)
+
+def load_precomputed_bayes1000():
+    """Loads & interpolates the precomputed values of Bayes factors at mu=1000"""
+    data = np.loadtxt(path.utils / f'bayesfactor_mu1000.txt')
+    range_N = data[0]
+    B_values_peaks = interp1d(range_N, data[1])
+    B_values_eclipses = interp1d(range_N, data[2])
+    return range_N, B_values_peaks, B_values_eclipses
+
+
 
 def load_precomputed_bayes_limits(threshold_sigma):
     """Loads the precomputed Bayes factor limit numbers, for a chosen threshold."""
@@ -176,8 +192,8 @@ def plot_B_peak():
             label = f'n={n}'
         plt.plot(mus, bayes_factor_peak(n=n, mu=mus), color=colors[n], label=label)
     
-    plt.axhline(B_peak_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig})')
-    plt.axhline(B_peak_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig})')
+    plt.axhline(B_peak_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig:.2f})')
+    plt.axhline(B_peak_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig:.2f})')
     plt.title(f'Peak Bayes factor for n=0-{n_lines_to_plot}')
     plt.xlabel(r'Expected Value $\mu$')
     plt.ylabel(r'$log_{10}$($B_{peak}$)')
@@ -208,8 +224,8 @@ def plot_B_eclipse():
             label = f'n={n}'
         plt.plot(mus, bayes_factor_eclipse(n=n, mu=mus), color=colors[n], label=label)
     
-    plt.axhline(B_eclipse_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig})')
-    plt.axhline(B_eclipse_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig})')
+    plt.axhline(B_eclipse_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig:.2f})')
+    plt.axhline(B_eclipse_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig:.2f})')
     plt.title(f'Eclipse Bayes factor for n=0-{n_lines_to_plot}')
     plt.xlabel(r'Expected Value $\mu$')
     plt.ylabel(r'$log_{10}$($B_{eclipse}$)')
@@ -355,7 +371,7 @@ def main():
     precompute_bayes_limits(threshold_sigma=5)
 
     obsids = read_observation_ids(data / 'observations.txt')
-    obsids = read_observation_ids(data / 'obs_ccd_check.txt')
+    # obsids = read_observation_ids(data / 'obs_ccd_check.txt')
     # shuffle(obsids)
     # obsids=['0792180301']
     # obsids=['0112570701']

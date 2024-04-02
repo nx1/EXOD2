@@ -1,16 +1,13 @@
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 import numpy as np
-import os
 from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
-from exod.processing.experimental.bayesian import load_precomputed_bayes_limits, variability_maps
-from exod.post_processing.estimate_variability_properties import peak_count_estimate,eclipse_count_estimate
+from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, bayes_factor_peak, bayes_factor_eclipse
+from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_multipe_fake_eclipses
-from scipy.stats import poisson
 import cmasher as cmr
 
 
@@ -25,19 +22,19 @@ def check_estimate_success():
             N = np.random.poisson(mu+peak)
             tab_N.append(N)
             for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_rate_estimate(fraction, N, mu))
-        axes[0].scatter(tab_mu,tab_N, c=color, label=f'Peak amplitude {peak}')
-        axes[0].plot(tab_mu,tab_mid, c=color)
+                tab.append(peak_count_estimate(fraction, N, mu))
+        axes[0].scatter(tab_mu,tab_N, color=color, label=f'Peak amplitude {peak}')
+        axes[0].plot(tab_mu,tab_mid, color=color)
         axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
         axes[0].set_xscale("log")
-        axes[0].axhline(y=peak, c=color,ls='--')
+        axes[0].axhline(y=peak, color=color,ls='--')
         tab_mid = np.array(tab_mid)
         tab_low = np.array(tab_low)
         tab_up = np.array(tab_up)
         axes[1].errorbar(tab_mu,np.where(tab_mid>peak,
                                          (tab_mid-peak)/(tab_mid-tab_low),
                                          (peak - tab_mid) / (tab_up - tab_mid)
-                                         ), yerr=1, fmt='o', c=color)
+                                         ), yerr=1, fmt='o', color=color)
         axes[1].set_xscale("log")
     plt.show()
 
@@ -50,13 +47,13 @@ def check_estimate_success():
         #     tab_rates = [peak_rate_estimate(0.5,mu, N) for N in tabN]
         #     tab_mid.append(np.median(tab_rates))
         #     tab_err.append(np.std(tab_rates))
-        # plt.errorbar(tab_peak,tab_mid,yerr=tab_err, c=color, fmt='o', label=f"$\mu={mu}$")
+        # plt.errorbar(tab_peak,tab_mid,yerr=tab_err, color=color, fmt='o', label=f"$\mu={mu}$")
             N = np.random.poisson(mu+peak)
-            tab_rates = peak_rate_estimate(np.array((0.16, 0.5, 0.84)), N, mu)
+            tab_rates = peak_count_estimate(np.array((0.16, 0.5, 0.84)), N, mu)
             tab_mid.append(tab_rates[1])
             tab_errneg.append(tab_rates[1]-tab_rates[0])
             tab_errpos.append(tab_rates[2] - tab_rates[1])
-        plt.errorbar(tab_peak,tab_mid,yerr=[tab_errneg,tab_errpos], c=color, fmt='o', label=f"$\mu={mu}$")
+        plt.errorbar(tab_peak,tab_mid,yerr=[tab_errneg,tab_errpos], color=color, fmt='o', label=fr"$\mu={mu}$")
     plt.loglog()
     plt.legend()
     plt.xlabel("Peak amplitude")
@@ -75,19 +72,19 @@ def check_eclipse_estimate_success():
             N = np.random.poisson(max(mu-eclipse,0))
             tab_N.append(N)
             for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_rate_estimate(fraction, N, mu))
-        axes[0].scatter(tab_mu,tab_N, c=color)
-        axes[0].plot(tab_mu,tab_mid, c=color)
+                tab.append(peak_count_estimate(fraction, N, mu))
+        axes[0].scatter(tab_mu,tab_N, color=color)
+        axes[0].plot(tab_mu,tab_mid, color=color)
         axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
         axes[0].set_xscale("log")
-        axes[0].axhline(y=eclipse, c=color,ls='--')
+        axes[0].axhline(y=eclipse, color=color,ls='--')
         tab_mid = np.array(tab_mid)
         tab_low = np.array(tab_low)
         tab_up = np.array(tab_up)
         axes[1].errorbar(tab_mu,np.where(tab_mid>eclipse,
                                          (tab_mid-eclipse)/(tab_mid-tab_low),
                                          (eclipse - tab_mid) / (tab_up - tab_mid)
-                                         ), yerr=1, fmt='o', c=color)
+                                         ), yerr=1, fmt='o', color=color)
         axes[1].set_xscale("log")
     plt.show()
 
@@ -101,11 +98,11 @@ def check_eclipse_estimate_success():
             # tab_mid.append(np.median(tab_rates))
             # tab_err.append(np.std(tab_rates))
             N = np.random.poisson(max(mu - eclipse,0))
-            rates = eclipse_rate_estimate(np.array((0.16,0.5,0.84)),mu, N)
+            rates = eclipse_count_estimate(np.array((0.16,0.5,0.84)),mu, N)
             tab_mid.append(rates[1])
             tab_errneg.append(rates[1]-rates[0])
             tab_errpos.append(rates[2]-rates[1])
-        plt.errorbar(tab_eclipse,tab_mid,yerr=[tab_errneg,tab_errpos], c=color, fmt='o', label=mu)
+        plt.errorbar(tab_eclipse,tab_mid,yerr=[tab_errneg,tab_errpos], color=color, fmt='o', label=mu)
     plt.loglog()
     plt.xlabel("Eclipse amplitude")
     plt.legend()
@@ -118,8 +115,8 @@ def plot_some_n_bayes():
     plt.figure()
     colors = cmr.take_cmap_colors('cmr.ocean',N=len(range_n),cmap_range=(0,0.7))
     for c,n in zip(colors,range_n):
-        bayes_peak = [bayes_factor_new(mu, n) for mu in range_mu]#[bayes_factor_peak(mu, n) for mu in range_mu]
-        bayes_eclipse = [bayes_factor_eclipse_new(mu, n) for mu in range_mu]
+        bayes_peak = [bayes_factor_peak(n=n, mu=mu) for mu in range_mu]#[bayes_factor_peak(mu, n) for mu in range_mu]
+        bayes_eclipse = [bayes_factor_eclipse(n=n, mu=mu) for mu in range_mu]
         plt.plot(range_mu, bayes_peak, label=n, c=c)
         plt.plot(range_mu, bayes_eclipse, c=c)
     plt.axhline(y=5, ls='--', lw=3, c="k")
@@ -192,8 +189,8 @@ def bayes_rate_estimate(obsid='0886121001'):
 
     minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=3)
 
-    dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=timebin, gti_only=False,
-                    gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+    dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
+                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold)
     dl.run()
     cube = dl.data_cube.data
     rejected = dl.data_cube.bti_bin_idx
@@ -229,8 +226,8 @@ def bayes_rate_estimate(obsid='0886121001'):
         tab_err_bti.append(np.std(tab_current_bti))
 
     plt.figure()
-    plt.errorbar(tab_amplitude, tab_result_gti, yerr=tab_err_gti, c=colors[0], label='GTI',fmt='o')
-    plt.errorbar(tab_amplitude, tab_result_bti, yerr=tab_err_bti, c=colors[1], label='BTI',fmt='o')
+    plt.errorbar(tab_amplitude, tab_result_gti, yerr=tab_err_gti, color=colors[0], label='GTI',fmt='o')
+    plt.errorbar(tab_amplitude, tab_result_bti, yerr=tab_err_bti, color=colors[1], label='BTI',fmt='o')
     plt.legend()
     plt.xlabel('True peak amplitude')
     plt.ylabel('Estimated amplitude')
@@ -264,8 +261,8 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     tab_all_amplitudes=[]
     timebin=100
     for size_arcsec in spacebins:
-        dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=timebin, gti_only=False,
-                        gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+        dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
+                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold)
         dl.run()
         cube = dl.data_cube.data
         rejected = dl.data_cube.bti_bin_idx
@@ -305,8 +302,8 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
 
     plt.figure()
     for (tab_result_gti,tab_result_bti), spacebin, tab_amplitude, color in zip(all_spacebin_results, spacebins, tab_all_amplitudes,colors):
-        plt.plot(tab_amplitude, tab_result_gti, c=color, label=f'{int(spacebin)}"')
-        plt.plot(tab_amplitude, tab_result_bti, c=color, ls="--")
+        plt.plot(tab_amplitude, tab_result_gti, color=color, label=f'{int(spacebin)}"')
+        plt.plot(tab_amplitude, tab_result_bti, color=color, ls="--")
         # plt.fill_between(tab_amplitude, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
         #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
         #                  facecolor = color, alpha=0.5)
@@ -318,8 +315,8 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
 
     plt.figure()
     for (tab_result_gti,tab_result_bti), spacebin, tab_amplitude, color in zip(all_spacebin_results, spacebins,tab_all_amplitudes, colors):
-        plt.plot(tab_amplitude*timebin, tab_result_gti, c=color, label=f'{int(spacebin)}"')
-        plt.plot(tab_amplitude*timebin, tab_result_bti, c=color, ls="--")
+        plt.plot(tab_amplitude*timebin, tab_result_gti, color=color, label=f'{int(spacebin)}"')
+        plt.plot(tab_amplitude*timebin, tab_result_bti, color=color, ls="--")
         # plt.fill_between(tab_amplitude*timebin, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
         #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
         #                  facecolor = color, alpha=0.3)
@@ -356,8 +353,8 @@ def bayes_successrate_timebinning(obsid='0886121001'):
 
     tab_all_amplitudes=[]
     for timebin in timebins:
-        dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=timebin, gti_only=gti_only,
-                        gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+        dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=gti_only,
+                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold)
         dl.run()
         cube = dl.data_cube.data
         rejected = dl.data_cube.bti_bin_idx
@@ -395,8 +392,8 @@ def bayes_successrate_timebinning(obsid='0886121001'):
 
     plt.figure()
     for (tab_result_gti,tab_result_bti), timebin,tab_amplitude, color in zip(all_timebin_results, timebins, tab_all_amplitudes,colors):
-        plt.plot(tab_amplitude, tab_result_gti, c=color, label=f'{int(timebin)}s')
-        plt.plot(tab_amplitude, tab_result_bti, c=color, ls="--")
+        plt.plot(tab_amplitude, tab_result_gti, color=color, label=f'{int(timebin)}s')
+        plt.plot(tab_amplitude, tab_result_bti, color=color, ls="--")
         # plt.fill_between(tab_amplitude, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
         #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
         #                  facecolor = color, alpha=0.5)
@@ -408,8 +405,8 @@ def bayes_successrate_timebinning(obsid='0886121001'):
 
     plt.figure()
     for (tab_result_gti,tab_result_bti), timebin, tab_amplitude, color in zip(all_timebin_results, timebins,tab_all_amplitudes, colors):
-        plt.plot(tab_amplitude*timebin, tab_result_gti, c=color, label=f'{int(timebin)}s')
-        plt.plot(tab_amplitude*timebin, tab_result_bti, c=color, ls="--")
+        plt.plot(tab_amplitude*timebin, tab_result_gti, color=color, label=f'{int(timebin)}s')
+        plt.plot(tab_amplitude*timebin, tab_result_bti, color=color, ls="--")
         # plt.fill_between(tab_amplitude*timebin, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
         #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
         #                  facecolor = color, alpha=0.3)
@@ -437,9 +434,9 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
         observation.get_events_overlapping_subsets()
         for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
             event_list = EventList.from_event_lists(subset_overlapping_exposures)
-            dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval,
-                            gti_only=gti_only,
-                            gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+            dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
+                            gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
+                            gti_threshold=gti_threshold)
             dl.run()
             cube = dl.data_cube.data
             rejected = dl.data_cube.bti_bin_idx
@@ -451,8 +448,8 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
                 cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction,
                                                                         [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
                 estimated_cube = compute_expected_cube_using_templates(cube_with_eclipse, rejected)
-                peaks_3, eclipses_3 = variability_maps(cube_with_eclipse, estimated_cube, threshold_sigma=3)
-                peaks_5, eclipses_5 = variability_maps(cube_with_eclipse, estimated_cube, threshold_sigma=5)
+                peaks_3, eclipses_3 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=3)
+                peaks_5, eclipses_5 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=5)
                 for x_pos, y_pos in zip(tab_x_pos,tab_y_pos):
                     if np.sum(eclipses_3[x_pos,y_pos])>0:
                         caught_at_amplitude_3sig+=1
@@ -466,4 +463,17 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
     plt.legend()
     plt.xlabel("Relative amplitude of eclipse")
     plt.ylabel("Fraction of detected eclipses")
+
+if __name__ == "__main__":
+    check_estimate_success()
+    check_eclipse_estimate_success()
+    plot_some_n_bayes()
+    test_bayes_on_false_cube(size=100)
+
+    # test_on_data(cube=, expected=, threshold=)
+    accepted_n_values()
+    bayes_rate_estimate()
+    bayes_successrate_spacebinning()
+    bayes_successrate_timebinning()
+    bayes_eclipse_successrate_depth()
 

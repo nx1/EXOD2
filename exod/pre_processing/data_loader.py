@@ -17,9 +17,8 @@ class DataLoader:
     max_energy : Maximum energy for final data cube
     gti_threshold : Count rate below which will be considered good time intervals
     """
-    def __init__(self, event_list, time_interval=50, size_arcsec=10,
-                 gti_only=False, min_energy=0.2, max_energy=12.0,
-                 gti_threshold=0.5):
+    def __init__(self, event_list, time_interval=50, size_arcsec=10, gti_only=False, min_energy=0.2, max_energy=12.0,
+                 gti_threshold=0.5, remove_partial_ccd_frames=True):
         self.event_list    = event_list
         self.time_interval = time_interval
         self.size_arcsec   = size_arcsec
@@ -27,6 +26,7 @@ class DataLoader:
         self.min_energy    = min_energy
         self.max_energy    = max_energy
         self.gti_threshold = gti_threshold
+        self.remove_partial_ccd_frames = remove_partial_ccd_frames
 
     def __repr__(self):
         return f"DataLoader(events_list={self.event_list})"
@@ -36,7 +36,8 @@ class DataLoader:
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
         self.data_cube.calc_gti_bti_bins(bti=self.bti)
-        self.data_cube.remove_frames_partial_CCDexposure()
+        if self.remove_partial_ccd_frames:
+            self.data_cube.remove_frames_partial_CCDexposure()
         if self.gti_only:
             self.data_cube.mask_bti()
 

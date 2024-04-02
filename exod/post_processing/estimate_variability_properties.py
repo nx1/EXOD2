@@ -1,13 +1,12 @@
+from exod.utils.logger import logger
 from exod.utils.path import data_processed
 from exod.pre_processing.download_observations import read_observation_ids
 from exod.utils.path import data
-import exod.utils.path as path
 from exod.pre_processing.data_loader import DataLoader
-from exod.processing.data_cube import DataCube
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.processing.experimental.template_based_background_inference import compute_expected_cube_using_templates
-from exod.processing.experimental.bayesian import variability_maps, load_precomputed_bayes_limits, bayes_factor_peak, bayes_factor_eclipse, N_eclipses_large_mu, N_peaks_large_mu
+from exod.processing.bayesian import get_cube_masks_peak_and_eclipse, load_precomputed_bayes_limits
 
 import numpy as np
 import os
@@ -224,11 +223,12 @@ if __name__=="__main__":
             for ind_exp,subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
                 event_list = EventList.from_event_lists(subset_overlapping_exposures)
                 if event_list.exposure>2*time_interval:
-                    dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval, gti_only=gti_only,
-                                    gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+                    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
+                                    gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
+                                    gti_threshold=gti_threshold)
                     dl.run()
                     estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
-                    peaks, eclipses = variability_maps(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
+                    peaks, eclipses = get_cube_masks_peak_and_eclipse(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
                     tab_old_peaks.append(np.sum(np.nansum(peaks,axis=2)>0))
                     tab_old_eclipses.append(np.sum(np.nansum(eclipses,axis=2)>0))
                     new_peaks = clean_up_peaks(dl.data_cube,peaks)
@@ -301,6 +301,8 @@ if __name__=="__main__":
                         axes[1][0].axis('off')
                         axes[1][1].axis('off')
                         plt.show()
+        except Exception as e:
+            logger.warning(f'{e}')
         except KeyError:
             print(f'No data found for {obsid}')
             pass

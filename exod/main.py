@@ -6,8 +6,8 @@ from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import save_df
 from exod.xmm.observation import Observation
 from exod.processing.detector import Detector, plot_var_with_regions
+import exod.processing.bayesian as baysian
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
 def save_info(dictionary, savepath):
@@ -17,7 +17,7 @@ def save_info(dictionary, savepath):
 
 def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
                  gti_only=False, gti_threshold=1.5, min_energy=0.5,
-                 max_energy=12.0, sigma=5, clobber=False):
+                 max_energy=12.0, remove_partial_ccd_frames=False, sigma=5, clobber=False):
 
     # download_observation_events(obsid=obsid)
     # Filter the events files and Create Images
@@ -39,18 +39,13 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     img.read(wcs_only=True)
 
     # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list,
-                    size_arcsec=size_arcsec,
-                    time_interval=time_interval,
-                    gti_only=gti_only,
-                    gti_threshold=gti_threshold,
-                    min_energy=min_energy,
-                    max_energy=max_energy)
+    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec, gti_only=gti_only,
+                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=remove_partial_ccd_frames)
     dl.run()
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    dl.data_cube.video(savepath=None)
+    # dl.data_cube.video(savepath=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
@@ -72,7 +67,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
     save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
 
-    plt.show()
+    # plt.show()
 
 
 
@@ -86,25 +81,29 @@ if __name__ == "__main__":
 
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
-    # random.shuffle(obsids)
+    random.shuffle(obsids)
 
     all_res = []
     for obsid in obsids:
+        # obsid = '0762250301'
         args = {'obsid'         : obsid,
                 'size_arcsec'   : 15.0,
-                'time_interval' : 20,
-                'gti_only'      : False,
-                'gti_threshold' : 0.5,
+                'time_interval' : 5,
+                'gti_only'      : True,
+                'gti_threshold' : 1.5,
                 'min_energy'    : 0.5,
                 'max_energy'    : 12.0,
+                'remove_partial_ccd_frames' : False,
                 'sigma'         : 4,
                 'clobber'       : False}
 
         res = args.copy()
 
         run_pipeline(**args)
+        baysian.run_pipeline(obsid=obsid)
         try:
             # run_pipeline(**args)
+            #baysian.run_pipeline(obsid=obsid)
             res['status'] = 'Run'
         except Exception as e:
             logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')

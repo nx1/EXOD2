@@ -178,7 +178,7 @@ class DataCubeXMM(DataCube):
                 ccd_bins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
             elif evt_list.instrument == "EMOS1":
                 ccd_bins = list(set(evt_list.data['CCDNR']))
-                print('MOS 1 CCDS:', ccd_bins)
+                logger.info(f'MOS 1 CCDS: {ccd_bins}')
             elif evt_list.instrument == "EMOS2":
                 ccd_bins = [1, 2, 3, 4, 5, 6, 7]
             ccd_bins.append(13) # Just to get a right edge for the final bin

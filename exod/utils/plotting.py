@@ -1,4 +1,5 @@
 import matplotlib
+import numpy
 import numpy as np
 from matplotlib import pyplot as plt, pyplot
 from matplotlib.animation import FuncAnimation
@@ -67,4 +68,23 @@ def plot_frame_masks(instrum, masks, labels, plot=False):
     ax.set_yticklabels(labels)
     ax.set_xlabel('Frame Number')
     plt.tight_layout()
+    plt.show()
+
+
+def plot_3d_image(image):
+    """Plot an image as a 3D surface"""
+    xx, yy = np.mgrid[0:image.shape[0], 0:image.shape[1]]
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(projection='3d')
+    ax.plot_surface(xx, yy, image, rstride=1, cstride=1, cmap='plasma', linewidth=0)  # , antialiased=False
+
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    # ax.set_zticks([])
+
+    # ax.set_zlim(0,100)ax.set_zticks([])
+
+    plt.tight_layout()
+
     plt.show()

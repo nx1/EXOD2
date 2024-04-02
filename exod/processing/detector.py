@@ -1,13 +1,13 @@
+from exod.processing.coordinates import get_regions_sky_position
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
+from exod.processing.coordinates import calc_df_regions
 
 import numpy as np
 import pandas as pd
-import astropy.units as u
 from astropy.convolution import convolve
 from astropy.visualization import ImageNormalize, SqrtStretch
 from matplotlib import pyplot as plt, patches as patches
-from scipy.interpolate import interp1d
 from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 from scipy.optimize import minimize_scalar
@@ -42,11 +42,11 @@ class Detector:
             self.threshold = self.calc_extraction_threshold(self.sigma)
             self.df_regions = self.extract_var_regions(sigma=self.sigma)
 
-        self.df_regions = self.get_regions_sky_position()
+        self.df_sky = get_regions_sky_position(self.data_cube, self.df_regions, self.wcs)
+        self.df_regions = pd.concat([self.df_regions, self.df_sky], axis=1)
+
         self.df_regions = self.filter_df_regions()
         self.df_lcs     = self.get_region_lightcurves()
-
-
 
     def calc_image_var(self):
         """
@@ -92,17 +92,13 @@ class Detector:
         """
         logger.info('Extracting variable Regions')
         image_var_mask = self.image_var > self.calc_extraction_threshold(sigma)
-        image_var_mask_labelled = label(image_var_mask)
 
         logger.info(f'threshold: {self.calc_extraction_threshold(sigma)} sigma: {sigma}')
         self.plot_threshold_level(self.calc_extraction_threshold(sigma))
 
         # Obtain the region properties for the detected regions.
-        properties_ = ('label', 'bbox', 'centroid', 'weighted_centroid', 'intensity_mean',
-                       'equivalent_diameter_area', 'area_bbox')
-        region_dict = regionprops_table(label_image=image_var_mask_labelled,
-                                        intensity_image=self.image_var, properties=properties_)
-        df_regions = pd.DataFrame(region_dict)
+        df_regions = calc_df_regions(image=self.image_var, image_mask=image_var_mask)
+
 
         # Sort by Most Variable and reset in the label column
         df_regions = df_regions.sort_values(by='intensity_mean', ascending=False).reset_index(drop=True)
@@ -137,51 +133,6 @@ class Detector:
     def filter_df_regions(self,):
         logger.info('Removing regions with area_bbox > 12')
         df_regions = self.df_regions[self.df_regions['area_bbox'] <= self.max_area_bbox]
-        return df_regions
-
-    def get_regions_sky_position(self):
-        """
-        Calculate the sky position of the detected regions.
-
-        Test coords: obsid : 0803990501
-        1313 X-1     : 03 18 20.00 -66 29 10.9
-        1313 X-2     : 03 18 22.00 -66 36 04.3
-        SN 1978K     : 03 17 38.62 -66 33 03.4
-        NGC1313 XMM4 : 03 18 18.46 -66 30 00.2 (lil guy next to x-1)
-        """
-        # To calculate the EPIC X and Y coordinates of the variable sources, we use the final coordinates
-        # in the variability map, which are not integers. To know to which X and Y correspond to this, we interpolate the
-        # values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
-        # compared to X and Y values
-        img_bin_size = 80
-        logger.warning(f'Interpolating assuming a binning of {img_bin_size} in the image file')
-
-        data_cube = self.data_cube
-        interpX = interp1d(range(len(data_cube.bin_x)), data_cube.bin_x)
-        interpY = interp1d(range(len(data_cube.bin_y)), data_cube.bin_y)
-
-        all_res = []
-        for i, row in self.df_regions.iterrows():
-            X = interpX(row['weighted_centroid-0'])
-            Y = interpY(row['weighted_centroid-1'])
-
-            x_img = X / img_bin_size
-            y_img = Y / img_bin_size
-            skycoord = self.wcs.pixel_to_world(x_img, y_img)
-
-            res = {'x_img'    : x_img, # x_position in the binned fits image
-                   'y_img'    : y_img, # y_position in the binned fits image
-                   'X'        : X,     # X in the event_list (sky coordinates)
-                   'Y'        : Y,     # Y in the event-list (sky coordinates)
-                   'ra'       : skycoord.ra.to_string(unit=u.hourangle, precision=2),
-                   'dec'      : skycoord.dec.to_string(unit=u.deg, precision=2),
-                   'ra_deg'   : skycoord.ra.value,
-                   'dec_deg'  : skycoord.dec.value}
-            all_res.append(res)
-
-        self.df_sky = pd.DataFrame(all_res)
-        logger.info(f'df_sky:\n{self.df_sky}')
-        df_regions = pd.concat([self.df_regions, self.df_sky], axis=1)
         return df_regions
 
     def get_region_lightcurves(self):
@@ -234,25 +185,6 @@ class Detector:
             if savedir:
                 savepath = savedir / f'lc_reg_{i}.png'
             self.plot_region_lightcurve(i, savepath=savepath)
-
-
-    def plot_3d_image(self, image):
-        """Plot an image as a 3D surface"""
-        xx, yy = np.mgrid[0:image.shape[0], 0:image.shape[1]]
-        fig = plt.figure(figsize=(15, 15))
-        ax = fig.add_subplot(projection='3d')
-        ax.plot_surface(xx, yy, image, rstride=1, cstride=1, cmap='plasma', linewidth=0)  # , antialiased=False
-
-        ax.grid(False)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        # ax.set_zticks([])
-
-        # ax.set_zlim(0,100)ax.set_zticks([])
-
-        plt.tight_layout()
-
-        plt.show()
 
     @property
     def n_sources(self):

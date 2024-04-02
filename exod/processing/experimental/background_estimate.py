@@ -260,13 +260,8 @@ if __name__=="__main__":
     event_list.read()
 
     # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list,
-                    size_arcsec=10,
-                    time_interval=100,
-                    gti_only=True,
-                    gti_threshold=0.5,
-                    min_energy=0.5,
-                    max_energy=12.0)
+    dl = DataLoader(event_list=event_list, time_interval=100, size_arcsec=10, gti_only=True, min_energy=0.5,
+                    max_energy=12.0, gti_threshold=0.5)
     dl.run()
 
     lc_HE, time_HE = dl.get_high_energy_lc()

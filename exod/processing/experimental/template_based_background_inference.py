@@ -251,9 +251,9 @@ if __name__=="__main__":
                 event_list = EventList.from_event_lists(subset_overlapping_exposures)
                 # event_list = observation.events_processed_pn[0]
                 # event_list.read()
-                dl = DataLoader(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval,
-                                gti_only=gti_only,
-                                gti_threshold=gti_threshold, min_energy=min_energy, max_energy=max_energy)
+                dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
+                                gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
+                                gti_threshold=gti_threshold)
                 dl.run()
                 data_cube = dl.data_cube
                 estimated_cube = compute_expected_cube_using_templates(data_cube)
