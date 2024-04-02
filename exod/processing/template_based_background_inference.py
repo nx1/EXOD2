@@ -17,13 +17,24 @@ from astropy.convolution import convolve, Gaussian2DKernel
 from scipy.interpolate import interp1d
 
 
-def compute_expected_cube_using_templates(data_cube):
-    """Computes a baseline expected cube, combining background and sources. Any departure from this expected cube
-    corresponds to variability.
-    The background is dealt with by assuming that all GTIs and BTIs follow respective templates (i.e., once each frame
-    is divided by its total counts, they all look the same).
-    The sources are dealt with assuming they are constant. We take their net emission, and distribute it evenly across
-    all frames."""
+def compute_expected_cube_using_templates(data_cube, wcs=None):
+    """
+    Computes a baseline expected cube, combining background and sources.
+
+    Any departure from this expected cube corresponds to variability.
+
+    The background is dealt with by assuming that all GTIs and BTIs follow
+    respective templates (i.e., once each frame is divided by its total counts,
+    they all look the same).
+
+    The sources are dealt with assuming they are constant. We take their net
+    emission, and distribute it evenly across all frames.
+
+    Parameters
+    ----------
+    wcs
+
+    """
     logger.info(f'Computing Expected Cube using templates.')
     cube = data_cube.data
     bti_indices = data_cube.bti_bin_idx
@@ -41,7 +52,7 @@ def compute_expected_cube_using_templates(data_cube):
     # sources in the OBSMLI file. The second mask takes the remaining image and masks pixels that are
     # above 3 x 75% of the total image. These two masks are then combined using an OR statement.
     # This works well in most cases but often struggles when there are extended sources.
-    image_mask_source_list = mask_known_sources(data_cube) # Image mask from OBSMLI file.
+    image_mask_source_list = mask_known_sources(data_cube, wcs=wcs)  # Image mask from OBSMLI file.
     # source_threshold = np.nanpercentile(image_GTI.flatten(), 99) # This or from detected sources
     source_threshold = 3 * np.nanpercentile(image_GTI[~image_mask_source_list], q=75)
     image_mask_source_percentile = image_GTI > source_threshold
@@ -141,13 +152,12 @@ def compute_expected_cube_using_templates(data_cube):
     estimated_cube[:,:,gti_indices] = image_GTI_background_template[:,:,np.newaxis] * lightcurve_outside_sources[gti_indices]
     if len(bti_indices) > 0:
         estimated_cube[:,:,bti_indices] = image_BTI_no_source_template_blur[:,:,np.newaxis] * lightcurve_outside_sources[bti_indices]
-    logger.info(f'lc_min={np.min(lightcurve_outside_sources)} lc_nanmin={np.nanmin(lightcurve_outside_sources)}')
     estimated_cube += source_base_contribution[:,:,np.newaxis]*data_cube.relative_frame_exposures
     estimated_cube = np.where(np.nansum(cube, axis=(0,1)) > 0, estimated_cube, np.empty(cube.shape)*np.nan)
     return estimated_cube
 
-def mask_known_sources(data_cube):
-    obsid= data_cube.event_list.obsid
+def mask_known_sources(data_cube, wcs=None):
+    obsid = data_cube.event_list.obsid
     path_source_file = data_processed / f'{obsid}'
     source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
     tab_src = Table(fits.open(source_file_path)[1].data)
@@ -157,12 +167,6 @@ def mask_known_sources(data_cube):
     radius_point_sources = [cropping_radius_counts(data_cube,counts) for counts in point_sources['EP_TOT']]
     extended_sources = tab_src[(tab_src['EP_DET_ML']>8)&(tab_src['EP_EXTENT']>0.)]
     radius_extended_sources = extended_sources['EP_EXTENT']
-
-    # Get Image Coordinates
-    img_file = get_PN_image_file(obsid=obsid)
-    hdul = fits.open(img_file)
-    header = hdul[0].header
-    wcs = WCS(header=header)
 
     mask = np.full(data_cube.shape[:2],False)
     # Plot
@@ -203,10 +207,10 @@ def mask_known_sources(data_cube):
             # plt.scatter(x_cube, y_cube, color='red', marker='x', s=5)
             for x,y,rad in zip(x_cube, y_cube, tab_radius):
                 radius_image = rad/data_cube.size_arcsec
-                rr, cc = disk((x, y), radius_image)
+                rr, cc = disk(center=(x, y), radius=radius_image)
                 kept_pixels = (rr>0) & (rr<data_cube.shape[0]-1) & (cc>0) & (cc<data_cube.shape[1]-1) #Keep mask pixels only if in image
                 rr, cc = rr[kept_pixels], cc[kept_pixels]
-                mask[rr, cc]=True
+                mask[rr, cc] = True
                 # im[rr,cc]=np.nan
                 # circle=plt.Circle((x, y), radius_image, color=color,fill=False)
                 # plt.gca().add_patch(circle)
@@ -247,6 +251,8 @@ if __name__=="__main__":
             observation = Observation(obsid)
             observation.get_files()
             observation.get_events_overlapping_subsets()
+            img = observation.images[0]
+            img.read(wcs_only=True)
             for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
                 event_list = EventList.from_event_lists(subset_overlapping_exposures)
                 # event_list = observation.events_processed_pn[0]
@@ -256,7 +262,7 @@ if __name__=="__main__":
                                 gti_threshold=gti_threshold)
                 dl.run()
                 data_cube = dl.data_cube
-                estimated_cube = compute_expected_cube_using_templates(data_cube)
+                estimated_cube = compute_expected_cube_using_templates(data_cube=data_cube, wcs=img.wcst )
         except Exception as e:
             logger.warning(e)
 

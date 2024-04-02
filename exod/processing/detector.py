@@ -130,7 +130,7 @@ class Detector:
         plt.ylabel('V score')
         # plt.show()
 
-    def filter_df_regions(self,):
+    def filter_df_regions(self):
         logger.info('Removing regions with area_bbox > 12')
         df_regions = self.df_regions[self.df_regions['area_bbox'] <= self.max_area_bbox]
         return df_regions
@@ -142,37 +142,8 @@ class Detector:
         -------
         df_lcs : DataFrame of Lightcurves
         """
-        logger.info("Extracting lightcurves from data cube")
-        lcs = [pd.DataFrame({'time': self.data_cube.bin_t[:-1]}),
-               pd.DataFrame({'bti': self.data_cube.bti_bin_idx_bool[:-1]})]
-        for i, row in self.df_regions.iterrows():
-            xlo, xhi = row['bbox-0'], row['bbox-2']
-            ylo, yhi = row['bbox-1'], row['bbox-3']
-            data = self.data_cube.data[xlo:xhi, ylo:yhi]
-            lc = np.nansum(data, axis=(0, 1), dtype=np.int32)
-            res = pd.DataFrame({f'src_{i}': lc})
-            lcs.append(res)
-
-        df_lcs = pd.concat(lcs, axis=1)
+        df_lcs = get_region_lcs(data_cube=self.data_cube, df_regions=self.df_regions)
         return df_lcs
-
-    def plot_region_lightcurve(self, i, savepath=None):
-        """Plot the ith region lightcurve."""
-        lc = self.df_lcs[f'src_{i}']
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax2 = ax.twiny()
-        ax.step(self.df_lcs['time'], lc, where='post', color='black', lw=1.0)
-        ax2.step(range(len(lc)), lc, where='post', color='none', lw=1.0)
-
-        ax.set_title(f'Source #{i}')
-        ax.set_ylabel('Counts (N)')
-        ax.set_xlabel('Time (s)')
-        ax2.set_xlabel('Window/Frame Number')
-        plt.tight_layout()
-
-        if savepath:
-            logger.info(f'Saving lightcurve plot to: {savepath}')
-            plt.savefig(savepath)
 
     def plot_region_lightcurves(self, savedir=None, max_sources=15):
         if self.n_sources > max_sources:
@@ -184,7 +155,7 @@ class Detector:
         for i, row in self.df_regions.iterrows():
             if savedir:
                 savepath = savedir / f'lc_reg_{i}.png'
-            self.plot_region_lightcurve(i, savepath=savepath)
+            plot_region_lightcurve(self.df_lcs, i, savepath=savepath)
 
     @property
     def n_sources(self):
@@ -202,11 +173,44 @@ class Detector:
                 'image_var_threshold' : self.image_var_threshold,
                 'n_sources'           : self.n_sources}
 
-
-
         for k, v in info.items():
             logger.info(f'{k:>20} : {v}')
         return info
+
+
+def plot_region_lightcurve(df_lcs, i, savepath=None):
+    """Plot the ith region lightcurve."""
+    lc = df_lcs[f'src_{i}']
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax2 = ax.twiny()
+    ax.step(df_lcs['time'], lc, where='post', color='black', lw=1.0)
+    ax2.step(range(len(lc)), lc, where='post', color='none', lw=1.0)
+
+    ax.set_title(f'Source #{i}')
+    ax.set_ylabel('Counts (N)')
+    ax.set_xlabel('Time (s)')
+    ax2.set_xlabel('Window/Frame Number')
+    plt.tight_layout()
+
+    if savepath:
+        logger.info(f'Saving lightcurve plot to: {savepath}')
+        plt.savefig(savepath)
+
+
+def get_region_lcs(data_cube, df_regions):
+    logger.info("Extracting lightcurves from data cube")
+    lcs = [pd.DataFrame({'time' : data_cube.bin_t[:-1]}),
+           pd.DataFrame({'bti'  : data_cube.bti_bin_idx_bool[:-1]})]
+    for i, row in df_regions.iterrows():
+        xlo, xhi = row['bbox-0'], row['bbox-2']
+        ylo, yhi = row['bbox-1'], row['bbox-3']
+        data = data_cube.data[xlo:xhi, ylo:yhi]
+        lc   = np.nansum(data, axis=(0, 1), dtype=np.int32)
+        res  = pd.DataFrame({f'src_{i}': lc})
+        lcs.append(res)
+    df_lcs = pd.concat(lcs, axis=1)
+    return df_lcs
+
 
 def plot_var_with_regions(var_img, df_regions, savepath):
     """

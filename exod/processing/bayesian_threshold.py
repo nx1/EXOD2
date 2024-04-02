@@ -192,6 +192,9 @@ def bayes_rate_estimate(obsid='0886121001'):
     dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
                     min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=False)
     dl.run()
+    img = observation.images[0]
+    img.read(wcs_only=True)
+
     cube = dl.data_cube.data
     rejected = dl.data_cube.bti_bin_idx
 
@@ -210,7 +213,7 @@ def bayes_rate_estimate(obsid='0886121001'):
             time_fraction = np.random.random()
             cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction,
                                                       width_time=timebin / 2, amplitude=amplitude)
-            estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
+            estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
             peaks = cube_with_peak > minimum_for_peak(np.where(estimated_cube > 0, estimated_cube, np.nan))
             if int(time_fraction * cube.shape[2]) in rejected:
                 if np.max(peaks[x_pos, y_pos]) > 0:
@@ -283,7 +286,7 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
                 time_fraction = np.random.random()
                 cube_with_peak = cube+create_fake_burst(dl.data_cube,x_pos, y_pos, time_peak_fraction=time_fraction,
                                                    width_time=timebin/2, amplitude=amplitude)
-                estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
+                estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
                 peaks = cube_with_peak>minimum_for_peak(np.where(estimated_cube>0, estimated_cube, np.nan))
                 if int(time_fraction*cube.shape[2]) in rejected:
                     n_draws_bti+=1
@@ -371,9 +374,9 @@ def bayes_successrate_timebinning(obsid='0886121001'):
             for trial in tqdm(range(n_draws)):
                 x_pos, y_pos = np.random.randint(5,cube.shape[0]-5),np.random.randint(5,cube.shape[1]-5)
                 time_fraction = np.random.random()
-                cube_with_peak = cube+create_fake_burst(dl.data_cube,x_pos, y_pos, time_peak_fraction=time_fraction,
+                cube_with_peak = cube+create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction,
                                                    width_time=timebin/2, amplitude=amplitude)
-                estimated_cube = compute_expected_cube_using_templates(cube_with_peak, rejected)
+                estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
                 peaks = cube_with_peak>minimum_for_peak(np.where(estimated_cube>0, estimated_cube, np.nan))
                 if int(time_fraction*cube.shape[2]) in rejected:
                     n_draws_bti+=1
@@ -438,6 +441,9 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
                             gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
                             gti_threshold=gti_threshold)
             dl.run()
+            img = observation.images[0]
+            img.read(wcs_only=True)
+
             cube = dl.data_cube.data
             rejected = dl.data_cube.bti_bin_idx
             for amplitude in tqdm(tab_eclipse_amplitudes):
@@ -447,7 +453,7 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
                 tab_x_pos, tab_y_pos = np.random.randint(5, cube.shape[0] - 5, nbr_draws), np.random.randint(5, cube.shape[1] - 5,nbr_draws)
                 cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction,
                                                                         [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
-                estimated_cube = compute_expected_cube_using_templates(cube_with_eclipse, rejected)
+                estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_eclipse, wcs=img.wcs)
                 peaks_3, eclipses_3 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=3)
                 peaks_5, eclipses_5 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=5)
                 for x_pos, y_pos in zip(tab_x_pos,tab_y_pos):

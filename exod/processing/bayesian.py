@@ -6,6 +6,7 @@ from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
+from exod.processing.detector import get_region_lcs, plot_region_lightcurve
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,28 +20,29 @@ import cmasher as cmr
 
 
 def bayes_factor_peak_nonlog(n, mu):
-    """
-    Computes the Bayes factors of the presence of a peak, given the expected (mu) and observed (n) counts."""
+    """Computes the Bayes factors of the presence of a peak, given the expected (mu) and observed (n) counts."""
     return gammaincc(n + 1, mu) - poisson.pmf(n, mu)
 
 
 def bayes_factor_peak(n, mu):
-    """
-    Computes the Bayes factors of the presence of a peak, given the expected (mu) and observed (n) counts."""
+    """Computes the Bayes factors of the presence of a peak, given the expected (mu) and observed (n) counts."""
     return np.log10(gammaincc(n + 1, mu)) - np.log10(poisson.pmf(n, mu))
-
-
-def N_peaks_large_mu(mu, sigma):
-    return np.ceil((2*mu+sigma**2+np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
-
-
-def N_eclipses_large_mu(mu, sigma):
-    return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
 
 
 def bayes_factor_eclipse(n, mu):
     """Computes the Bayes factors of the presence of a eclipse, given the expected (mu) and observed (n) counts"""
     return np.log10(gammainc(n + 1, mu)) - np.log10(poisson.pmf(n, mu))
+
+
+def N_peaks_large_mu(mu, sigma):
+    """Calculate the observed (n) value required for a peak at a specific expected (mu) and significance (sigma) in the guassian regime."""
+    return np.ceil((2*mu+sigma**2+np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
+
+
+def N_eclipses_large_mu(mu, sigma):
+    """Calculate the observed (n) value required for a eclipse at a specific expected (mu) and significance (sigma) in the guassian regime."""
+    return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
+
 
 def get_bayes_thresholds(threshold_sigma):
     """
@@ -135,19 +137,23 @@ def precompute_bayes_limits(threshold_sigma):
     plt.tight_layout()
     plt.show()
 
+
 def precompute_bayes_1000():
     """Precomputes the Bayes factor at mu=1000 for a bunch of values of N. Will be interpolated to estimate the sigma"""
-    range_N = np.arange(10000)
-    tab_B_peaks = bayes_factor_peak(range_N, 1000)
-    tab_B_eclipses = bayes_factor_eclipse(range_N, 1000)
+    range_N        = np.arange(10000)
+    tab_B_peaks    = bayes_factor_peak(n=range_N, mu=1000)
+    tab_B_eclipses = bayes_factor_eclipse(n=range_N, mu=1000)
     data = np.array([range_N, tab_B_peaks, tab_B_eclipses])
-    np.savetxt(path.utils / f'bayesfactor_mu1000.txt', data)
+    savepath = path.utils / f'bayesfactor_mu1000.txt'
+    logger.info(f'Saving to {savepath}')
+    np.savetxt(savepath, data)
+
 
 def load_precomputed_bayes1000():
     """Loads & interpolates the precomputed values of Bayes factors at mu=1000"""
-    data = np.loadtxt(path.utils / f'bayesfactor_mu1000.txt')
-    range_N = data[0]
-    B_values_peaks = interp1d(range_N, data[1])
+    data              = np.loadtxt(path.utils / f'bayesfactor_mu1000.txt')
+    range_N           = data[0]
+    B_values_peaks    = interp1d(range_N, data[1])
     B_values_eclipses = interp1d(range_N, data[2])
     return range_N, B_values_peaks, B_values_eclipses
 
@@ -172,7 +178,7 @@ def get_cube_masks_peak_and_eclipse(cube, expected, threshold_sigma):
 
 def plot_B_peak():
     """
-    Plot the peak Bayes factor for different observed (n) counts as a function of expecation (mu).
+    Plot the peak Bayes factor for different observed (n) counts as a function of expectation (mu).
     Also plot the 3 and 5 sigma threshold values.
     """
     n_lines_to_plot = 20 # 1 line is drawn for each value of n from 0 to n-1
@@ -266,8 +272,11 @@ def run_pipeline(obsid,
                         gti_threshold=gti_threshold, remove_partial_ccd_frames=True)
         dl.run()
 
+        img = observation.images[0]
+        img.read(wcs_only=True)
+
         cube_n = dl.data_cube
-        cube_mu = compute_expected_cube_using_templates(cube_n)
+        cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
         cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n.data, cube_mu, threshold_sigma=threshold_sigma)
 
         image_peak = np.nansum(cube_mask_peaks, axis=2)       # Each Pixel is the number of peaks in cube
@@ -285,12 +294,18 @@ def run_pipeline(obsid,
         df_regions = pd.concat([df_reg1, df_reg2]).reset_index()
         print(df_regions)
 
-        img = observation.images[0]
-        img.read(wcs_only=True)
+
         df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_regions, wcs=img.wcs)
 
         df_regions = pd.concat([df_regions, df_sky], axis=1)
         print(df_regions)
+
+        df_lcs = get_region_lcs(data_cube=cube_n, df_regions=df_regions)
+        print(df_lcs)
+
+        for i in df_regions['index']:
+            plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=None)
+
 
         x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
         x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
@@ -364,10 +379,10 @@ def run_pipeline(obsid,
 def main():
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
-    plot_B_peak()
-    plot_B_eclipse()
-    precompute_bayes_limits(threshold_sigma=3)
-    precompute_bayes_limits(threshold_sigma=5)
+    # plot_B_peak()
+    # plot_B_eclipse()
+    # precompute_bayes_limits(threshold_sigma=3)
+    # precompute_bayes_limits(threshold_sigma=5)
 
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids = read_observation_ids(data / 'obs_ccd_check.txt')

@@ -281,6 +281,5 @@ if __name__=="__main__":
         ax1.set_title("Expected image (old)")
         ax2.set_title("Expected image (new)")
         ax3.set_title("True image")
-
         plt.show()
 

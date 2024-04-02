@@ -225,7 +225,10 @@ if __name__=="__main__":
                                 gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
                                 gti_threshold=gti_threshold)
                 dl.run()
-                estimated_cube = compute_expected_cube_using_templates(dl.data_cube)
+                img = observation.images[0]
+                img.read(wcs_only=True)
+
+                estimated_cube = compute_expected_cube_using_templates(data_cube=dl.data_cube, wcs=img.wcs)
                 peaks, eclipses = get_cube_masks_peak_and_eclipse(dl.data_cube.data, estimated_cube, threshold_sigma=threshold_sigma)
                 tab_old_peaks.append(np.sum(np.nansum(peaks,axis=2)>0))
                 tab_old_eclipses.append(np.sum(np.nansum(eclipses,axis=2)>0))
