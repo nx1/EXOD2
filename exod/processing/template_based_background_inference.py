@@ -1,7 +1,7 @@
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.utils.path import data_processed
+from exod.utils.path import data_processed, data_raw
 from exod.pre_processing.read_events import get_PN_image_file
 from exod.utils.logger import logger
 from exod.utils.plotting import plot_image, compare_images
@@ -160,7 +160,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
 def mask_known_sources(data_cube, wcs=None):
     logger.info('Masking Known Sources')
     obsid = data_cube.event_list.obsid
-    path_source_file = data_processed / f'{obsid}'
+    path_source_file = data_raw / 'product' / f'{obsid}'
     source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
     logger.info(f'OBSMLI file: {path_source_file}')
     tab_src = Table(fits.open(source_file_path)[1].data)

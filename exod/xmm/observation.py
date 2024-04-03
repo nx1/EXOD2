@@ -11,7 +11,7 @@ from itertools import combinations
 class Observation:
     def __init__(self, obsid):
         self.obsid = obsid
-        self.path_raw = data_raw / obsid
+        self.path_raw = data_raw / obsid / 'product'
         self.path_processed = data_processed / obsid
         self.path_results = data_results / obsid
         self.make_dirs()
