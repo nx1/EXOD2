@@ -415,8 +415,8 @@ def main():
     from exod.utils.path import data
     # plot_B_peak()
     # plot_B_eclipse()
-    # precompute_bayes_limits(threshold_sigma=3)
-    # precompute_bayes_limits(threshold_sigma=5)
+    precompute_bayes_limits(threshold_sigma=3)
+    precompute_bayes_limits(threshold_sigma=5)
     precompute_bayes_1000()
     load_precomputed_bayes1000()
 
