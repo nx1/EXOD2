@@ -46,9 +46,3 @@ if __name__ == "__main__":
     for name, path in all_paths.items():
         exists = "exists" if path.exists() else "does not exist"
         logger.info(f"{name:<15} : {path} : {exists}")
-
-
-def save_df(df, savepath):
-    logger.info(f'Saving df to: {savepath}')
-    logger.info(f'\n{df}')
-    df.to_csv(savepath, index=False)

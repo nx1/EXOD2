@@ -44,7 +44,7 @@ class DataCube:
 
     def plot_cube_statistics(self):
         cube = self.data
-        logger.info('Calculating and plotting data cube statistics...')
+        logger.info('Calculating and plotting data cube_n statistics...')
         image_max = np.nanmax(cube, axis=2)
         image_min = np.nanmin(cube, axis=2)  # The Minimum and median are basically junk
         image_median = np.nanmedian(cube, axis=2)
@@ -95,10 +95,15 @@ class DataCubeXMM(DataCube):
         self.bin_y = np.linspace(0, self.extent, self.n_bins + 1)
         self.bin_t = self.calc_time_bins()
 
-        self.bti_bin_idx = []
-        self.bti_bin_idx_bool = []
+        self.bti_bin_idx = []      # index of bad time interval bins e.g. [2,4,6]
+        self.bti_bin_idx_bool = [] # Mask of the bad time interval bins e.g. [False, False, True, False, True, ...]
         self.gti_bin_idx = []
         self.gti_bin_idx_bool = []
+
+        # Used for keeping track of frames (time bins) with unevent ccd exposures.
+        self.bccd_bin_idx = []
+        self.bccd_bin_idx_bool = []
+
 
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
@@ -123,10 +128,10 @@ class DataCubeXMM(DataCube):
         return cube
 
     def crop_data_cube(self):
-        """Crop the surrounding areas of the datacube that are empty."""
+        """Crop the surrounding areas of the data_cube that are empty."""
         bbox_img = self.bbox_img
 
-        logger.info(f'Cropping data cube between bbox_img: {bbox_img}')
+        logger.info(f'Cropping data cube_n between bbox_img: {bbox_img}')
         self.data = self.data[bbox_img[0]:bbox_img[1], bbox_img[2]:bbox_img[3]]
 
         # Calculate the new bins
@@ -134,7 +139,7 @@ class DataCubeXMM(DataCube):
         self.bin_y = self.bin_y[bbox_img[2]:bbox_img[3]]
 
     def get_cube_bbox(self):
-        """Get the Bounding Box corresponding to the cube's image plane."""
+        """Get the Bounding Box corresponding to the cube_n's image plane."""
         idx_nonempty = np.where(np.sum(self.data, axis=2) > 0)
         bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
                     np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
@@ -160,7 +165,7 @@ class DataCubeXMM(DataCube):
         self.data[:, :, self.bti_bin_idx] = img_nan
 
     def remove_bti_frames(self):
-        """Return the cube without the masked nan frames."""
+        """Return the cube_n without the masked nan frames."""
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
@@ -234,11 +239,9 @@ class DataCubeXMM(DataCube):
                 m5 =  m1 & (m3 | (m2 & m4)) # m1 & m2 & (m3 | m4)
                 frames_to_remove = m0 | m5
 
-                if plot:
-                    # Plot masks
-                    masks  = [m0, m1, m3, m4, m5, frames_to_remove]
-                    labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
-                    plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=True)
+                masks  = [m0, m1, m3, m4, m5, frames_to_remove]
+                labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
+                plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=plot)
 
             # elif evt_list.submode.startswith('PrimePartial'):
             #     logger.info(f'PrimePartial submode!')
@@ -254,6 +257,9 @@ class DataCubeXMM(DataCube):
             else:
                 frames_to_remove = m0
             logger.info(f'Removing {np.sum(frames_to_remove)} / {len(frames_to_remove)} incomplete frames from {evt_list.instrument}')
+
+            self.bccd_bin_idx_bool = frames_to_remove
+            self.bccd_bin_idx = np.where(self.bccd_bin_idx)[0]
             self.data = np.where(frames_to_remove, np.empty(self.data.shape) * np.nan, self.data)
             self.relative_frame_exposures = np.where(frames_to_remove, 0, self.relative_frame_exposures)
 
@@ -264,10 +270,10 @@ class DataCubeXMM(DataCube):
         self.time_interval=n_factor*self.time_interval
         self.bin_t = self.calc_time_bins()
 
-        #Update the data cube
+        #Update the data cube_n
         # np.split(X, np.arange(N, len(X), N)) allows to cut X in chunks of size N (plus the remaining bit)
         datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2) #Splits in groups of n_factor along the time axis
-        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube again
+        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube_n again
 
         #Update the relative exposures of each frame
         frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor)) #Splits in groups of n_factor along the time axis

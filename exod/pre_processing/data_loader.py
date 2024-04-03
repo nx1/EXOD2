@@ -11,10 +11,10 @@ class DataLoader:
     """
     event_list : EventList object with data already loaded.
     size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
-    time_interval : Time in seconds for data cube binning
+    time_interval : Time in seconds for data cube_n binning
     gti_only : If true use only the data found in GTIs
-    min_energy : Minimum energy for final data cube
-    max_energy : Maximum energy for final data cube
+    min_energy : Minimum energy for final data cube_n
+    max_energy : Maximum energy for final data cube_n
     gti_threshold : Count rate below which will be considered good time intervals
     """
     def __init__(self, event_list, time_interval=50, size_arcsec=10, gti_only=False, min_energy=0.2, max_energy=12.0,
@@ -67,7 +67,7 @@ class DataLoader:
         return data_cube
 
     def multiply_time_interval(self, n_factor):
-        logger.info(f'Rebinning the cube with longer timebins by factor {n_factor}...')
+        logger.info(f'Rebinning the cube_n with longer timebins by factor {n_factor}...')
         self.data_cube.multiply_time_interval(n_factor)
         self.time_interval = self.data_cube.time_interval
         self.calculate_bti()
@@ -84,6 +84,7 @@ class DataLoader:
             "min_energy"    : self.min_energy,
             "max_energy"    : self.max_energy,
             "gti_threshold" : self.gti_threshold,
+            "remove_partial_ccd_frames" : self.remove_partial_ccd_frames
         }
         for k, v in info.items():
             logger.info(f'{k:>13} : {v}')

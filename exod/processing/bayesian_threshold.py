@@ -1,11 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
 from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
-from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, bayes_factor_peak, bayes_factor_eclipse
+from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, B_peak_log, \
+    B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_multipe_fake_eclipses
 import cmasher as cmr
@@ -115,8 +117,8 @@ def plot_some_n_bayes():
     plt.figure()
     colors = cmr.take_cmap_colors('cmr.ocean',N=len(range_n),cmap_range=(0,0.7))
     for c,n in zip(colors,range_n):
-        bayes_peak = [bayes_factor_peak(n=n, mu=mu) for mu in range_mu]#[bayes_factor_peak(mu, n) for mu in range_mu]
-        bayes_eclipse = [bayes_factor_eclipse(n=n, mu=mu) for mu in range_mu]
+        bayes_peak = [B_peak_log(n=n, mu=mu) for mu in range_mu]#[bayes_factor_peak(mu, n) for mu in range_mu]
+        bayes_eclipse = [B_eclipse_log(n=n, mu=mu) for mu in range_mu]
         plt.plot(range_mu, bayes_peak, label=n, c=c)
         plt.plot(range_mu, bayes_eclipse, c=c)
     plt.axhline(y=5, ls='--', lw=3, c="k")
@@ -131,8 +133,8 @@ def test_bayes_on_false_cube(size):
     # minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(3)
     cube = np.random.poisson(1e-1, (size,size,size))
     estimated = np.ones((size,size,size))*1e-1
-    peaks = bayes_factor_peak(estimated, cube)>5 #cube>minimum_for_peak(estimated)
-    eclipse = bayes_factor_eclipse(estimated, cube)>5#cube<maximum_for_eclipse(estimated)
+    peaks = B_peak_log(estimated, cube) > 5 #cube_n>minimum_for_peak(estimated)
+    eclipse = B_eclipse_log(estimated, cube) > 5#cube_n<maximum_for_eclipse(estimated)
     print(np.sum(peaks), np.sum(eclipse))
     return np.sum(peaks), np.sum(eclipse)
 
@@ -149,11 +151,11 @@ def accepted_n_values():
     tab_npeak, tab_neclipse = [],[]
     for mu in tqdm(range_mu):
         range_n_peak =  np.arange(max(10*mu, 100))
-        result=bayes_factor_peak(n=range_n_peak, mu=mu)
+        result=B_peak_log(n=range_n_peak, mu=mu)
         tab_npeak.append(range_n_peak[result>5.94][0])
 
         range_n_eclipse = np.arange(2*int(mu)+1)
-        result=bayes_factor_eclipse(n=range_n_eclipse, mu=mu)
+        result=B_eclipse_log(n=range_n_eclipse, mu=mu)
         tab_neclipse.append(range_n_eclipse[result<5.70][0])
     plt.figure()
     plt.plot(range_mu, range_mu)
@@ -169,10 +171,10 @@ def accepted_n_values():
 
 def bayes_rate_estimate(obsid='0886121001'):
     gti_threshold = 0.5
-    min_energy = 0.2
-    max_energy = 12.0
-    size_arcsec=20
-    timebin=10
+    min_energy    = 0.2
+    max_energy    = 12.0
+    size_arcsec   = 20
+    timebin       = 10
 
     observation = Observation(obsid)
     observation.get_files()
@@ -420,11 +422,11 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     plt.show()
 
 def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_interval=1000):
-    size_arcsec = 20
-    gti_only = False
+    size_arcsec   = 20
+    gti_only      = False
     gti_threshold = 0.5
-    min_energy = 0.2
-    max_energy = 12.0
+    min_energy    = 0.2
+    max_energy    = 12.0
 
     tab_eclipse_amplitudes=np.linspace(0,1,20)
     nbr_draws = 50
@@ -446,13 +448,13 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
 
             cube = dl.data_cube.data
             rejected = dl.data_cube.bti_bin_idx
+
             for amplitude in tqdm(tab_eclipse_amplitudes):
                 caught_at_amplitude_3sig = 0
                 caught_at_amplitude_5sig = 0
                 tab_time_peak_fraction=np.random.random(nbr_draws)
                 tab_x_pos, tab_y_pos = np.random.randint(5, cube.shape[0] - 5, nbr_draws), np.random.randint(5, cube.shape[1] - 5,nbr_draws)
-                cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction,
-                                                                        [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
+                cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
                 estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_eclipse, wcs=img.wcs)
                 peaks_3, eclipses_3 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=3)
                 peaks_5, eclipses_5 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=5)
@@ -470,16 +472,81 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
     plt.xlabel("Relative amplitude of eclipse")
     plt.ylabel("Fraction of detected eclipses")
 
+
+def plot_B_peak():
+    """
+    Plot the peak Bayes factor for different observed (n) counts as a function of expectation (mu).
+    Also plot the 3 and 5 sigma threshold values.
+    """
+    n_lines_to_plot = 20 # 1 line is drawn for each value of n from 0 to n-1
+    colors = plt.cm.winter(np.linspace(0, 1, n_lines_to_plot))
+
+    B_peak_3sig, B_eclipse_3sig = get_bayes_thresholds(3)
+    B_peak_5sig, B_eclipse_5sig = get_bayes_thresholds(5)
+
+    mu_lo, mu_hi = 1e-3, 50
+    mus = np.geomspace(mu_lo, mu_hi, 1000)
+
+    plt.figure(figsize=(5,5))
+    for n in range(n_lines_to_plot):
+        label=None
+        if (n == 0) or (n==n_lines_to_plot-1): # Label first and last line
+            label = f'n={n}'
+        plt.plot(mus, B_peak_log(n=n, mu=mus), color=colors[n], label=label)
+
+    plt.axhline(B_peak_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig:.2f})')
+    plt.axhline(B_peak_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig:.2f})')
+    plt.title(f'Peak Bayes factor for n=0-{n_lines_to_plot}')
+    plt.xlabel(r'Expected Value $\mu$')
+    plt.ylabel(r'$log_{10}$($B_{peak}$)')
+    plt.xscale('log')
+    plt.tight_layout()
+    plt.xlim(mu_lo, mu_hi)
+    plt.legend()
+    plt.show()
+
+
+def plot_B_eclipse():
+    """
+    Plot the eclipse Bayes factor for different observed (n) counts as a function of expecation (mu).
+    Also plot the 3 and 5 sigma threshold values.
+    """
+    n_lines_to_plot = 20 # 1 line is drawn for each value of n from 0 to n-1
+    colors = plt.cm.winter(np.linspace(0, 1, n_lines_to_plot))
+
+    B_peak_3sig, B_eclipse_3sig = get_bayes_thresholds(3)
+    B_peak_5sig, B_eclipse_5sig = get_bayes_thresholds(5)
+
+    mu_lo, mu_hi = 1e-3, 50
+    mus = np.geomspace(mu_lo, mu_hi, 1000)
+
+    plt.figure(figsize=(5,5))
+    for n in range(n_lines_to_plot):
+        label=None
+        if (n == 0) or (n==n_lines_to_plot-1): # Label first and last line
+            label = f'n={n}'
+        plt.plot(mus, B_eclipse_log(n=n, mu=mus), color=colors[n], label=label)
+
+    plt.axhline(B_eclipse_3sig, color='red', label=rf'3 $\sigma$ (B={B_peak_3sig:.2f})')
+    plt.axhline(B_eclipse_5sig, color='black', label=rf'5 $\sigma$ (B={B_peak_5sig:.2f})')
+    plt.title(f'Eclipse Bayes factor for n=0-{n_lines_to_plot}')
+    plt.xlabel(r'Expected Value $\mu$')
+    plt.ylabel(r'$log_{10}$($B_{eclipse}$)')
+    # plt.xscale('log')
+    plt.tight_layout()
+    plt.xlim(mu_lo, mu_hi)
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
+    plot_B_peak()
+    plot_B_eclipse()
     check_estimate_success()
     check_eclipse_estimate_success()
     plot_some_n_bayes()
     test_bayes_on_false_cube(size=100)
-
-    # test_on_data(cube=, expected=, threshold=)
     accepted_n_values()
     bayes_rate_estimate()
     bayes_successrate_spacebinning()
     bayes_successrate_timebinning()
-    bayes_eclipse_successrate_depth()
-
+    # bayes_eclipse_successrate_depth()

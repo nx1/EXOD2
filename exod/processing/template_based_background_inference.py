@@ -7,6 +7,7 @@ from exod.utils.logger import logger
 from exod.utils.plotting import plot_image, compare_images
 
 import numpy as np
+import matplotlib.pyplot as plt
 from cv2 import inpaint, INPAINT_NS
 from skimage.draw import disk
 from astropy.table import Table
@@ -19,9 +20,9 @@ from scipy.interpolate import interp1d
 
 def compute_expected_cube_using_templates(data_cube, wcs=None):
     """
-    Computes a baseline expected cube, combining background and sources.
+    Computes a baseline data_cube cube_n, combining background and sources.
 
-    Any departure from this expected cube corresponds to variability.
+    Any departure from this data_cube cube_n corresponds to variability.
 
     The background is dealt with by assuming that all GTIs and BTIs follow
     respective templates (i.e., once each frame is divided by its total counts,
@@ -118,7 +119,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
 
     # Source contribution
     if len(bti_indices) < cube.shape[2]/2:
-        logger.info(f'len(bti_indices)<cube.shape[2]/2 {len(bti_indices)}<{cube.shape[2]/2}')
+        logger.info(f'len(bti_indices)<cube_n.shape[2]/2 {len(bti_indices)}<{cube.shape[2]/2}')
 
         # Get the net image of sources in GTIs (after inpainting to have background below sources)
         source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
@@ -135,7 +136,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
         effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[bti_indices])
         source_base_contribution = source_only_image_BTI / effective_exposed_frames
 
-    #Create expected cube
+    #Create data_cube cube_n
     observed_cube_outside_sources = np.where(np.repeat(image_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
                                               np.empty(cube.shape) * np.nan,
                                               cube)
@@ -145,8 +146,8 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     # plt.plot(lightcurve_outside_sources)
     # plt.show()
 
-    # We then create the estimated cube. For both GTI and BTI, we estimate their background by using the lightcurve and
-    # the templates. We then add the expected constant source contribution.
+    # We then create the estimated cube_n. For both GTI and BTI, we estimate their background by using the lightcurve and
+    # the templates. We then add the data_cube constant source contribution.
     logger.info('Creating Estimated Cube')
     estimated_cube = np.empty(cube.shape)
     estimated_cube[:,:,gti_indices] = image_GTI_background_template[:,:,np.newaxis] * lightcurve_outside_sources[gti_indices]
@@ -157,86 +158,88 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     return estimated_cube
 
 def mask_known_sources(data_cube, wcs=None):
+    logger.info('Masking Known Sources')
     obsid = data_cube.event_list.obsid
     path_source_file = data_processed / f'{obsid}'
     source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
+    logger.info(f'OBSMLI file: {path_source_file}')
     tab_src = Table(fits.open(source_file_path)[1].data)
 
     # We include bright (i.e. large DET_ML) point sources & extended sources
-    point_sources = tab_src[(tab_src['EP_DET_ML']>8)&(tab_src['EP_EXTENT']==0.)]
-    radius_point_sources = [cropping_radius_counts(data_cube,counts) for counts in point_sources['EP_TOT']]
-    extended_sources = tab_src[(tab_src['EP_DET_ML']>8)&(tab_src['EP_EXTENT']>0.)]
-    radius_extended_sources = extended_sources['EP_EXTENT']
+    tab_src_point    = tab_src[(tab_src['EP_DET_ML'] > 8) & (tab_src['EP_EXTENT'] == 0)]
+    tab_src_extended = tab_src[(tab_src['EP_DET_ML'] > 8) & (tab_src['EP_EXTENT'] > 0)]
 
-    mask = np.full(data_cube.shape[:2],False)
-    # Plot
-    # im = np.nansum(data_cube.data, axis=2)
-    # plt.figure(figsize=(10, 10))
-    for tab_data, tab_radius, color in zip((point_sources,extended_sources),
-                                           (radius_point_sources,radius_extended_sources),
-                                           ('r','y')):
-        if len(tab_data)>0:
-            # Create skycoord
-            sc = SkyCoord(ra=tab_data['RA'], dec=tab_data['DEC'], unit='deg')
-            x_img, y_img = wcs.world_to_pixel(sc)
+    radius_point_sources    = [cropping_radius_counts(data_cube, counts) for counts in tab_src_point['EP_TOT']]
+    radius_extended_sources = tab_src_extended['EP_EXTENT']
 
-            # Convert to Sky Coordinates
-            X = x_img * 80
-            Y = y_img * 80
+    logger.info(f'Total rows: {len(tab_src)} Point sources: {len(tab_src_point)} Extended Sources: {len(tab_src_extended)}')
 
-            # Remove values outside the cube
-            xcube_max, xcube_min = data_cube.bin_x[-1], data_cube.bin_x[0]
-            ycube_max, ycube_min = data_cube.bin_y[-1], data_cube.bin_y[0]
-            XY = np.array([[x, y] for x, y in zip(X, Y) if ((x < xcube_max) and
-                                                            (y < ycube_max) and
-                                                            (x > xcube_min) and
-                                                            (y > ycube_min))]).T
-            X = XY[0]
-            Y = XY[1]
+    mask = np.full(data_cube.shape[:2], fill_value=False)
 
-            # Interpolate to Cube coordinates & Round to int
-            interp_x_cube = interp1d(x=data_cube.bin_x, y=range(data_cube.shape[0]))
-            interp_y_cube = interp1d(x=data_cube.bin_y, y=range(data_cube.shape[1]))
-            x_cube = interp_x_cube(X)
-            y_cube = interp_y_cube(Y)
+    for tab_data, tab_radius, color in zip((tab_src_point, tab_src_extended),
+                                           (radius_point_sources, radius_extended_sources),
+                                           ('r', 'y')):
+        if len(tab_data) == 0:
+            logger.info('No rows in tab_data, skipping...')
+            continue
 
-            # # Plot
-            # im = np.nansum(data_cube.data, axis=2)
-            # plt.figure(figsize=(10, 10))
-            # plt.imshow(im.T, origin='lower', norm=LogNorm(), interpolation='none')
-            # plt.scatter(x_cube, y_cube, color='red', marker='x', s=5)
-            for x,y,rad in zip(x_cube, y_cube, tab_radius):
-                radius_image = rad/data_cube.size_arcsec
-                rr, cc = disk(center=(x, y), radius=radius_image)
-                kept_pixels = (rr>0) & (rr<data_cube.shape[0]-1) & (cc>0) & (cc<data_cube.shape[1]-1) #Keep mask pixels only if in image
-                rr, cc = rr[kept_pixels], cc[kept_pixels]
-                mask[rr, cc] = True
-                # im[rr,cc]=np.nan
-                # circle=plt.Circle((x, y), radius_image, color=color,fill=False)
-                # plt.gca().add_patch(circle)
+        # Create skycoord
+        sc = SkyCoord(ra=tab_data['RA'], dec=tab_data['DEC'], unit='deg')
+        x_img, y_img = wcs.world_to_pixel(sc)
+
+        # Convert to Sky Coordinates
+        X = x_img * 80
+        Y = y_img * 80
+
+        # Remove values outside the cube_n
+        xcube_max, xcube_min = data_cube.bin_x[-1], data_cube.bin_x[0]
+        ycube_max, ycube_min = data_cube.bin_y[-1], data_cube.bin_y[0]
+        XY = np.array([[x, y] for x, y in zip(X, Y) if ((x < xcube_max) and
+                                                        (y < ycube_max) and
+                                                        (x > xcube_min) and
+                                                        (y > ycube_min))]).T
+        X = XY[0]
+        Y = XY[1]
+
+        # Interpolate to Cube coordinates
+        interp_x_cube = interp1d(x=data_cube.bin_x, y=range(data_cube.shape[0]))
+        interp_y_cube = interp1d(x=data_cube.bin_y, y=range(data_cube.shape[1]))
+        x_cube = interp_x_cube(X)
+        y_cube = interp_y_cube(Y)
+
+        for x, y, rad in zip(x_cube, y_cube, tab_radius):
+            radius_image = rad / data_cube.size_arcsec
+            rr, cc = disk(center=(x, y), radius=radius_image)
+            kept_pixels = (rr>0) & (rr<data_cube.shape[0]-1) & (cc>0) & (cc<data_cube.shape[1]-1) # Keep mask pixels only if in image
+            rr, cc = rr[kept_pixels], cc[kept_pixels]
+            mask[rr, cc] = True
+
+    #         im[rr,cc] = np.nan
+    #         circle = plt.Circle((x, y), radius_image, color=color, fill=False)
+    #         plt.gca().add_patch(circle)
+
     # plt.imshow(im.T, origin='lower', norm=LogNorm(vmax=1e3), interpolation='none')
     # plt.show()
     # for x, y in zip(x_cube, y_cube):
     #     im[x - 1:x + 1, y - 1:y + 1] = 0
-    #
+
     # plt.figure(figsize=(10, 10))
     # plt.imshow(im.T, origin='lower', norm=LogNorm(), interpolation='none')
     return mask
 
-def cropping_radius_counts(datacube, epic_total_rate):
-    if epic_total_rate>1:
+def cropping_radius_counts(data_cube, epic_total_rate):
+    if epic_total_rate > 1:
         return 80
-    elif epic_total_rate>0.1:
+    elif epic_total_rate > 0.1:
         return 40
     else:
-        return datacube.size_arcsec
+        return data_cube.size_arcsec
 
 if __name__=="__main__":
-
     from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
     obsids = read_observation_ids(data / 'observations.txt')
-    for obsid in obsids[:5]:
+    for obsid in obsids:
         size_arcsec = 20
         time_interval = 10
         gti_only = False

@@ -50,7 +50,7 @@ class Detector:
 
     def calc_image_var(self):
         """
-        Calculate the variability image from a data cube.
+        Calculate the variability image from a data cube_n.
         """
         logger.info('Computing Variability')
         image_max = np.nanmax(self.data_cube.data, axis=2)
@@ -94,7 +94,7 @@ class Detector:
         image_var_mask = self.image_var > self.calc_extraction_threshold(sigma)
 
         logger.info(f'threshold: {self.calc_extraction_threshold(sigma)} sigma: {sigma}')
-        self.plot_threshold_level(self.calc_extraction_threshold(sigma))
+        # self.plot_threshold_level(self.calc_extraction_threshold(sigma))
 
         # Obtain the region properties for the detected regions.
         df_regions = calc_df_regions(image=self.image_var, image_mask=image_var_mask)
@@ -189,6 +189,7 @@ def plot_region_lightcurve(df_lcs, i, savepath=None):
     ax.set_title(f'Source #{i}')
     ax.set_ylabel('Counts (N)')
     ax.set_xlabel('Time (s)')
+    ax.set_xlim(df_lcs['time'].min(), df_lcs['time'].max())
     ax2.set_xlabel('Window/Frame Number')
     plt.tight_layout()
 
@@ -198,7 +199,7 @@ def plot_region_lightcurve(df_lcs, i, savepath=None):
 
 
 def get_region_lcs(data_cube, df_regions):
-    logger.info("Extracting lightcurves from data cube")
+    logger.info("Extracting lightcurves from data cube_n")
     lcs = [pd.DataFrame({'time' : data_cube.bin_t[:-1]}),
            pd.DataFrame({'bti'  : data_cube.bti_bin_idx_bool[:-1]})]
     for i, row in df_regions.iterrows():
@@ -212,17 +213,18 @@ def get_region_lcs(data_cube, df_regions):
     return df_lcs
 
 
-def plot_var_with_regions(var_img, df_regions, savepath):
+def plot_image_with_regions(image, df_regions, cbar_label=None, savepath=None):
     """
     Plot the variability image with the bounding boxes of the detected regions.
 
     Parameters
     ----------
-    var_img    : np.ndarray : Variability Image  (or Likelihood Image)
-    df_regions : pd.DataFrame : from extract_variability_regions
+    image       : np.ndarray : Variability Image  (or Likelihood Image)
+    df_regions  : pd.DataFrame : from extract_variability_regions
+    cbar_label  : string : Label for colorbar
     savepath    : str : Path to save the figure to
     """
-    logger.info('Plotting Variability map with source regions')
+    logger.info('Plotting Image with source regions')
 
     fig, ax = plt.subplots(figsize=(8,8))
     ax.set_title(f'Detected Regions : {len(df_regions)}')
@@ -231,9 +233,9 @@ def plot_var_with_regions(var_img, df_regions, savepath):
 
     norm = ImageNormalize(stretch=SqrtStretch()) #LogNorm()
 
-    m1 = ax.imshow(var_img.T, norm=norm, interpolation='none', origin='lower', cmap=cmap)
+    m1 = ax.imshow(image.T, norm=norm, interpolation='none', origin='lower', cmap=cmap)
     cbar = plt.colorbar(mappable=m1, ax=ax, shrink=0.75)
-    cbar.set_label('Variability')
+    cbar.set_label(cbar_label)
 
     src_color = 'lime'
     ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color='white')
@@ -259,9 +261,10 @@ def plot_var_with_regions(var_img, df_regions, savepath):
 
         plt.text(x_pos+width, y_pos+height, str(ind), c=src_color)
         ax.add_patch(rect)
-    logger.info(f'Saving Variability image to: {savepath}')
     plt.tight_layout()
-    plt.savefig(savepath)
+    if savepath:
+        logger.info(f'Saving Image to: {savepath}')
+        plt.savefig(savepath)
     # plt.show()
 
 
@@ -278,14 +281,6 @@ def calc_KS_poission(lc):
     ks_res = kstest(lc, expected_distribution.cdf)
     logger.debug(f'KS_prob: lc_mean = {lc_mean}, N_data = {N_data}\nks_res = {ks_res}')
     return ks_res
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":

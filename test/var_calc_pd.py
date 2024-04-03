@@ -9,8 +9,8 @@ from matplotlib.colors import LogNorm
 from exod.utils.path import data_raw, data_processed
 
 # Load Events list
-event_file = '../../../data/raw/0001730201/P0001730201M1S001MIEVLI0000.FTZ'
-event_file = '../../../data/raw/0001730201/P0001730201PNU002PIEVLI0000.FTZ'
+event_file = '../data/raw/0001730201/P0001730201M1S001MIEVLI0000.FTZ'
+event_file = '../data/raw/0001730201/P0001730201PNU002PIEVLI0000.FTZ'
 
 instrument = fits.open(event_file)[0].header['INSTRUME'] # ['EMOS1', 'EMOS2', 'EPN']
 tab        = Table.read(event_file, hdu=1)

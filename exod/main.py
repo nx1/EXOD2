@@ -1,19 +1,15 @@
 from exod.pre_processing.data_loader import DataLoader
 from exod.pre_processing.bti import plot_bti
 from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
+from exod.utils.util import save_info, save_df
 from exod.xmm.event_list import EventList
 from exod.utils.logger import logger, get_current_date_string
-from exod.utils.path import save_df
 from exod.xmm.observation import Observation
-from exod.processing.detector import Detector, plot_var_with_regions
+from exod.processing.detector import Detector, plot_image_with_regions
 import exod.processing.bayesian as baysian
 
 import pandas as pd
 
-def save_info(dictionary, savepath):
-    logger.info(f'Saving to {savepath}')
-    series = pd.Series(dictionary)
-    series.to_csv(savepath)
 
 def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
                  gti_only=False, gti_threshold=1.5, min_energy=0.5,
@@ -54,7 +50,8 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     # detector.plot_3d_image(detector.image_var)
     detector.plot_region_lightcurves(savedir=None) # savedir=observation.path_results
     plot_bti(time=dl.t_bin_he[:-1], data=dl.lc_he, threshold=dl.gti_threshold, bti=dl.bti, savepath=observation.path_results / 'bti_plot.png')
-    plot_var_with_regions(var_img=detector.image_var, df_regions=detector.df_regions, savepath=observation.path_results / 'image_var.png')
+    plot_image_with_regions(image=detector.image_var, df_regions=detector.df_regions, cbar_label='Variability Score',
+                            savepath=observation.path_results / 'image_var.png')
 
     # Save Results
     save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
