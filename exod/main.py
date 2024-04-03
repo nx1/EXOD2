@@ -94,13 +94,24 @@ if __name__ == "__main__":
                 'sigma'         : 4,
                 'clobber'       : False}
 
+        args2 = {'obsid'         : obsid,
+                'size_arcsec'   : 20.0,
+                'time_interval' : 5,
+                'gti_only'      : False,
+                'remove_partial_ccd_frames' : False,
+                'gti_threshold'   : 1.5,
+                'min_energy'      : 0.5,
+                'max_energy'      : 10.0,
+                'threshold_sigma' : 4}
+
+
         res = args.copy()
 
         # run_pipeline(**args)
-        baysian.run_pipeline(obsid=obsid)
+        # baysian.run_pipeline(obsid=obsid, **args2)
         try:
             # run_pipeline(**args)
-            #baysian.run_pipeline(obsid=obsid)
+            baysian.run_pipeline(obsid=obsid)
             res['status'] = 'Run'
         except Exception as e:
             logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')

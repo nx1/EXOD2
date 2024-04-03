@@ -340,7 +340,7 @@ def extract_lc_from_cube(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
 
 def run_pipeline(obsid,
                  size_arcsec=20,
-                 time_interval=8,
+                 time_interval=5,
                  gti_only=False,
                  remove_partial_ccd_frames=True,
                  gti_threshold=1.5,
@@ -351,7 +351,11 @@ def run_pipeline(obsid,
     observation = Observation(obsid)
     observation.get_files()
     observation.get_events_overlapping_subsets()
-    for subset_overlapping_exposures in observation.events_overlapping_subsets:
+    for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+        savedir = observation.path_results / f'subset_{i_subset}'
+        savedir.mkdir(exist_ok=True)
+        
+        
         event_list = EventList.from_event_lists(subset_overlapping_exposures)
         dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
                         gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
@@ -377,7 +381,7 @@ def run_pipeline(obsid,
 
         # Plot Lightcurves for each region
         for i in df_regions.index:
-            plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=observation.path_results / f'lc_{i}.png')
+            plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=savedir / f'lc_{i}.png')
 
         # Plot Lightcurves for each pixel.
         # x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
@@ -387,17 +391,19 @@ def run_pipeline(obsid,
         #    plot_lc_pixel(cube_mu, cube_n, time_interval, x, y)
 
         # Plot Image
-        plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=observation.path_results / 'detection_img.png')
+        plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
 
         # Save Results
-        save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
-        save_df(df=df_lcs, savepath=observation.path_results / 'lcs.csv')
-        save_df(df=df_regions, savepath=observation.path_results / 'regions.csv')
+        save_df(df=dl.df_bti, savepath=savedir / 'bti.csv')
+        save_df(df=df_lcs, savepath=savedir / 'lcs.csv')
+        save_df(df=df_regions, savepath=savedir / 'regions.csv')
 
-        save_info(dictionary=observation.info, savepath=observation.path_results / 'obs_info.csv')
-        save_info(dictionary=event_list.info, savepath=observation.path_results / 'evt_info.csv')
-        save_info(dictionary=dl.info, savepath=observation.path_results / 'dl_info.csv')
-        save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
+        save_info(dictionary=observation.info, savepath=savedir / 'obs_info.csv')
+        save_info(dictionary=event_list.info, savepath=savedir / 'evt_info.csv')
+        save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
+        save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
+
+        plt.close('all')
 
 
 
