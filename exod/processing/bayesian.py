@@ -411,7 +411,7 @@ def run_pipeline(obsid,
 
 
 def main():
-    from exod.pre_processing.download_observations import read_observation_ids
+    from exod.utils.path import read_observation_ids
     from exod.utils.path import data
     # plot_B_peak()
     # plot_B_eclipse()

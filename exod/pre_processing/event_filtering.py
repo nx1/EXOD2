@@ -3,7 +3,7 @@ Requires having pre-set 'setsas' and 'export CCFPATH=' in the terminal.
 """
 import os
 
-from exod.utils.path import data_raw, data_processed
+from exod.utils.path import data_raw, data_processed, read_observation_ids
 from exod.utils.logger import logger
 from exod.xmm.observation import Observation
 
@@ -113,7 +113,6 @@ def espfilt(eventfile):
 
 
 if __name__ == "__main__":
-    from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
     obsids = read_observation_ids(data / 'observations.txt')
     for obsid in obsids:

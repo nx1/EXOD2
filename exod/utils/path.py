@@ -46,3 +46,13 @@ if __name__ == "__main__":
     for name, path in all_paths.items():
         exists = "exists" if path.exists() else "does not exist"
         logger.info(f"{name:<15} : {path} : {exists}")
+
+
+def read_observation_ids(file_path):
+    """
+    Read observation IDs from file.
+    Each line should be a single obsid.
+    """
+    with open(file_path, 'r') as file:
+        obs_ids = [line.strip() for line in file.readlines()]
+    return obs_ids

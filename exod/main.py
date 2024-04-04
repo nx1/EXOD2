@@ -69,8 +69,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
 
 if __name__ == "__main__":
-    from exod.pre_processing.download_observations import read_observation_ids
-    from exod.utils.path import data, data_results
+    from exod.utils.path import data, data_results, read_observation_ids
     import random
 
     # Get Simulation time

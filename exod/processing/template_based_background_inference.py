@@ -1,7 +1,7 @@
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.utils.path import data_processed, data_raw
+from exod.utils.path import data_processed, data_raw, read_observation_ids
 from exod.pre_processing.read_events import get_PN_image_file
 from exod.utils.logger import logger
 from exod.utils.plotting import plot_image, compare_images
@@ -236,7 +236,6 @@ def cropping_radius_counts(data_cube, epic_total_rate):
         return data_cube.size_arcsec
 
 if __name__=="__main__":
-    from exod.pre_processing.download_observations import read_observation_ids
     from exod.utils.path import data
     obsids = read_observation_ids(data / 'observations.txt')
     for obsid in obsids:

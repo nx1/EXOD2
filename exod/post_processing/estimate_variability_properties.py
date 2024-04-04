@@ -1,5 +1,4 @@
-from exod.utils.path import data_processed
-from exod.pre_processing.download_observations import read_observation_ids
+from exod.utils.path import data_processed, read_observation_ids
 from exod.utils.path import data
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.event_list import EventList

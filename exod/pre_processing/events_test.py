@@ -1,5 +1,5 @@
 from exod.xmm.observation import Observation
-from exod.pre_processing.download_observations import read_observation_ids
+from exod.utils.path import read_observation_ids
 
 #dl = DataLoader(time_interval=50,
 #                size_arcsec=15,

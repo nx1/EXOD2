@@ -4,15 +4,8 @@ import requests
 
 from exod.utils import path
 from exod.utils.logger import logger
+from exod.utils.path import read_observation_ids
 
-def read_observation_ids(file_path):
-    """
-    Read observation IDs from file.
-    Each line should be a single obsid.
-    """
-    with open(file_path, 'r') as file:
-        obs_ids = [line.strip() for line in file.readlines()]
-    return obs_ids
 
 def download_observation_events(obsid, clobber=False):
     """
