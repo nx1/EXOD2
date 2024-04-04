@@ -284,20 +284,20 @@ def plot_simbad_crossmatch_image(obsid,
 
 def make_results_tarfile(output_filename):
     """
-    Create results tarfile from exod simlist.
+    Create results tarfile of exod results.
 
     Parameters
     ----------
     output_filename : filename without .tar.gz extension
     """
-    csv_files = list(data_results.glob('*/*.csv'))
-    image_var = list(data_results.glob('*/*image_var.png'))
-    simlists  = list(data_results.glob('*simlist*'))
-    print(f'Found #_csv={len(csv_files)} #_image_var={len(image_var)}')
+    csv_files   = list(data_results.glob('*/*/*.csv'))
+    image_files = list(data_results.glob('*/*/*.png'))
+    simlists    = list(data_results.glob('*simlist*'))
+    print(f'Found #_csv={len(csv_files)} #_image_var={len(image_files)}')
 
     tarfile_savepath = data_combined / f'{output_filename}.tar.gz'
     with tarfile.open(str(tarfile_savepath), mode='w|gz') as tf:
-        for f in tqdm([*csv_files, *image_var, *simlists]):
+        for f in tqdm([*csv_files, *image_files, *simlists]):
             arcname = f.relative_to(data_results)
             print(f'{f} --> {arcname}')
             tf.add(f, arcname=arcname)
