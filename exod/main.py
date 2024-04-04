@@ -30,7 +30,7 @@ if __name__ == "__main__":
             bayesian.run_pipeline(**args)
             res['status'] = 'Run'
         except Exception as e:
-            logger.warning(f'Could not process observation={obsid} {type(e).__name__} occurred: {e}')
+            logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')
             res['status'] = f'{type(e).__name__ } | {e}'
         all_res.append(res)
 

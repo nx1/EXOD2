@@ -76,7 +76,7 @@ class Observation:
 
     @property
     def info(self):
-        info = {'observation' : self.obsid}
+        info = {'obsid' : self.obsid}
 
         for i, evt in enumerate(self.events_raw):
             info[f'evt_raw_{i}'] = evt.filename

@@ -16,7 +16,7 @@ warnings.filterwarnings(action='ignore', category=UnitsWarning, append=True)
 
 def get_filtered_events_files(obsid):
     """Return all the filtered event files found for a given observation ID."""
-    logger.info(f'Getting Image files for observation: {obsid}')
+    logger.info(f'Getting Image files for obsid: {obsid}')
     data_processed_obs = data_processed / f'{obsid}'
     evt_files = data_processed_obs.glob('*FILT.fits')
     evt_files = list(evt_files)
@@ -24,20 +24,20 @@ def get_filtered_events_files(obsid):
         logger.info(f'Found {len(evt_files)} filtered event files')
         return evt_files
     else:
-        raise FileNotFoundError(f'No Event files found for observation: {obsid}')
+        raise FileNotFoundError(f'No Event files found for obsid: {obsid}')
 
 
 
 def get_PN_image_file(obsid):
     """Return the first PN image for a given observation ID"""
-    logger.info(f'Getting Image files for observation: {obsid}')
+    logger.info(f'Getting Image files for obsid: {obsid}')
     data_processed_obs = data_processed / f'{obsid}'
     img_files = data_processed_obs.glob('*PI*IMG.fits')
     img_files = list(img_files)
     if img_files:
         return img_files[0]
     else:
-        raise FileNotFoundError(f'No PN Images found for observation: {obsid}')
+        raise FileNotFoundError(f'No PN Images found for obsid: {obsid}')
 
 def get_inner_time_bounds(data_list):
     """Get the latest start time and the earliest end time across all detectors."""
@@ -70,7 +70,7 @@ def get_overlapping_eventlist_subsets(obsid):
     3 event lists overlap with each other it does not correctly pull out
     the combination. I have made this case error if it happens for now...
     """
-    logger.info(f'Getting overlapping eventlists for observation={obsid}')
+    logger.info(f'Getting overlapping eventlists for obsid={obsid}')
     def intervals_overlap(I1, I2):
         return I1[0] <= I2[1] and I1[1] >= I2[0]
 

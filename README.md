@@ -16,18 +16,8 @@ Then set the 'EXOD' enviroment in your .bashrc to point to this repo i.e.
 
 # Running
 The main script for the pipeline is found in EXOD2/exod/main.py
-This will run over all the observations specified in 
+This will run over all the obsids specified in 
 `EXOD2/data/observations.txt`
 and perform the transient search, the output is then saved in
 `/data/results/obsid/`
 
-
-# Code
-Classes
-=======
-
-`xmm.Observation(obsid)` : Getting Observation Data and setting directory structure
-`xmm.EventList(path)` : Reading and checking storing EventList
-`pre_processing.DataLoader()` : Creates the DataCube from the EventList (I agree this is clunky)
-`processing.DataCube(EventList, size_arcsec, time_interval)` : Creating and storing the datacube from the EventList
-`processing.Detector(DataCube, wcs, sigma)` : Main detection algorithm on data cube.

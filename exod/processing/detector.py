@@ -291,7 +291,7 @@ def calc_ks_poission(lc):
 
 
 """
-args = {'observation': observation,
+args = {'obsid': obsid,
         'size_arcsec': 15.0,
         'time_interval': 5,
         'gti_threshold': 1.5,

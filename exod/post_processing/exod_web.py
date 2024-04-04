@@ -13,7 +13,7 @@ def main_page():
     sim_lists = list(path.data_results.glob('*simlist*csv'))
     print(sim_lists)
     sim_list = sim_lists[0]
-    df = pd.read_csv(sim_list, dtype={'observation':str})
+    df = pd.read_csv(sim_list, dtype={obsid:str})
     table = df.to_html(classes='table table-striped table-hover')
 
     content = {'sim_list' : sim_list,
@@ -23,7 +23,7 @@ def main_page():
             content=content)
 
 
-@app.route('/obs/<observation>')
+@app.route('/obs/<obsid>')
 def observation_page(obsid):
     obs_path = data_results / obsid
 
@@ -59,7 +59,7 @@ def observation_page(obsid):
     cmatch_img_file = get_img_path('*SIMBAD*')
     bti_plot        = get_img_path('*bti_plot*')
 
-    content   = {'observation'      : obsid,
+    content   = {obsid      : obsid,
                  'tab_reg'    : tab_reg,
                  'image_var'  : var_img_file,
                  'cmatch_img' : cmatch_img_file,
