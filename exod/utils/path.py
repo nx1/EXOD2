@@ -22,10 +22,12 @@ all_paths = {
     'logs': logs
 }
 
+
 def create_all_paths():
     for name, path in all_paths.items():
         logger.info(f'Creating Path: {path}')
         os.makedirs(path, exist_ok=True)
+
 
 def check_file_exists(file_path, clobber=True):
     """
@@ -41,12 +43,6 @@ def check_file_exists(file_path, clobber=True):
     if not clobber and Path(file_path).exists():
         raise FileExistsError(f'File {file_path} exists and clobber={clobber}!')
 
-if __name__ == "__main__":
-    create_all_paths()
-    for name, path in all_paths.items():
-        exists = "exists" if path.exists() else "does not exist"
-        logger.info(f"{name:<15} : {path} : {exists}")
-
 
 def read_observation_ids(file_path):
     """
@@ -56,3 +52,12 @@ def read_observation_ids(file_path):
     with open(file_path, 'r') as file:
         obs_ids = [line.strip() for line in file.readlines()]
     return obs_ids
+
+
+if __name__ == "__main__":
+    create_all_paths()
+    for name, path in all_paths.items():
+        exists = "exists" if path.exists() else "does not exist"
+        logger.info(f"{name:<15} : {path} : {exists}")
+
+
