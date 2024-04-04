@@ -1,3 +1,4 @@
+from exod.pre_processing.download_observations import download_observation_events
 from exod.xmm.event_list import EventList
 from exod.xmm.image import Image
 from exod.utils.path import data_raw, data_processed, data_results
@@ -34,6 +35,9 @@ class Observation:
         os.makedirs(self.path_raw, exist_ok=True)
         os.makedirs(self.path_processed, exist_ok=True)
         os.makedirs(self.path_results, exist_ok=True)
+
+    def download_events(self):
+        download_observation_events(self.obsid)
 
     def get_event_lists_raw(self):
         evt_raw = list(self.path_raw.glob('*EVLI*FTZ'))
@@ -157,6 +161,8 @@ def get_events_overlapping_subsets(observation):
             evt.read()  # Read all the eventlists to get the times.
         subsets = get_overlapping_eventlist_subsets(observation.events_processed)
         return subsets
+
+
 
 
 

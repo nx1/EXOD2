@@ -36,10 +36,7 @@ def download_observation_events(obsid, clobber=False):
 
     for inst, download_url in urls.items():
         # Create the folder to save to
-        obs_path  = path.data_raw / f'{obsid}'
-        if inst == 'src': # Save the obslist to the processed file.
-            obs_path  = path.data_processed/ f'{obsid}'
-
+        obs_path = path.data_raw / f'{obsid}'
 
         os.makedirs(obs_path, exist_ok=True)
         if not clobber and len(list(obs_path.glob(globs[inst]))) > 0: # Dirty check for fits files
@@ -67,10 +64,6 @@ def download_observation_events(obsid, clobber=False):
                     cmd = f'tar -xvf {file_path} -C {obs_path} --strip-components=2'
                     logger.info(f'Executing: {cmd}')
                     subprocess.run(cmd, shell=True)
-
-
-
-
         else:
             logger.warning(f'Failed to download event files for: {obsid} {inst}')
 
