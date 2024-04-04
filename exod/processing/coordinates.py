@@ -11,7 +11,7 @@ def get_regions_sky_position(data_cube, df_regions, wcs):
     """
     Calculate the sky position of the detected regions.
 
-    Test coords: obsid : 0803990501
+    Test coords: observation : 0803990501
     1313 X-1     : 03 18 20.00 -66 29 10.9
     1313 X-2     : 03 18 22.00 -66 36 04.3
     SN 1978K     : 03 17 38.62 -66 33 03.4

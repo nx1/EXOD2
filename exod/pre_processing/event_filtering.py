@@ -5,7 +5,6 @@ import os
 
 from exod.utils.path import data_raw, data_processed, read_observation_ids
 from exod.utils.logger import logger
-from exod.xmm.observation import Observation
 
 
 def run_cmd(cmd):
@@ -27,38 +26,39 @@ def check_for_timing_mode(filename):
 def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clobber=False):
     if outfile.exists() and clobber is False:
         logger.info(f'File {outfile} exists and clobber={clobber}!')
-    else:
-        logger.info(f'Filtering PN Events file:\nraw       : {infile}\nprocessed : {outfile}')
-        min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-             f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
-        run_cmd(cmd)
+        return None
+
+    logger.info(f'Filtering PN Events file:\nraw       : {infile}\nprocessed : {outfile}')
+    min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
+    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+         f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
+    run_cmd(cmd)
 
 
 def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     if outfile.exists() and clobber is False:
         logger.info(f'File {outfile} exists and clobber={clobber}!')
-    else:
-        logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
-        min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-             f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
-        run_cmd(cmd)
+        return None
+
+    logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
+    min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
+    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+         f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
+    run_cmd(cmd)
 
 
 def filter_M2_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     if outfile.exists() and clobber is False:
         logger.info(f'File {outfile} exists and clobber={clobber}!')
-    else:
-        logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
-        min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-             f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
-        run_cmd(cmd)
+        return None
+    logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
+    min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
+    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+         f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
+    run_cmd(cmd)
 
 
-def filter_obsid_events(obsid, min_energy=0.2, max_energy=12.0, clobber=False):
-    observation = Observation(obsid)
+def filter_obsid_events(observation, min_energy=0.2, max_energy=12.0, clobber=False):
     observation.get_files()
 
     for event in observation.events_raw:
@@ -81,18 +81,17 @@ def filter_obsid_events(obsid, min_energy=0.2, max_energy=12.0, clobber=False):
 def create_image_file(infile, outfile, ximagebinsize=80, yimagebinsize=80, clobber=False):
     if (outfile.exists() and clobber is False):
         logger.info(f'File {outfile} exists and clobber={clobber}!')
-    else:
-        logger.info(f'Creating image file:\nraw       : {infile}\nprocessed : {outfile}')
-        logger.info(f'ximagebinsize = {ximagebinsize} yimagebinsize = {yimagebinsize}')
-        cmd = (f'evselect table={infile} imagebinning=binSize imageset={outfile} withimageset=yes xcolumn=X ycolumn=Y'
-               f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
-        run_cmd(cmd)
+        return None
+
+    logger.info(f'Creating image file:\nraw       : {infile}\nprocessed : {outfile}')
+    logger.info(f'ximagebinsize = {ximagebinsize} yimagebinsize = {yimagebinsize}')
+    cmd = (f'evselect table={infile} imagebinning=binSize imageset={outfile} withimageset=yes xcolumn=X ycolumn=Y'
+           f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
+    run_cmd(cmd)
 
 
-def create_obsid_images(obsid, ximagebinsize=80, yimagebinsize=80, clobber=False):
-    observation = Observation(obsid)
+def create_obsid_images(observation, ximagebinsize=80, yimagebinsize=80, clobber=False):
     observation.get_files()
-
     for event in observation.events_raw:
         raw_filepath = event.path
         stem = raw_filepath.stem  # The stem is the name of the file without extensions
@@ -116,7 +115,7 @@ if __name__ == "__main__":
     from exod.utils.path import data
     obsids = read_observation_ids(data / 'observations.txt')
     for obsid in obsids:
-        filter_obsid_events(obsid=obsid)
-        create_obsid_images(obsid=obsid)
+        filter_obsid_events(observation=obsid)
+        create_obsid_images(observation=obsid)
 
   

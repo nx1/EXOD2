@@ -44,7 +44,7 @@ class DataCube:
 
     def plot_cube_statistics(self):
         cube = self.data
-        logger.info('Calculating and plotting data cube_n statistics...')
+        logger.info('Calculating and plotting data cube statistics...')
         image_max = np.nanmax(cube, axis=2)
         image_min = np.nanmin(cube, axis=2)  # The Minimum and median are basically junk
         image_median = np.nanmedian(cube, axis=2)
@@ -131,7 +131,7 @@ class DataCubeXMM(DataCube):
         """Crop the surrounding areas of the data_cube that are empty."""
         bbox_img = self.bbox_img
 
-        logger.info(f'Cropping data cube_n between bbox_img: {bbox_img}')
+        logger.info(f'Cropping data cube between bbox_img: {bbox_img}')
         self.data = self.data[bbox_img[0]:bbox_img[1], bbox_img[2]:bbox_img[3]]
 
         # Calculate the new bins
@@ -139,7 +139,7 @@ class DataCubeXMM(DataCube):
         self.bin_y = self.bin_y[bbox_img[2]:bbox_img[3]]
 
     def get_cube_bbox(self):
-        """Get the Bounding Box corresponding to the cube_n's image plane."""
+        """Get the Bounding Box corresponding to the cube's image plane."""
         idx_nonempty = np.where(np.sum(self.data, axis=2) > 0)
         bbox_img = (np.min(idx_nonempty[0]), np.max(idx_nonempty[0]) + 1,
                     np.min(idx_nonempty[1]), np.max(idx_nonempty[1]) + 1)
@@ -165,7 +165,7 @@ class DataCubeXMM(DataCube):
         self.data[:, :, self.bti_bin_idx] = img_nan
 
     def remove_bti_frames(self):
-        """Return the cube_n without the masked nan frames."""
+        """Return the cube without the masked nan frames."""
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
@@ -270,10 +270,10 @@ class DataCubeXMM(DataCube):
         self.time_interval=n_factor*self.time_interval
         self.bin_t = self.calc_time_bins()
 
-        #Update the data cube_n
+        #Update the data cube
         # np.split(X, np.arange(N, len(X), N)) allows to cut X in chunks of size N (plus the remaining bit)
         datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2) #Splits in groups of n_factor along the time axis
-        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube_n again
+        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube again
 
         #Update the relative exposures of each frame
         frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor)) #Splits in groups of n_factor along the time axis

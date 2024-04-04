@@ -1,4 +1,5 @@
 import exod.utils.path as path
+from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
 from exod.utils.plotting import cmap_image
 from exod.utils.logger import logger
 from exod.pre_processing.data_loader import DataLoader
@@ -93,7 +94,7 @@ def precompute_bayes_limits(threshold_sigma):
     46003  158.775693   219.0      107.0
 
 
-    Each data cell in the observed and data_cube cube_n
+    Each data cell in the observed and data_cube cube
     is then compared to the values pre-calculated here
     to determine if is it a peak or an eclipse.
     
@@ -104,7 +105,7 @@ def precompute_bayes_limits(threshold_sigma):
       0 5 0    1.01 1.10 1.00       F T F 
       3 2 1    2.30 2.14 0.98       F F F
 
-    The evaluation of each data cell of the cube_n against
+    The evaluation of each data cell of the cube against
     a threshold is made faster by precomputing the counts here.
     """
     B_peak_threshold, B_eclipse_threshold = get_bayes_thresholds(threshold_sigma=threshold_sigma)
@@ -344,11 +345,13 @@ def run_pipeline(obsid,
                  gti_only=False,
                  remove_partial_ccd_frames=True,
                  gti_threshold=1.5,
-                 min_energy=0.5,
+                 min_energy=0.2,
                  max_energy=10.0,
-                 threshold_sigma=3):
-
+                 threshold_sigma=3,
+                 clobber=False):
     observation = Observation(obsid)
+    observation.filter_events(min_energy=min_energy, max_energy=max_energy, clobber=clobber)
+    observation.create_images(clobber=clobber)
     observation.get_files()
     observation.get_events_overlapping_subsets()
     for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
@@ -403,7 +406,8 @@ def run_pipeline(obsid,
         save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
         save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        plt.close('all')
+        plt.show()
+        # plt.close('all')
 
 
 
@@ -415,10 +419,10 @@ def main():
     from exod.utils.path import data
     # plot_B_peak()
     # plot_B_eclipse()
-    precompute_bayes_limits(threshold_sigma=3)
-    precompute_bayes_limits(threshold_sigma=5)
-    precompute_bayes_1000()
-    load_precomputed_bayes1000()
+    # precompute_bayes_limits(threshold_sigma=3)
+    # precompute_bayes_limits(threshold_sigma=5)
+    # precompute_bayes_1000()
+    # load_precomputed_bayes1000()
 
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids = read_observation_ids(data / 'obs_ccd_check.txt')
@@ -429,7 +433,7 @@ def main():
     # obsids=['0810811801']#'0764420101',
     # obsids=['0911990501']
     for obsid in obsids:
-        # obsid='0765080801' #'0886121001' '0872390901',
+        # observation='0765080801' #'0886121001' '0872390901',
         run_pipeline(obsid)
 
 if __name__=="__main__":

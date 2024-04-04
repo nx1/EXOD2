@@ -20,9 +20,9 @@ from scipy.interpolate import interp1d
 
 def compute_expected_cube_using_templates(data_cube, wcs=None):
     """
-    Computes a baseline data_cube cube_n, combining background and sources.
+    Computes a baseline data_cube cube, combining background and sources.
 
-    Any departure from this data_cube cube_n corresponds to variability.
+    Any departure from this data_cube cube corresponds to variability.
 
     The background is dealt with by assuming that all GTIs and BTIs follow
     respective templates (i.e., once each frame is divided by its total counts,
@@ -119,7 +119,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
 
     # Source contribution
     if len(bti_indices) < cube.shape[2]/2:
-        logger.info(f'len(bti_indices)<cube_n.shape[2]/2 {len(bti_indices)}<{cube.shape[2]/2}')
+        logger.info(f'len(bti_indices)<cube.shape[2]/2 {len(bti_indices)}<{cube.shape[2]/2}')
 
         # Get the net image of sources in GTIs (after inpainting to have background below sources)
         source_only_image_GTI = np.where(image_mask_source, image_GTI-image_GTI_background_template*count_GTI_outside_sources, np.zeros(image_GTI.shape))
@@ -136,7 +136,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
         effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[bti_indices])
         source_base_contribution = source_only_image_BTI / effective_exposed_frames
 
-    #Create data_cube cube_n
+    #Create data_cube cube
     observed_cube_outside_sources = np.where(np.repeat(image_mask_source[:, :, np.newaxis], cube.shape[2], axis=2),
                                               np.empty(cube.shape) * np.nan,
                                               cube)
@@ -146,7 +146,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     # plt.plot(lightcurve_outside_sources)
     # plt.show()
 
-    # We then create the estimated cube_n. For both GTI and BTI, we estimate their background by using the lightcurve and
+    # We then create the estimated cube. For both GTI and BTI, we estimate their background by using the lightcurve and
     # the templates. We then add the data_cube constant source contribution.
     logger.info('Creating Estimated Cube')
     estimated_cube = np.empty(cube.shape)
@@ -160,7 +160,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
 def mask_known_sources(data_cube, wcs=None):
     logger.info('Masking Known Sources')
     obsid = data_cube.event_list.obsid
-    path_source_file = data_raw / 'product' / f'{obsid}'
+    path_source_file = data_raw / f'{obsid}'
     source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
     logger.info(f'OBSMLI file: {path_source_file}')
     tab_src = Table(fits.open(source_file_path)[1].data)
@@ -191,7 +191,7 @@ def mask_known_sources(data_cube, wcs=None):
         X = x_img * 80
         Y = y_img * 80
 
-        # Remove values outside the cube_n
+        # Remove values outside the cube
         xcube_max, xcube_min = data_cube.bin_x[-1], data_cube.bin_x[0]
         ycube_max, ycube_min = data_cube.bin_y[-1], data_cube.bin_y[0]
         XY = np.array([[x, y] for x, y in zip(X, Y) if ((x < xcube_max) and

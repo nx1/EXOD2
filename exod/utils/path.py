@@ -47,7 +47,7 @@ def check_file_exists(file_path, clobber=True):
 def read_observation_ids(file_path):
     """
     Read observation IDs from file.
-    Each line should be a single obsid.
+    Each line should be a single observation.
     """
     with open(file_path, 'r') as file:
         obs_ids = [line.strip() for line in file.readlines()]

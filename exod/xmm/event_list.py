@@ -153,7 +153,7 @@ class EventList:
     def info(self):
         info = {
             'filename'   : self.filename,
-            'obsid'      : self.obsid,
+            'observation'      : self.obsid,
             'instrument' : self.instrument,
             'submode'    : self.submode,
             'date'       : self.date,

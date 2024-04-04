@@ -46,7 +46,7 @@ def combine_all_region_files():
 
     dfs = []
     for csv in csv_files:
-        df = pd.read_csv(csv, dtype={'obsid':str})
+        df = pd.read_csv(csv, dtype={'observation':str})
         logger.info(f'{csv} rows: {len(df)}')
         dfs.append(df)
     df_all_regions = pd.concat(dfs, axis=0).reset_index(drop=True)
@@ -226,7 +226,7 @@ def plot_simbad_crossmatch_image(obsid,
                    cmap=cmap)
 
     # Plot Detections without a crossmatch
-    df_all_regions_no_crossmatch_obsid = df_all_regions_no_crossmatch[df_all_regions_no_crossmatch['obsid'] == obsid]
+    df_all_regions_no_crossmatch_obsid = df_all_regions_no_crossmatch[df_all_regions_no_crossmatch['observation'] == obsid]
     if len(df_all_regions_no_crossmatch_obsid) > 0:
         ra = df_all_regions_no_crossmatch_obsid['ra']
         dec = df_all_regions_no_crossmatch_obsid['dec']
@@ -235,14 +235,14 @@ def plot_simbad_crossmatch_image(obsid,
 
     # Plot Detections with Crossmatch
     df_all_regions_with_crossmatch_obsid = df_all_regions_with_crossmatch[
-        df_all_regions_with_crossmatch['obsid'] == obsid]
+        df_all_regions_with_crossmatch['observation'] == obsid]
     if len(df_all_regions_with_crossmatch_obsid) > 0:
         ra = df_all_regions_with_crossmatch_obsid['ra']
         dec = df_all_regions_with_crossmatch_obsid['dec']
         ax.scatter(ra, dec, transform=ax.get_transform('world'), color='yellow', marker='o', label='With Crossmatch',
                    alpha=0.5)
 
-    # Get Crossmatched Sources for specific obsid
+    # Get Crossmatched Sources for specific observation
     l1 = np.array(tab_res['SCRIPT_NUMBER_ID'])
     l2 = np.array(df_all_regions_with_crossmatch_obsid.index)
     common_idx = np.intersect1d(l1, l2)
@@ -273,7 +273,7 @@ def plot_simbad_crossmatch_image(obsid,
     ax.set_ylim(np.min(np.nonzero(img_data)[0]), np.max(np.nonzero(img_data)[0]))
     ax.set_xlabel('RA')
     ax.set_ylabel('Dec')
-    ax.set_title(f'SIMBAD Crossmatch Plot | obsid={obsid}')
+    ax.set_title(f'SIMBAD Crossmatch Plot | observation={obsid}')
     ax.legend()
 
     savepath = data_results / f'{obsid}' / 'SIMBAD_crossmatch_plot.png'

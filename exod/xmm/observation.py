@@ -1,4 +1,5 @@
 from exod.pre_processing.download_observations import download_observation_events
+from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
 from exod.xmm.event_list import EventList
 from exod.xmm.image import Image
 from exod.utils.path import data_raw, data_processed, data_results
@@ -12,7 +13,7 @@ from itertools import combinations
 class Observation:
     def __init__(self, obsid):
         self.obsid = obsid
-        self.path_raw = data_raw / obsid / 'product'
+        self.path_raw = data_raw / obsid
         self.path_processed = data_processed / obsid
         self.path_results = data_results / obsid
         self.make_dirs()
@@ -29,7 +30,7 @@ class Observation:
         self.source_list = []
 
     def __repr__(self):
-        return f'Observation({self.obsid})'
+        return f"Observation('{self.obsid}')"
 
     def make_dirs(self):
         os.makedirs(self.path_raw, exist_ok=True)
@@ -38,6 +39,12 @@ class Observation:
 
     def download_events(self):
         download_observation_events(self.obsid)
+
+    def filter_events(self, min_energy=0.2, max_energy=12.0, clobber=False):
+        filter_obsid_events(observation=self, min_energy=min_energy, max_energy=max_energy, clobber=clobber)
+
+    def create_images(self, ximagebinsize=80, yimagebinsize=80, clobber=False):
+        create_obsid_images(observation=self, ximagebinsize=ximagebinsize, yimagebinsize=yimagebinsize, clobber=clobber)
 
     def get_event_lists_raw(self):
         evt_raw = list(self.path_raw.glob('*EVLI*FTZ'))
@@ -58,6 +65,7 @@ class Observation:
         self.images = [Image(i) for i in img_processed]
 
     def get_files(self):
+        logger.info(f'Getting {self} Files...')
         self.get_event_lists_raw()
         self.get_event_lists_processed()
         self.get_images()
@@ -68,7 +76,7 @@ class Observation:
 
     @property
     def info(self):
-        info = {'obsid' : self.obsid}
+        info = {'observation' : self.obsid}
 
         for i, evt in enumerate(self.events_raw):
             info[f'evt_raw_{i}'] = evt.filename
@@ -140,7 +148,7 @@ def get_overlapping_eventlist_subsets(event_lists):
 
 def get_events_overlapping_subsets(observation):
     """
-    Get the overlapping eventlists for a given obsid.
+    Get the overlapping eventlists for a given observation.
 
     Returns the subsets as a list of lists
     [[001PI.fits, 001M1.fits, 001M2.fits], [002PI.fits, 002M1.fits, 002M2.fits]]

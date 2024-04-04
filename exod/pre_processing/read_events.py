@@ -116,7 +116,7 @@ def get_epic_data(obsid):
     logger.info('Combining event lists')
     data_EPIC = vstack(data_to_stack, metadata_conflicts='silent')
 
-    logger.info('Trimming TIME on data cube_n based on all data')
+    logger.info('Trimming TIME on data cube based on all data')
     time_min, time_max = get_inner_time_bounds(data_to_stack)
 
     data_EPIC = data_EPIC[(data_EPIC['TIME'] >= time_min) & (data_EPIC['TIME'] <= time_max)]

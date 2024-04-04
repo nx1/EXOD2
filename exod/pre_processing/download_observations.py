@@ -51,7 +51,7 @@ def download_observation_events(obsid, clobber=False):
                     file.write(response.content)
                 logger.info(f'Downloaded: {file_path}')
 
-                # Deal with GUEST.tar files (these show up if you have multiple eventlists in an obsid)
+                # Deal with GUEST.tar files (these show up if you have multiple eventlists in an observation)
                 if 'GUEST' in filename:
                     logger.info(f'GUEST tar file found! Extracting to current dir!')
                     cmd = f'tar -xvf {file_path} -C {obs_path} --strip-components=2'

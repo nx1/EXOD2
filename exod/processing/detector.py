@@ -1,7 +1,11 @@
+from exod.pre_processing.bti import plot_bti
+from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
 from exod.processing.coordinates import get_regions_sky_position
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
 from exod.processing.coordinates import calc_df_regions
+from exod.xmm.observation import Observation
+from exod.pre_processing.data_loader import DataLoader
 
 import numpy as np
 import pandas as pd
@@ -11,6 +15,9 @@ from matplotlib import pyplot as plt, patches as patches
 from scipy.stats import kstest, poisson
 from skimage.measure import label, regionprops, regionprops_table
 from scipy.optimize import minimize_scalar
+
+from exod.utils.util import save_df, save_info
+from exod.xmm.event_list import EventList
 
 
 class Detector:
@@ -50,7 +57,7 @@ class Detector:
 
     def calc_image_var(self):
         """
-        Calculate the variability image from a data cube_n.
+        Calculate the variability image from a data cube.
         """
         logger.info('Computing Variability')
         image_max = np.nanmax(self.data_cube.data, axis=2)
@@ -199,7 +206,7 @@ def plot_region_lightcurve(df_lcs, i, savepath=None):
 
 
 def get_region_lcs(data_cube, df_regions):
-    logger.info("Extracting lightcurves from data cube_n")
+    logger.info("Extracting lightcurves from data cube")
     lcs = [pd.DataFrame({'time' : data_cube.bin_t[:-1]}),
            pd.DataFrame({'bti'  : data_cube.bti_bin_idx_bool[:-1]})]
     for i, row in df_regions.iterrows():
@@ -268,7 +275,7 @@ def plot_image_with_regions(image, df_regions, cbar_label=None, savepath=None):
     # plt.show()
 
 
-def calc_KS_poission(lc):
+def calc_ks_poission(lc):
     """
     Calculate the KS Probability assuming the lightcurve was
     created from a possion distribution with the mean of the lightcurve.
@@ -283,10 +290,71 @@ def calc_KS_poission(lc):
     return ks_res
 
 
-if __name__ == "__main__":
-    from exod.xmm.observation import Observation
-    from exod.pre_processing.data_loader import DataLoader
+"""
+args = {'observation': observation,
+        'size_arcsec': 15.0,
+        'time_interval': 5,
+        'gti_threshold': 1.5,
+        'min_energy': 0.5,
+        'max_energy': 12.0,
+        'sigma': 4,
+        'gti_only': True,
+        'remove_partial_ccd_frames': False,
+        'clobber': False}
+"""
+def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
+                 gti_only=False, gti_threshold=1.5, min_energy=0.5,
+                 max_energy=12.0, remove_partial_ccd_frames=False, sigma=5, clobber=False):
 
+    # Create the Observation class
+    observation = Observation(obsid)
+    observation.filter_events(min_energy=min_energy, max_energy=max_energy, clobber=clobber)
+    observation.create_images(clobber=clobber)
+    observation.get_files()
+
+    # Get the eventslist & image to use
+    # event_list = observation.events_processed_pn[0]
+    # event_list.read()
+
+    observation.get_events_overlapping_subsets()
+    event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+
+    img = observation.images[0]
+    img.read(wcs_only=True)
+
+    # Initialize the Data Loader
+    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec, gti_only=gti_only,
+                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=remove_partial_ccd_frames)
+    dl.run()
+
+    # Create Data Cube
+    # dl.data_cube.plot_cube_statistics()
+    # dl.data_cube.video(savepath=None)
+
+    # Detection
+    detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
+    detector.run()
+
+    # detector.plot_3d_image(detector.image_var)
+    detector.plot_region_lightcurves(savedir=None) # savedir=observation.path_results
+    plot_bti(time=dl.t_bin_he[:-1], data=dl.lc_he, threshold=dl.gti_threshold, bti=dl.bti, savepath=observation.path_results / 'bti_plot.png')
+    plot_image_with_regions(image=detector.image_var, df_regions=detector.df_regions, cbar_label='Variability Score',
+                            savepath=observation.path_results / 'image_var.png')
+
+    # Save Results
+    save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
+    save_df(df=detector.df_lcs, savepath=observation.path_results / 'lcs.csv')
+    save_df(df=detector.df_regions, savepath=observation.path_results / 'regions.csv')
+
+    save_info(dictionary=observation.info, savepath=observation.path_results / 'obs_info.csv')
+    save_info(dictionary=event_list.info, savepath=observation.path_results / 'evt_info.csv')
+    save_info(dictionary=dl.info, savepath=observation.path_results / 'dl_info.csv')
+    save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
+    save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
+
+    # plt.show()
+
+if __name__ == "__main__":
     obs = Observation('0911791101')
     obs.get_files()
     evt = obs.events_processed[0]

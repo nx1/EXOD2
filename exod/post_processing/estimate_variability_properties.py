@@ -21,9 +21,9 @@ def plot_lightcurve_alerts_with_background(cube, cube_background, cube_backgroun
     """
     This function creates the multi-panel lightcurve of the transient object. It will retrieve the background,
     and use it to compare the (source+background) to the background, and compute the likelihood in each frame
-    :param cube: full data cube_n
-    :param cube_background: data cube_n of de-sourced background estimate
-    :param cube_background_withsource: data cube_n of de-sourced background estimate + constant contribution from the
+    :param cube: full data cube
+    :param cube_background: data cube of de-sourced background estimate
+    :param cube_background_withsource: data cube of de-sourced background estimate + constant contribution from the
     sources (i.e. we assume they are constant, take their stacked flux and distribute it over all frames)
     :param tab_boundingboxes: bounding boxes of variable objects, as obtained from variability.py
     :return: nothing, but saves the lightcurve of each (source+background) and its background, lightcurve of
@@ -172,7 +172,7 @@ def eclipse_count_estimate(fraction, N, mu):
 
 def convert_count_to_flux(count, position, data_cube):
     #TODO: find the vignetting functions depending on energy / submode / filters. Maybe build the exposure map for
-    # each obsid  (https://xmm-tools.cosmos.esa.int/external/sas/current/doc/eexpmap.pdf)
+    # each observation  (https://xmm-tools.cosmos.esa.int/external/sas/current/doc/eexpmap.pdf)
     # Find the EEF (Encircled Energy Frac.), maybe with ARFGEN if we manage to convert data_cube regions to XY regions
     # Think about which Energy Conversion Factor (ECF) to use. Maybe depends on spectral search (hard or soft).
     """Used to convert count rates to fluxes, using vignetting / EEF / ECF"""

@@ -1,128 +1,42 @@
-from exod.pre_processing.data_loader import DataLoader
-from exod.pre_processing.bti import plot_bti
-from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
-from exod.utils.util import save_info, save_df
-from exod.xmm.event_list import EventList
 from exod.utils.logger import logger, get_current_date_string
-from exod.xmm.observation import Observation
-from exod.processing.detector import Detector, plot_image_with_regions
-import exod.processing.bayesian as baysian
-
+from exod.utils.path import data, data_results, read_observation_ids
+import exod.processing.detector as detector
+import exod.processing.bayesian as bayesian
 import pandas as pd
 
-
-def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
-                 gti_only=False, gti_threshold=1.5, min_energy=0.5,
-                 max_energy=12.0, remove_partial_ccd_frames=False, sigma=5, clobber=False):
-
-    # download_observation_events(obsid=obsid)
-    # Filter the events files and Create Images
-    filter_obsid_events(obsid=obsid, min_energy=min_energy, max_energy=max_energy, clobber=clobber)
-    create_obsid_images(obsid=obsid, clobber=clobber)
-
-    # Create the Observation class
-    observation = Observation(obsid)
-    observation.get_files()
-
-    # Get the eventslist & image to use
-    # event_list = observation.events_processed_pn[0]
-    # event_list.read()
-
-    observation.get_events_overlapping_subsets()
-    event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
-
-    img = observation.images[0]
-    img.read(wcs_only=True)
-
-    # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec, gti_only=gti_only,
-                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=remove_partial_ccd_frames)
-    dl.run()
-
-    # Create Data Cube
-    # dl.data_cube.plot_cube_statistics()
-    # dl.data_cube.video(savepath=None)
-
-    # Detection
-    detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
-    detector.run()
-
-    # detector.plot_3d_image(detector.image_var)
-    detector.plot_region_lightcurves(savedir=None) # savedir=observation.path_results
-    plot_bti(time=dl.t_bin_he[:-1], data=dl.lc_he, threshold=dl.gti_threshold, bti=dl.bti, savepath=observation.path_results / 'bti_plot.png')
-    plot_image_with_regions(image=detector.image_var, df_regions=detector.df_regions, cbar_label='Variability Score',
-                            savepath=observation.path_results / 'image_var.png')
-
-    # Save Results
-    save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
-    save_df(df=detector.df_lcs, savepath=observation.path_results / 'lcs.csv')
-    save_df(df=detector.df_regions, savepath=observation.path_results / 'regions.csv')
-
-    save_info(dictionary=observation.info, savepath=observation.path_results / 'obs_info.csv')
-    save_info(dictionary=event_list.info, savepath=observation.path_results / 'evt_info.csv')
-    save_info(dictionary=dl.info, savepath=observation.path_results / 'dl_info.csv')
-    save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
-    save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
-
-    # plt.show()
-
-
-
 if __name__ == "__main__":
-    from exod.utils.path import data, data_results, read_observation_ids
-    import random
-
     # Get Simulation time
-    timestr = get_current_date_string() 
+    timestr = get_current_date_string()
 
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
-    random.shuffle(obsids)
+    # random.shuffle(obsids)
 
     all_res = []
-    for obsid in obsids:
-        # obsid = '0762250301'
-        args = {'obsid'         : obsid,
-                'size_arcsec'   : 15.0,
-                'time_interval' : 5,
-                'gti_only'      : True,
-                'gti_threshold' : 1.5,
-                'min_energy'    : 0.5,
-                'max_energy'    : 12.0,
-                'remove_partial_ccd_frames' : False,
-                'sigma'         : 4,
-                'clobber'       : False}
-
-        args2 = {'obsid'         : obsid,
-                'size_arcsec'   : 20.0,
-                'time_interval' : 5,
-                'gti_only'      : False,
-                'remove_partial_ccd_frames' : False,
-                'gti_threshold'   : 1.5,
-                'min_energy'      : 0.5,
-                'max_energy'      : 10.0,
-                'threshold_sigma' : 4}
-
+    for obsid in obsids[:3]:
+        args = {'obsid': obsid,
+                'size_arcsec': 20.0,
+                'time_interval': 5,
+                'gti_threshold': 1.5,
+                'min_energy': 0.2,
+                'max_energy': 10.0,
+                'threshold_sigma': 3,
+                'gti_only': False,
+                'remove_partial_ccd_frames': True,
+                'clobber': False}
 
         res = args.copy()
-
-        # run_pipeline(**args)
-        # baysian.run_pipeline(obsid=obsid, **args2)
         try:
-            # run_pipeline(**args)
-            baysian.run_pipeline(obsid=obsid)
+            bayesian.run_pipeline(**args)
             res['status'] = 'Run'
         except Exception as e:
-            logger.warning(f'Could not process obsid={obsid} {type(e).__name__} occurred: {e}')
+            logger.warning(f'Could not process observation={obsid} {type(e).__name__} occurred: {e}')
             res['status'] = f'{type(e).__name__ } | {e}'
         all_res.append(res)
 
     logger.info(f'EXOD Run Completed total observations: {len(obsids)}')
-
     df_results = pd.DataFrame(all_res)
     logger.info(f'df_results:\n{df_results}')
-
     savepath_csv = data_results / f'EXOD_simlist_{timestr}.csv'
     logger.info(f'Saving EXOD run results to: {savepath_csv}')
-    
     df_results.to_csv(savepath_csv, index=False)
