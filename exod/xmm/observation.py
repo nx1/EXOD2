@@ -58,7 +58,10 @@ class Observation:
         self.events_processed_mos2 = [e for e in self.events_processed if 'M2' in e.filename]
 
     def get_source_list(self):
-        self.source_list = self.path_processed.glob('*EP*OBSMLI*FTZ')
+        try:
+            self.source_list = list(self.path_raw.glob('*EP*OBSMLI*FTZ'))[0]
+        except IndexError:
+            raise NotImplementedError(f'No EPIC OBSMLI file found!')
 
     def get_images(self):
         img_processed = list(self.path_processed.glob('*IMG.fits'))
@@ -69,6 +72,7 @@ class Observation:
         self.get_event_lists_raw()
         self.get_event_lists_processed()
         self.get_images()
+        self.get_source_list()
 
     def get_events_overlapping_subsets(self):
         self.events_overlapping_subsets = get_events_overlapping_subsets(self)
@@ -86,6 +90,8 @@ class Observation:
 
         for i, img in enumerate(self.images):
             info[f'img_{i}'] = img.filename
+
+        info[f'source_list'] = self.source_list.name
 
         for k, v in info.items():
             logger.info(f'{k:>10} : {v}')

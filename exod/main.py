@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # random.shuffle(obsids)
 
     all_res = []
-    for obsid in obsids[:3]:
+    for obsid in obsids:
         args = {'obsid': obsid,
                 'size_arcsec': 20.0,
                 'time_interval': 5,
@@ -26,6 +26,8 @@ if __name__ == "__main__":
                 'clobber': False}
 
         res = args.copy()
+
+        # bayesian.run_pipeline(**args)
         try:
             bayesian.run_pipeline(**args)
             res['status'] = 'Run'

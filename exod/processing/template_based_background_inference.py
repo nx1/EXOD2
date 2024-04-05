@@ -157,13 +157,15 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     estimated_cube = np.where(np.nansum(cube, axis=(0,1)) > 0, estimated_cube, np.empty(cube.shape)*np.nan)
     return estimated_cube
 
+
 def mask_known_sources(data_cube, wcs=None):
-    logger.info('Masking Known Sources')
-    obsid = data_cube.event_list.obsid
-    path_source_file = data_raw / f'{obsid}'
-    source_file_path = list(path_source_file.glob('*EP*OBSMLI*.FTZ'))[0]
-    logger.info(f'OBSMLI file: {path_source_file}')
-    tab_src = Table(fits.open(source_file_path)[1].data)
+    logger.info('Getting OBSMLI file...')
+    observation = Observation(data_cube.event_list.obsid)
+    observation.get_source_list()
+    obsmli_file_path = observation.source_list
+    logger.info(f'OBSMLI file: {obsmli_file_path}')
+
+    tab_src = Table(fits.open(obsmli_file_path)[1].data)
 
     # We include bright (i.e. large DET_ML) point sources & extended sources
     tab_src_point    = tab_src[(tab_src['EP_DET_ML'] > 8) & (tab_src['EP_EXTENT'] == 0)]
