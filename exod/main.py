@@ -10,13 +10,12 @@ if __name__ == "__main__":
 
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
-    # random.shuffle(obsids)
 
     all_res = []
     for obsid in obsids:
         args = {'obsid': obsid,
                 'size_arcsec': 20.0,
-                'time_interval': 5,
+                'time_interval': 10,
                 'gti_threshold': 1.5,
                 'min_energy': 0.2,
                 'max_energy': 10.0,

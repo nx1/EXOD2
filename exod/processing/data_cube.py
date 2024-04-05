@@ -97,13 +97,15 @@ class DataCubeXMM(DataCube):
 
         self.bti_bin_idx = []      # index of bad time interval bins e.g. [2,4,6]
         self.bti_bin_idx_bool = [] # Mask of the bad time interval bins e.g. [False, False, True, False, True, ...]
+        self.n_bti_bin = None
+
         self.gti_bin_idx = []
         self.gti_bin_idx_bool = []
+        self.n_gti_bin = None
 
         # Used for keeping track of frames (time bins) with unevent ccd exposures.
         self.bccd_bin_idx = []
         self.bccd_bin_idx_bool = []
-
 
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
@@ -157,6 +159,8 @@ class DataCubeXMM(DataCube):
         self.bti_bin_idx_bool = get_bti_bin_idx_bool(rejected_idx=self.bti_bin_idx, bin_t=self.bin_t)
         self.gti_bin_idx_bool = ~self.bti_bin_idx_bool
         self.gti_bin_idx      = np.where(self.gti_bin_idx_bool)[0][:-1]
+        self.n_gti_bin = len(self.gti_bin_idx)
+        self.n_bti_bin = len(self.bti_bin_idx)
 
     def mask_bti(self):
         logger.info('Masking bad frames from Data Cube (setting to nan)')
@@ -267,7 +271,7 @@ class DataCubeXMM(DataCube):
         """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
         Important: the BTI need to be re-computed as well, at the DataLoader level most likely"""
 
-        self.time_interval=n_factor*self.time_interval
+        self.time_interval = n_factor*self.time_interval
         self.bin_t = self.calc_time_bins()
 
         #Update the data cube
@@ -292,6 +296,8 @@ class DataCubeXMM(DataCube):
                 'extent': self.extent,
                 'pixel_size': self.pixel_size,
                 'n_bins': self.n_bins,
+                'n_bti_bin' : self.n_bti_bin,
+                'n_gti_bin' : self.n_gti_bin,
                 'bbox_img': self.bbox_img,
                 'shape': self.shape,
                 'memory_mb': self.memory_mb}

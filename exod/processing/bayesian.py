@@ -406,23 +406,16 @@ def run_pipeline(obsid,
         save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
         save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        plt.show()
-        # plt.close('all')
-
-
-
-
-
+        # plt.show()
+        plt.close('all')
 
 def main():
     from exod.utils.path import read_observation_ids
     from exod.utils.path import data
-    # plot_B_peak()
-    # plot_B_eclipse()
-    # precompute_bayes_limits(threshold_sigma=3)
-    # precompute_bayes_limits(threshold_sigma=5)
-    # precompute_bayes_1000()
-    # load_precomputed_bayes1000()
+    precompute_bayes_limits(threshold_sigma=3)
+    precompute_bayes_limits(threshold_sigma=5)
+    precompute_bayes_1000()
+    load_precomputed_bayes1000()
 
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids = read_observation_ids(data / 'obs_ccd_check.txt')
