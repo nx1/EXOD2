@@ -18,6 +18,8 @@ class EventList:
         return f'EventList({self.path})'
 
     def read(self):
+        if self.is_read:
+            return None
         self.hdul = fits.open(self.path)
         self.header = self.hdul[1].header
         self.data = Table(self.hdul[1].data)
@@ -48,10 +50,8 @@ class EventList:
         # EventList Object to return
         event_list = cls.__new__(cls) # Create the object without calling .__init__()
 
-        # Read event lists if not read
         for e in event_lists:
-            if not e.is_read:
-                e.read()
+            e.read()
 
         # Remove unsupported EventLists
         event_lists = [e for e in event_lists if e.is_supported_submode()]

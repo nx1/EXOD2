@@ -114,6 +114,9 @@ def get_overlapping_eventlist_subsets(event_lists):
     def intervals_overlap(I1, I2):
         return I1[0] <= I2[1] and I1[1] >= I2[0]
 
+    for e in event_lists:
+        e.read()
+
     disjoint_set = DisjointSet(event_lists)
     file_intervals = {e: [e.time_min, e.time_max] for e in event_lists}
 
@@ -165,16 +168,8 @@ def get_events_overlapping_subsets(observation):
     if len(observation.events_processed) == 0:
         raise KeyError(f'No eventlists found for {observation.obsid}')
 
-    # If there are just three eventlists and 1 of M1, M2 and PN then just combine them.
-    if (len(observation.events_processed_pn) == 1) & (len(observation.events_processed_mos1) == 1) & (
-            len(observation.events_processed_mos2) == 1):
-        subsets = [[e for e in observation.events_processed]]
-        return subsets
-    else:
-        for evt in observation.events_processed:
-            evt.read()  # Read all the eventlists to get the times.
-        subsets = get_overlapping_eventlist_subsets(observation.events_processed)
-        return subsets
+    subsets = get_overlapping_eventlist_subsets(observation.events_processed)
+    return subsets
 
 
 
