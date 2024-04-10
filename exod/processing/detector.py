@@ -308,7 +308,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create the Observation class
     observation = Observation(obsid)
-    observation.filter_events(min_energy=min_energy, max_energy=max_energy, clobber=clobber)
+    observation.filter_events(clobber=clobber)
     observation.create_images(clobber=clobber)
     observation.get_files()
 

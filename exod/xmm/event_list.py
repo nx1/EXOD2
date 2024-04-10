@@ -55,6 +55,8 @@ class EventList:
 
         # Remove unsupported EventLists
         event_lists = [e for e in event_lists if e.is_supported_submode()]
+        if not event_lists:
+            raise NotImplementedError(f'None of the supplied event lists are in a supported submode!')
 
         # Store the starts and ends of all event lists
         starts = [e.time_min for e in event_lists]

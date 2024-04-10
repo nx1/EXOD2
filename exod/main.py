@@ -5,6 +5,9 @@ import exod.processing.bayesian as bayesian
 import pandas as pd
 
 if __name__ == "__main__":
+    logger.warning('Before we start, have you run setsas? if not, Ctrl+C and go do it!')
+    # input()
+
     # Get Simulation time
     timestr = get_current_date_string()
 

@@ -244,7 +244,6 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
     cbar.set_label('Total Counts')
     ax.scatter(df_regions['weighted_centroid-0'], df_regions['weighted_centroid-1'], marker='+', s=10, color='white')
     for i, row in df_regions.iterrows():
-        ind   = row['label']
         x_cen = row['centroid-0']
         y_cen = row['centroid-1']
 
@@ -261,7 +260,7 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
                                  edgecolor='white',
                                  facecolor='none')
 
-        plt.text(x_pos + width, y_pos + height, str(ind), c='white')
+        plt.text(x_pos + width, y_pos + height, str(i), c='white')
         ax.add_patch(rect)
     lab_kwargs = {'markeredgecolor': None, 'marker': 's', 'markersize': 10, 'ls': 'none'}
     legend_labels = [
@@ -350,14 +349,14 @@ def run_pipeline(obsid,
                  threshold_sigma=3,
                  clobber=False):
     observation = Observation(obsid)
-    observation.filter_events(min_energy=min_energy, max_energy=max_energy, clobber=clobber)
+    observation.filter_events(clobber=clobber)
     observation.create_images(clobber=clobber)
     observation.get_files()
     observation.get_events_overlapping_subsets()
+
     for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
         savedir = observation.path_results / f'subset_{i_subset}'
         savedir.mkdir(exist_ok=True)
-        
         
         event_list = EventList.from_event_lists(subset_overlapping_exposures)
         dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
@@ -369,6 +368,7 @@ def run_pipeline(obsid,
         img.read(wcs_only=True)
 
         cube_n = dl.data_cube
+        # cube_n.video()
         cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
         cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
 
@@ -406,7 +406,7 @@ def run_pipeline(obsid,
         save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
         save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        # plt.show()
+        plt.show()
         plt.close('all')
 
 def main():
