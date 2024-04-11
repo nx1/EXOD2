@@ -1,3 +1,4 @@
+from exod.utils.logger import logger
 import numpy as np
 
 
@@ -25,8 +26,8 @@ def create_fake_burst(data_cube, x_pos, y_pos, time_peak_fraction, width_time, a
 
     # Pixels to iterate over
     r = 10 # Size of box to calculate values
-    x_lo, x_hi = max(0,int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d),peak_data.shape[0]-1)
-    y_lo, y_hi = max(0,int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d),peak_data.shape[1]-1)
+    x_lo, x_hi = max(0,int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d), peak_data.shape[0]-1)
+    y_lo, y_hi = max(0,int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d), peak_data.shape[1]-1)
 
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
@@ -62,8 +63,8 @@ def create_fake_onebin_burst(data_cube, x_pos, y_pos, time_peak_fraction, amplit
 
     # Pixels to iterate over
     r = 10 # Size of box to calculate values
-    x_lo, x_hi = max(0,int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d),peak_data.shape[0]-1)
-    y_lo, y_hi = max(0,int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d),peak_data.shape[1]-1)
+    x_lo, x_hi = max(0, int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d),peak_data.shape[0]-1)
+    y_lo, y_hi = max(0, int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d),peak_data.shape[1]-1)
 
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
@@ -77,11 +78,13 @@ def create_fake_onebin_burst(data_cube, x_pos, y_pos, time_peak_fraction, amplit
     #peak_data = convolve(peak_data, np.ones((3,3,1), dtype=np.int64),mode='constant', cval=0.0)
     return peak_data
 
+
 def create_fake_Nbins_burst(data_cube, x_pos, y_pos, time_peak_fractions, amplitude):
-    peaks_data  = np.zeros(data_cube.shape, dtype=int)
+    peaks_data = np.zeros(data_cube.shape, dtype=int)
     for time_fraction in time_peak_fractions:
         peaks_data += create_fake_onebin_burst(data_cube, x_pos, y_pos, time_fraction, amplitude)
     return peaks_data
+
 
 def create_fake_eclipse(data_cube, x_pos, y_pos, time_peak_fraction, width_time, amplitude, constant_level):
     """
@@ -97,19 +100,19 @@ def create_fake_eclipse(data_cube, x_pos, y_pos, time_peak_fraction, width_time,
     peak_data : same size as data_cube with eclipse data.
     """
 
-    time       = np.arange(0, data_cube.shape[2])
-    eclipse_data  = np.zeros(data_cube.shape, dtype=int)
-    time_peak  = time_peak_fraction * len(time)
-    width_bins = width_time / data_cube.time_interval
+    time         = np.arange(0, data_cube.shape[2])
+    eclipse_data = np.zeros(data_cube.shape, dtype=int)
+    time_peak    = time_peak_fraction * len(time)
+    width_bins   = width_time / data_cube.time_interval
 
     #Poissonian PSF
     # 6.6" FWHM, 4.1" per pixel, so (6.6/4.1) pixel FWHM, 2.355 to convert FWHM in sigma but seems too much
-    sigma_2d = (6.6 / data_cube.size_arcsec)  * 2.355
+    sigma_2d = (6.6 / data_cube.size_arcsec) * 2.355
 
     # Pixels to iterate over
     r = 10 # Size of box to calculate values
-    x_lo, x_hi = max(0,int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d),eclipse_data.shape[0]-1)
-    y_lo, y_hi = max(0,int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d),eclipse_data.shape[1]-1)
+    x_lo, x_hi = max(0, int(x_pos-r*sigma_2d)), min(int(x_pos+r*sigma_2d), eclipse_data.shape[0]-1)
+    y_lo, y_hi = max(0, int(y_pos-r*sigma_2d)), min(int(y_pos+r*sigma_2d), eclipse_data.shape[1]-1)
 
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
@@ -123,7 +126,7 @@ def create_fake_eclipse(data_cube, x_pos, y_pos, time_peak_fraction, width_time,
     #peak_data = convolve(peak_data, np.ones((3,3,1), dtype=np.int64),mode='constant', cval=0.0)
     return eclipse_data
 
-def create_multipe_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, tab_width_time, tab_amplitude, tab_constant_level):
+def create_multiple_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, tab_width_time, tab_amplitude, tab_constant_level):
     """
     data_cube    : DataCube() Object
     x_pos, y_pos : position of the burst
@@ -137,7 +140,7 @@ def create_multipe_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak_
     peak_data : same size as data_cube with eclipse data.
     """
 
-    time       = np.arange(0, data_cube.shape[2])
+    time          = np.arange(0, data_cube.shape[2])
     eclipse_data  = np.zeros(data_cube.shape, dtype=int)
 
     for time_peak_fraction, width_time, x_pos, y_pos, constant_level, amplitude in\
@@ -153,7 +156,7 @@ def create_multipe_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak_
         r = 10 # Size of box to calculate values
         x_lo, x_hi = max(0, int(x_pos - r * sigma_2d)), min(int(x_pos + r * sigma_2d), eclipse_data.shape[0] - 1)
         y_lo, y_hi = max(0, int(y_pos - r * sigma_2d)), min(int(y_pos + r * sigma_2d), eclipse_data.shape[1] - 1)
-        if np.nansum(data_cube.data[x_pos,y_pos])>0:
+        if np.nansum(data_cube.data[x_pos,y_pos]) > 0:
             for x in range(x_lo, x_hi):
                 for y in range(y_lo, y_hi):
                     dist_sq    = (x - x_pos)**2 + (y - y_pos)**2 # Distance^2 from burst center

@@ -368,6 +368,10 @@ def run_pipeline(obsid,
         img.read(wcs_only=True)
 
         cube_n = dl.data_cube
+
+        from exod.processing.data_cube import DataCube
+        # DataCube(cube_n.data[:,:,0:60]).video()
+
         # cube_n.video()
         cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
         cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)

@@ -9,7 +9,7 @@ from exod.processing.template_based_background_inference import compute_expected
 from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, B_peak_log, \
     B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
-from exod.utils.synthetic_data import create_fake_burst, create_multipe_fake_eclipses
+from exod.utils.synthetic_data import create_fake_burst, create_multiple_fake_eclipses
 import cmasher as cmr
 
 
@@ -63,6 +63,7 @@ def check_estimate_success():
     plt.plot(tab_peak, tab_peak,c='k')
     plt.show()
 
+
 def check_eclipse_estimate_success():
     fig, axes = plt.subplots(2,1)
     colors=cmr.take_cmap_colors('cmr.ocean',N=4,cmap_range=(0,.7))
@@ -111,6 +112,7 @@ def check_eclipse_estimate_success():
     plt.plot(tab_eclipse, tab_eclipse,c='k')
     plt.show()
 
+
 def plot_some_n_bayes():
     range_n = np.arange(10)
     range_mu = np.geomspace(1e-3, 1e3, 500)
@@ -128,7 +130,6 @@ def plot_some_n_bayes():
     plt.loglog()
 
 
-
 def test_bayes_on_false_cube(size):
     # minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(3)
     cube = np.random.poisson(1e-1, (size,size,size))
@@ -138,11 +139,13 @@ def test_bayes_on_false_cube(size):
     print(np.sum(peaks), np.sum(eclipse))
     return np.sum(peaks), np.sum(eclipse)
 
+
 def test_on_data(cube, expected, threshold):
     minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=threshold)
     peaks = cube>minimum_for_peak(np.where(expected>0, expected, np.nan))
     eclipse =  cube<maximum_for_eclipse(np.where(expected>0, expected, np.nan))
     return peaks, eclipse
+
 
 def accepted_n_values():
     """Testing function, showing the accepted counts for a range of mu. Similar to the pre-compute function"""
@@ -185,59 +188,67 @@ def bayes_rate_estimate(obsid='0886121001'):
     img = observation.images[0]
     img.read(wcs_only=True)
 
-    n_amplitude = 15
-    n_draws = 50
-    colors=cmr.take_cmap_colors('cmr.ocean',N=2,cmap_range=(0,0.7))
 
     range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
-
     dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
                     min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=False)
     dl.run()
-    img = observation.images[0]
-    img.read(wcs_only=True)
 
-    cube = dl.data_cube.data
-    rejected = dl.data_cube.bti_bin_idx
+
+    # We create two copies of DataCube()
+    # The first (dl.datacube) will be used to create the original + synthetic data
+    # we then set the data of the copied cube to this. This is extremely messy but it works for now.
+    data_cube = dl.data_cube
+    cube = data_cube.data
+    rejected = data_cube.bti_bin_idx
+    print('Creating copy of datacube (takes a second)...')
+    data_cube2 = data_cube.copy()
 
     tab_result_gti = []
-    tab_err_gti=[]
+    tab_err_gti = []
     tab_result_bti = []
-    tab_err_bti=[]
+    tab_err_bti = []
+
+    n_amplitude = 5
+    n_draws = 5
     tab_amplitude = np.geomspace(5 / timebin, 100 / timebin, n_amplitude)
+
     for amplitude in tab_amplitude:
         tab_current_gti = []
         tab_current_bti = []
-        for trial in tqdm(range(n_draws)):
+        for trial in range(n_draws):
             x_pos, y_pos = np.random.randint(10, cube.shape[0] - 10), np.random.randint(10, cube.shape[1] - 10)
             while np.sum(cube[x_pos, y_pos]) < 1:
                 x_pos, y_pos = np.random.randint(10, cube.shape[0] - 10), np.random.randint(10, cube.shape[1] - 10)
+
             time_fraction = np.random.random()
-            cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction,
-                                                      width_time=timebin / 2, amplitude=amplitude)
-            estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
+            data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
+            estimated_cube  = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+            cube_with_peak  = data_cube2.data
+
             peaks = cube_with_peak > minimum_for_peak(np.where(estimated_cube > 0, estimated_cube, np.nan))
             if int(time_fraction * cube.shape[2]) in rejected:
                 if np.max(peaks[x_pos, y_pos]) > 0:
-                    tab_current_bti.append(
-                        peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
+                    tab_current_bti.append(peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
             else:
                 if np.max(peaks[x_pos, y_pos]) > 0:
-                    tab_current_gti.append(
-                        peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
+                    tab_current_gti.append(peak_count_estimate(0.5, cube_with_peak[x_pos, y_pos], estimated_cube[x_pos, y_pos]))
+
+            print(f'amplitude={amplitude} trial={trial}/{n_draws}')
         tab_result_gti.append(np.mean(tab_current_gti))
         tab_err_gti.append(np.std(tab_current_gti))
         tab_result_bti.append(np.mean(tab_current_bti))
         tab_err_bti.append(np.std(tab_current_bti))
 
     plt.figure()
+    colors = cmr.take_cmap_colors('cmr.ocean', N=2, cmap_range=(0,0.7))
     plt.errorbar(tab_amplitude, tab_result_gti, yerr=tab_err_gti, color=colors[0], label='GTI',fmt='o')
     plt.errorbar(tab_amplitude, tab_result_bti, yerr=tab_err_bti, color=colors[1], label='BTI',fmt='o')
     plt.legend()
     plt.xlabel('True peak amplitude')
     plt.ylabel('Estimated amplitude')
-    plt.xscale('log')
-    plt.yscale("log")
+    # plt.xscale('log')
+    # plt.yscale("log")
     plt.show()
 
 def bayes_successrate_spacebinning(obsid='0886121001'):
@@ -254,26 +265,31 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     img = observation.images[0]
     img.read(wcs_only=True)
 
-    n_spacebins=4
+    n_spacebins = 4
     n_amplitude = 15
     n_draws = 50
-    colors=cmr.take_cmap_colors('cmr.ocean',N=n_spacebins,cmap_range=(0,0.7))
-    spacebins = np.geomspace(5,30,n_spacebins)
+    spacebins = np.geomspace(5,30, n_spacebins)
     all_spacebin_results=[]
 
-    minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold=3)
+    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
 
     tab_all_amplitudes=[]
-    timebin=100
+    timebin = 100
     for size_arcsec in spacebins:
         dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold)
+                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold,
+                        remove_partial_ccd_frames=False)
         dl.run()
-        cube = dl.data_cube.data
-        rejected = dl.data_cube.bti_bin_idx
 
-        tab_result_gti=[]
-        tab_result_bti=[]
+
+        data_cube = dl.data_cube
+        cube = data_cube.data
+        rejected = data_cube.bti_bin_idx
+        print('Creating copy of datacube (takes a second)...')
+        data_cube2 = data_cube.copy()
+
+        tab_result_gti = []
+        tab_result_bti = []
         tab_amplitude = np.geomspace(1/timebin, 100/timebin, n_amplitude)
         tab_all_amplitudes.append(tab_amplitude)
         for amplitude in tab_amplitude:
@@ -286,9 +302,11 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
                 while np.sum(cube[x_pos,y_pos])<1:
                     x_pos, y_pos = np.random.randint(10, cube.shape[0] - 10), np.random.randint(10, cube.shape[1] - 10)
                 time_fraction = np.random.random()
-                cube_with_peak = cube+create_fake_burst(dl.data_cube,x_pos, y_pos, time_peak_fraction=time_fraction,
-                                                   width_time=timebin/2, amplitude=amplitude)
-                estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
+
+                data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
+                estimated_cube = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+                cube_with_peak = data_cube2.data
+
                 peaks = cube_with_peak>minimum_for_peak(np.where(estimated_cube>0, estimated_cube, np.nan))
                 if int(time_fraction*cube.shape[2]) in rejected:
                     n_draws_bti+=1
@@ -306,6 +324,7 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
         all_spacebin_results.append([tab_result_gti,tab_result_bti])
 
     plt.figure()
+    colors=cmr.take_cmap_colors('cmr.ocean',N=n_spacebins,cmap_range=(0,0.7))
     for (tab_result_gti,tab_result_bti), spacebin, tab_amplitude, color in zip(all_spacebin_results, spacebins, tab_all_amplitudes,colors):
         plt.plot(tab_amplitude, tab_result_gti, color=color, label=f'{int(spacebin)}"')
         plt.plot(tab_amplitude, tab_result_bti, color=color, ls="--")
@@ -376,8 +395,7 @@ def bayes_successrate_timebinning(obsid='0886121001'):
             for trial in tqdm(range(n_draws)):
                 x_pos, y_pos = np.random.randint(5,cube.shape[0]-5),np.random.randint(5,cube.shape[1]-5)
                 time_fraction = np.random.random()
-                cube_with_peak = cube+create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction,
-                                                   width_time=timebin/2, amplitude=amplitude)
+                cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
                 estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_peak, wcs=img.wcs)
                 peaks = cube_with_peak>minimum_for_peak(np.where(estimated_cube>0, estimated_cube, np.nan))
                 if int(time_fraction*cube.shape[2]) in rejected:
@@ -454,7 +472,7 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
                 caught_at_amplitude_5sig = 0
                 tab_time_peak_fraction=np.random.random(nbr_draws)
                 tab_x_pos, tab_y_pos = np.random.randint(5, cube.shape[0] - 5, nbr_draws), np.random.randint(5, cube.shape[1] - 5,nbr_draws)
-                cube_with_eclipse = cube + create_multipe_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, [10]*nbr_draws,[amplitude*base_rate]*nbr_draws, [base_rate]*nbr_draws)
+                cube_with_eclipse = cube + create_multiple_fake_eclipses(dl.data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, [10] * nbr_draws, [amplitude * base_rate] * nbr_draws, [base_rate] * nbr_draws)
                 estimated_cube = compute_expected_cube_using_templates(data_cube=cube_with_eclipse, wcs=img.wcs)
                 peaks_3, eclipses_3 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=3)
                 peaks_5, eclipses_5 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, estimated_cube, threshold_sigma=5)
@@ -547,6 +565,6 @@ if __name__ == "__main__":
     test_bayes_on_false_cube(size=100)
     accepted_n_values()
     bayes_rate_estimate()
-    bayes_successrate_spacebinning()
-    bayes_successrate_timebinning()
+    # bayes_successrate_spacebinning()
+    # bayes_successrate_timebinning()
     # bayes_eclipse_successrate_depth()

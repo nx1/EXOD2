@@ -13,6 +13,8 @@ if __name__ == "__main__":
 
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
+    # import random
+    # random.shuffle(obsids)
 
     all_res = []
     for obsid in obsids:
@@ -29,7 +31,7 @@ if __name__ == "__main__":
 
         res = args.copy()
 
-        # bayesian.run_pipeline(**args)
+        bayesian.run_pipeline(**args)
         try:
             bayesian.run_pipeline(**args)
             res['status'] = 'Run'

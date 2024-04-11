@@ -1,7 +1,9 @@
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image, plot_frame_masks
 from exod.pre_processing.bti import get_bti_bin_idx, get_bti_bin_idx_bool
+import exod.utils.synthetic_data as synthetic_data
 
+import copy
 import numpy as np
 from scipy.stats import binned_statistic_dd
 import matplotlib.pyplot as plt
@@ -20,6 +22,10 @@ class DataCube:
                 f"total_values={np.prod(self.shape)}, "
                 f"memory={self.memory_mb:.2f} MB)")
 
+    def copy(self):
+        """Return a copy of the datacube."""
+        return copy.deepcopy(self)
+
     def video(self, savepath=None):
         if np.isnan(self.data[:, :, 0]).all():
             logger.info('first frame all nan =no plot')
@@ -36,7 +42,7 @@ class DataCube:
             return img,
 
         num_frames = self.shape[2]
-        ani = FuncAnimation(fig, update, frames=num_frames, interval=10)
+        ani = FuncAnimation(fig, update, frames=num_frames, interval=200)
         if savepath:
             logger.info(f'Saving {self} to {savepath}')
             ani.save(savepath)
@@ -284,8 +290,6 @@ class DataCubeXMM(DataCube):
         self.relative_frame_exposures = np.array([np.sum(exp_frame_grp) for exp_frame_grp in frame_exposures_twoframegroups])
 
         self.shape = self.data.shape
-
-
 
 
     @property
