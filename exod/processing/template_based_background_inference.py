@@ -143,6 +143,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
         cube_mu[:,:,bti_indices] = image_BTI_no_source_template_blur[:,:,np.newaxis] * lc_outside_sources[bti_indices]
     cube_mu += image_source_only_mean[:,:,np.newaxis] * data_cube.relative_frame_exposures
     cube_mu = np.where(np.nansum(cube_n, axis=(0,1)) > 0, cube_mu, np.nan)
+    logger.info('Expected cube created!')
     return cube_mu
 
 

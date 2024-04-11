@@ -109,7 +109,7 @@ class DataCubeXMM(DataCube):
         self.gti_bin_idx_bool = []
         self.n_gti_bin = None
 
-        # Used for keeping track of frames (time bins) with unevent ccd exposures.
+        # Used for keeping track of frames (time bins) with uneven ccd exposures.
         self.bccd_bin_idx = []
         self.bccd_bin_idx_bool = []
 

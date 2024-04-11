@@ -1,3 +1,5 @@
+from scipy.optimize import root_scalar
+
 import exod.utils.path as path
 from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
 from exod.utils.plotting import cmap_image
@@ -41,12 +43,12 @@ def B_eclipse_log(n, mu):
 
 
 def n_peak_large_mu(mu, sigma):
-    """Calculate the observed (n) value required for a peak at a specific expectation (mu) and significance (sigma) in the guassian regime."""
+    """Calculate the observed (n) value required for a peak at a specific expectation (mu) and significance (sigma) in the Gaussian regime."""
     return np.ceil((2*mu+sigma**2+np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
 
 
 def n_eclipse_large_mu(mu, sigma):
-    """Calculate the observed (n) value required for an eclipse at a specific expecation (mu) and significance (sigma) in the guassian regime."""
+    """Calculate the observed (n) value required for an eclipse at a specific expecation (mu) and significance (sigma) in the Gaussian regime."""
     return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
 
 
@@ -71,6 +73,46 @@ def get_bayes_thresholds(threshold_sigma):
     B_peak_threshold    = B_peak_log(n=n_peak_large_mu(mu=1000, sigma=threshold_sigma), mu=1000)
     B_eclipse_threshold = B_eclipse_log(n=n_eclipse_large_mu(mu=1000, sigma=threshold_sigma), mu=1000)
     return B_peak_threshold, B_eclipse_threshold
+
+
+def sigma_equivalent(n, mu):
+    """
+    Find the equivalent sigma for a given observed (n) and expectation (mu).
+
+    For large counts (mu=1000), the required n to obtain a given sigma can be calculated assuming Gaussian statistics.
+    This can be done using the functions: n_peak_large_mu(mu, sigma) and n_eclipse_large_mu(mu, sigma)
+
+    For small counts, we cannot use these functions, as we are in the Poisson regime, but we can calculate the
+    Bayes factors for peaks and eclipses, using B_peak_log(n, mu) and B_eclipse_log(n, mu).
+
+    We can however for a given value of B, find out what the equivalent value of sigma would be.
+    To do this we need to find the sigma that gives:
+        B_peak(n, mu=1000) = B_peak(n=n_peak_large_mu(mu=1000, sigma), mu=1000)
+
+    This is done by finding the root of the function:
+        B_peak(n, mu=1000) - B_peak(n=n_peak_large_mu(mu=1000, sigma), mu=1000) = 0
+    """
+    if n > mu:  # Means it's a peak
+        b = B_peak_log(n, mu)
+        function_to_invert = lambda sigma: b - B_peak_log(n_peak_large_mu(mu=1000, sigma=sigma), mu=1000)
+        # We need to provide a range for the inversion method. To exclude edge cases, we check if it's above 10 sigma
+        # or below 1 sigma, which we both exclude. We can then look in the region in between
+        if function_to_invert(10) > 0:
+            return 10
+        elif function_to_invert(1) < 0:
+            return 0
+        else:
+            return root_scalar(function_to_invert, bracket=(1, 10)).root
+
+    else:  # Means it's an eclipse
+        b = B_eclipse_log(n, mu)
+        function_to_invert = lambda sigma: b - B_eclipse_log(n_eclipse_large_mu(mu=1000, sigma=sigma), mu=1000)
+        if function_to_invert(10) > 0:
+            return 10
+        elif function_to_invert(1) < 0:
+            return 0
+        else:
+            return root_scalar(function_to_invert, bracket=(1, 10)).root
 
 
 def precompute_bayes_limits(threshold_sigma):
@@ -436,4 +478,3 @@ def main():
 if __name__=="__main__":
     main()
 
-    
