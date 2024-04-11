@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
@@ -14,31 +15,57 @@ import cmasher as cmr
 
 
 def check_estimate_success():
-    fig, axes = plt.subplots(2,1)
-    colors=cmr.take_cmap_colors('cmr.ocean',N=3,cmap_range=(0,.7))
-    for peak, color in zip((0.5,2.5,10),colors):
-        tab_up,tab_mid,tab_low=[],[],[]
-        tab_N=[]
-        tab_mu = np.geomspace(1e-3,1e2,100)
+    fig, ax = plt.subplots(2,1, sharex=True, gridspec_kw={'height_ratios' : [3, 1]})
+    colors = cmr.take_cmap_colors(cmap='cmr.ocean', N=3, cmap_range=(0, 0.7))
+    all_res = []
+    for peak, color in zip((0.5, 2.5, 10), colors):
+        tab_up, tab_mid, tab_low = [], [], []
+        tab_N = []
+
+        tab_mu = np.geomspace(start=1e-3, stop=1e2, num=100)
         for mu in tab_mu:
             N = np.random.poisson(mu+peak)
             tab_N.append(N)
-            for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_count_estimate(fraction, N, mu))
-        axes[0].scatter(tab_mu,tab_N, color=color, label=f'Peak amplitude {peak}')
-        axes[0].plot(tab_mu,tab_mid, color=color)
-        axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
-        axes[0].set_xscale("log")
-        axes[0].axhline(y=peak, color=color,ls='--')
+            for fraction, tab in zip((0.01, 0.5, 0.99), (tab_low, tab_mid, tab_up)):
+                peak_est = peak_count_estimate(fraction, N, mu)
+                tab.append(peak_est)
+
+                res = {}
+                res['peak'] = peak
+                res['mu'] = mu
+                res['N'] = N
+                res['fraction'] = fraction
+                res['peak_count_estimate'] = peak_est
+                all_res.append(res)
+
         tab_mid = np.array(tab_mid)
         tab_low = np.array(tab_low)
-        tab_up = np.array(tab_up)
-        axes[1].errorbar(tab_mu,np.where(tab_mid>peak,
-                                         (tab_mid-peak)/(tab_mid-tab_low),
-                                         (peak - tab_mid) / (tab_up - tab_mid)
-                                         ), yerr=1, fmt='o', color=color)
-        axes[1].set_xscale("log")
+        tab_up  = np.array(tab_up)
+        residual = np.where(tab_mid > peak,
+                            (tab_mid - peak) / (tab_mid - tab_low),
+                            (peak - tab_mid) / (tab_up - tab_mid))
+
+        print(tab_up)
+
+
+        ax[0].scatter(tab_mu, tab_N, color=color, label=f'Peak amplitude={peak}', s=10, marker='x')
+        ax[0].plot(tab_mu, tab_mid, color=color)
+        ax[0].fill_between(tab_mu, tab_low, tab_up, alpha=0.4, facecolor=color)
+        ax[0].set_xscale('log')
+        ax[0].set_ylabel('Observed (n)')
+        ax[0].axhline(y=peak, color=color, ls='--')
+        ax[1].errorbar(tab_mu, residual, yerr=1, fmt='.', color=color, capsize=1.0, lw=1.0)
+        ax[1].set_xscale("log")
+        ax[1].set_xlabel(r'Expectation ($\mu$)')
+        ax[1].axhline(0, ls='--', color='black', lw=1.0)
+        ax[1].set_ylabel('Residual')
+    plt.subplots_adjust(hspace=0)
+    ax[0].legend(loc='upper left')
     plt.show()
+    df_res = pd.DataFrame(all_res)
+    print(df_res)
+
+
 
     plt.figure()
     for mu, color in zip((0.01,1,10),colors):
@@ -148,18 +175,21 @@ def test_on_data(cube, expected, threshold):
 
 
 def accepted_n_values():
-    """Testing function, showing the accepted counts for a range of mu. Similar to the pre-compute function"""
+    """
+    Testing function, showing the accepted counts for a range of mu.
+    Similar to the pre-compute function
+    """
     range_n = np.arange(10)
     range_mu = np.geomspace(1e-3, 1e3, 5000)
     tab_npeak, tab_neclipse = [],[]
     for mu in tqdm(range_mu):
-        range_n_peak =  np.arange(max(10*mu, 100))
-        result=B_peak_log(n=range_n_peak, mu=mu)
-        tab_npeak.append(range_n_peak[result>5.94][0])
+        range_n_peak = np.arange(max(10*mu, 100))
+        B_peak = B_peak_log(n=range_n_peak, mu=mu)
+        tab_npeak.append(range_n_peak[B_peak>5.94][0])
 
         range_n_eclipse = np.arange(2*int(mu)+1)
-        result=B_eclipse_log(n=range_n_eclipse, mu=mu)
-        tab_neclipse.append(range_n_eclipse[result<5.70][0])
+        B_eclipse = B_eclipse_log(n=range_n_eclipse, mu=mu)
+        tab_neclipse.append(range_n_eclipse[B_eclipse<5.70][0])
     plt.figure()
     plt.plot(range_mu, range_mu)
     plt.plot(range_mu, range_mu-6*np.sqrt(range_mu), ls='--',c='k')
