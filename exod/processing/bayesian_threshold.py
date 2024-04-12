@@ -601,8 +601,8 @@ def plot_B_peak():
     Plot the peak Bayes factor for different observed (n) counts as a function of expectation (mu).
     Also plot the 3 and 5 sigma threshold values.
     """
-    n_lines_to_plot = 20 # 1 line is drawn for each value of n from 0 to n-1
-    colors = plt.cm.winter(np.linspace(0, 1, n_lines_to_plot))
+    n_lines_to_plot = 20  # 1 line is drawn for each value of n from 0 to n-1
+    colors = plt.cm.winter(np.linspace(start=0, stop=1, num=n_lines_to_plot))
 
     B_peak_3sig, B_eclipse_3sig = get_bayes_thresholds(3)
     B_peak_5sig, B_eclipse_5sig = get_bayes_thresholds(5)
@@ -610,10 +610,10 @@ def plot_B_peak():
     mu_lo, mu_hi = 1e-3, 50
     mus = np.geomspace(mu_lo, mu_hi, 1000)
 
-    plt.figure(figsize=(5,5))
+    plt.figure(figsize=(5, 5))
     for n in range(n_lines_to_plot):
-        label=None
-        if (n == 0) or (n==n_lines_to_plot-1): # Label first and last line
+        label = None
+        if (n == 0) or (n == n_lines_to_plot-1):  # Label first and last line
             label = f'n={n}'
         plt.plot(mus, B_peak_log(n=n, mu=mus), color=colors[n], label=label)
 
@@ -644,10 +644,10 @@ def plot_B_eclipse():
     mu_lo, mu_hi = 1e-3, 50
     mus = np.geomspace(mu_lo, mu_hi, 1000)
 
-    plt.figure(figsize=(5,5))
+    plt.figure(figsize=(5, 5))
     for n in range(n_lines_to_plot):
-        label=None
-        if (n == 0) or (n==n_lines_to_plot-1): # Label first and last line
+        label = None
+        if (n == 0) or (n == n_lines_to_plot-1):  # Label first and last line
             label = f'n={n}'
         plt.plot(mus, B_eclipse_log(n=n, mu=mus), color=colors[n], label=label)
 
@@ -662,9 +662,37 @@ def plot_B_eclipse():
     plt.legend()
     plt.show()
 
+
+def plot_B_values_3d():
+    n_ = np.arange(10)
+    mu_ = np.geomspace(1e-3, 5, 1000)
+    N, MU = np.meshgrid(n_, mu_)
+    B = B_peak_log(n=N, mu=MU)
+    B2 = B_eclipse_log(n=N, mu=MU)
+
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(10,7))
+
+    surf1 = ax.plot_surface(N, MU, B, cmap='hot', linewidth=0, antialiased=False)
+    cbar1 = fig.colorbar(surf1, aspect=3, shrink=0.5)
+    cbar1.set_label(r'$\mathrm{log}(B_{peak})$')
+
+    surf2 = ax.plot_surface(N, MU, B2, cmap='cool', linewidth=0, antialiased=False)
+    cbar2 = fig.colorbar(surf2, aspect=3, shrink=0.5)
+    cbar2.set_label(r'$\mathrm{log}(B_{eclipse})$')
+
+    ax.axhline(20, color='red')
+
+    ax.set_xlabel('Observed (n)')
+    ax.set_ylabel(r'Expected ($\mu$)')
+    ax.set_zlabel('Bayes Factor (B)')
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == "__main__":
     plot_B_peak()
     plot_B_eclipse()
+    plot_B_values_3d()
     check_estimate_success()
     check_eclipse_estimate_success()
     plot_some_n_bayes()
