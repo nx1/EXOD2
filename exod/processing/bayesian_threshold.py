@@ -15,6 +15,13 @@ import cmasher as cmr
 
 
 def check_estimate_success():
+    """
+    If I remember correctly, it is to assess if the count-rate estimation worked,
+    independently of the value of the quiescent state mu. So, for a range of mu,
+    I add a peak of three different amplitudes, I generate poisson realisations of mu+peak (the crosses),
+    and see the value we can estimate for the peak (the envelopes). You have the residuals at the bottom
+    It might be an earlier version, and not work anymore. It was just to check the success of the rate estimate function
+    """
     fig, ax = plt.subplots(2,1, sharex=True, gridspec_kw={'height_ratios' : [3, 1]})
     colors = cmr.take_cmap_colors(cmap='cmr.ocean', N=3, cmap_range=(0, 0.7))
     all_res = []
@@ -45,30 +52,31 @@ def check_estimate_success():
                             (tab_mid - peak) / (tab_mid - tab_low),
                             (peak - tab_mid) / (tab_up - tab_mid))
 
-        print(tab_up)
-
-
-        ax[0].scatter(tab_mu, tab_N, color=color, label=f'Peak amplitude={peak}', s=10, marker='x')
-        ax[0].plot(tab_mu, tab_mid, color=color)
         ax[0].fill_between(tab_mu, tab_low, tab_up, alpha=0.4, facecolor=color)
+        ax[0].scatter(tab_mu, tab_N, color=color, s=10, marker='x', label=f'Peak amplitude={peak}')
+        ax[0].plot(tab_mu, tab_mid, color=color)
+        ax[0].axhline(y=peak, color=color, ls='--')
+
+        ax[1].errorbar(tab_mu, residual, yerr=1, fmt='.', color=color, capsize=1.0, lw=1.0)
+        ax[1].axhline(0, ls='--', color='black', lw=1.0)
+
+        ax[0].set_xlim(0)
+        ax[0].set_ylim(0)
         ax[0].set_xscale('log')
         ax[0].set_ylabel('Observed (n)')
-        ax[0].axhline(y=peak, color=color, ls='--')
-        ax[1].errorbar(tab_mu, residual, yerr=1, fmt='.', color=color, capsize=1.0, lw=1.0)
         ax[1].set_xscale("log")
         ax[1].set_xlabel(r'Expectation ($\mu$)')
-        ax[1].axhline(0, ls='--', color='black', lw=1.0)
         ax[1].set_ylabel('Residual')
+
     plt.subplots_adjust(hspace=0)
     ax[0].legend(loc='upper left')
-    plt.show()
     df_res = pd.DataFrame(all_res)
     print(df_res)
 
 
 
-    plt.figure()
-    for mu, color in zip((0.01,1,10),colors):
+    plt.figure(figsize=(6,6))
+    for mu, color in zip((0.01, 1, 10), colors):
         tab_mid, tab_err, tab_errneg, tab_errpos=[],[],[],[]
         tab_peak = np.geomspace(1e-3,1e2,100)
         for peak in tab_peak:
@@ -82,61 +90,89 @@ def check_estimate_success():
             tab_mid.append(tab_rates[1])
             tab_errneg.append(tab_rates[1]-tab_rates[0])
             tab_errpos.append(tab_rates[2] - tab_rates[1])
-        plt.errorbar(tab_peak,tab_mid,yerr=[tab_errneg,tab_errpos], color=color, fmt='o', label=fr"$\mu={mu}$")
+        plt.errorbar(tab_peak, tab_mid, yerr=[tab_errneg,tab_errpos],
+                     color=color, label=fr"$\mu={mu}$", lw=1.0, capsize=1.0, fmt='.', markersize=10)
     plt.loglog()
+    plt.xlabel("Peak amplitude (n)")
+    plt.ylabel("Estimated peak amplitude (n)")
+    plt.plot(tab_peak, tab_peak, c='k')
+    plt.xlim(min(tab_peak), max(tab_peak))
+    plt.ylim(min(tab_peak), max(tab_peak))
     plt.legend()
-    plt.xlabel("Peak amplitude")
-    plt.ylabel("Estimated peak amplitude")
-    plt.plot(tab_peak, tab_peak,c='k')
     plt.show()
 
 
 def check_eclipse_estimate_success():
-    fig, axes = plt.subplots(2,1)
-    colors=cmr.take_cmap_colors('cmr.ocean',N=4,cmap_range=(0,.7))
+    fig, ax = plt.subplots(2,1, sharex=True)
+    colors = cmr.take_cmap_colors('cmr.ocean', N=4, cmap_range=(0,.7))
+    all_res = []
     for eclipse, color in zip((0.5,2.5,10),colors):
-        tab_up,tab_mid,tab_low=[],[],[]
-        tab_N=[]
+        tab_up, tab_mid, tab_low = [], [], []
+        tab_N = []
         tab_mu = np.geomspace(1e1,1e5,100)
         for mu in tab_mu:
-            N = np.random.poisson(max(mu-eclipse,0))
+            N = np.random.poisson(max(mu-eclipse, 0))
             tab_N.append(N)
-            for fraction, tab in zip((0.01,0.5,0.99),(tab_low,tab_mid,tab_up)):
-                tab.append(peak_count_estimate(fraction, N, mu))
-        axes[0].scatter(tab_mu,tab_N, color=color)
-        axes[0].plot(tab_mu,tab_mid, color=color)
-        axes[0].fill_between(tab_mu,tab_low,tab_up, alpha=0.4, facecolor=color)
-        axes[0].set_xscale("log")
-        axes[0].axhline(y=eclipse, color=color,ls='--')
+            for fraction, tab in zip((0.01,0.5,0.99), (tab_low,tab_mid,tab_up)):
+                peak_count_est = peak_count_estimate(fraction, N, mu)
+                tab.append(peak_count_est)
+                res = {}
+                res['eclipse'] = eclipse
+                res['mu'] = mu
+                res['N'] = N
+                res['fraction'] = fraction
+                res['peak_count_est'] = peak_count_est
+                print(res)
+                all_res.append(res)
+
+
         tab_mid = np.array(tab_mid)
         tab_low = np.array(tab_low)
         tab_up = np.array(tab_up)
-        axes[1].errorbar(tab_mu,np.where(tab_mid>eclipse,
-                                         (tab_mid-eclipse)/(tab_mid-tab_low),
-                                         (eclipse - tab_mid) / (tab_up - tab_mid)
-                                         ), yerr=1, fmt='o', color=color)
-        axes[1].set_xscale("log")
-    plt.show()
+        residual = np.where(tab_mid > eclipse,
+                            (tab_mid - eclipse) / (tab_mid - tab_low),
+                            (eclipse - tab_mid) / (tab_up - tab_mid))
 
-    plt.figure()
-    for mu, color in zip((100,200,500,1000),colors):
-        tab_mid, tab_err, tab_errneg, tab_errpos=[],[],[],[]
-        tab_eclipse = np.geomspace(1e0,2e2,100)
+        ax[0].fill_between(tab_mu, tab_low, tab_up, alpha=0.4, facecolor=color)
+        ax[0].scatter(tab_mu, tab_N, color=color, marker='x', s=10)
+        ax[0].plot(tab_mu, tab_mid, color=color, label=f'eclipse={eclipse}')
+        ax[0].axhline(y=eclipse, color=color, ls='--')
+        ax[1].errorbar(tab_mu, residual, yerr=1, fmt='.', color=color, markersize=5, lw=1.0)
+
+        ax[0].set_xscale("log")
+        ax[1].set_xscale("log")
+        ax[0].set_ylabel('Observed (N)')
+        ax[1].set_xlabel(r'Expected ($\mu$)')
+        ax[1].set_ylabel('Residual')
+    ax[0].legend(loc='upper left')
+    plt.subplots_adjust(hspace=0)
+    plt.show()
+    df = pd.DataFrame(all_res)
+    print(df)
+
+
+    plt.figure(figsize=(6,6))
+    for mu, color in zip((100,200,500,1000), colors):
+        tab_mid, tab_err, tab_errneg, tab_errpos=[], [], [], []
+        tab_eclipse = np.geomspace(start=1e0, stop=2e2, num=100)
         for eclipse in tab_eclipse:
             # tabN = np.random.poisson(max(mu-eclipse,0), 50)
             # tab_rates = [eclipse_rate_estimate(0.5,mu, N) for N in tabN]
             # tab_mid.append(np.median(tab_rates))
             # tab_err.append(np.std(tab_rates))
             N = np.random.poisson(max(mu - eclipse,0))
-            rates = eclipse_count_estimate(np.array((0.16,0.5,0.84)),mu, N)
+            rates = eclipse_count_estimate(np.array((0.16, 0.5, 0.84)), mu, N)
             tab_mid.append(rates[1])
             tab_errneg.append(rates[1]-rates[0])
             tab_errpos.append(rates[2]-rates[1])
-        plt.errorbar(tab_eclipse,tab_mid,yerr=[tab_errneg,tab_errpos], color=color, fmt='o', label=mu)
+        plt.errorbar(tab_eclipse, tab_mid, yerr=[tab_errneg, tab_errpos], color=color, fmt='.',
+                     markersize=5, lw=1.0, label=fr'$\mu$={mu}')
+
+    plt.plot(tab_eclipse, tab_eclipse, c='k')
     plt.loglog()
-    plt.xlabel("Eclipse amplitude")
+    plt.xlabel('Eclipse amplitude')
+    plt.ylabel('Eclipse Count Estimate')
     plt.legend()
-    plt.plot(tab_eclipse, tab_eclipse,c='k')
     plt.show()
 
 
@@ -588,6 +624,7 @@ def plot_B_peak():
     plt.ylabel(r'$log_{10}$($B_{peak}$)')
     plt.xscale('log')
     plt.tight_layout()
+    plt.ylim(0)
     plt.xlim(mu_lo, mu_hi)
     plt.legend()
     plt.show()
