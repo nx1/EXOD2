@@ -1,4 +1,4 @@
-![](/home/nkhan/EXOD2/data/EXOD_Logo.png)
+![](data/EXOD_Logo.png)
 
 EPIC XMM X-ray outburst detector (EXOD).
 # Installation
