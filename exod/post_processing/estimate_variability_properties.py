@@ -1,7 +1,7 @@
 from exod.pre_processing.data_loader import DataLoader
 from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
 from exod.utils.path import data_processed
-from exod.processing.bayesian import sigma_equivalent, B_peak_log
+from exod.processing.bayesian_computations import B_peak_log, sigma_equivalent
 
 import numpy as np
 import os

@@ -7,8 +7,8 @@ from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
-from exod.processing.bayesian import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, B_peak_log, \
-    B_eclipse_log, get_bayes_thresholds
+from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
+    B_peak_log, B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_multiple_fake_eclipses
 import cmasher as cmr
