@@ -1,3 +1,4 @@
+import random
 import multiprocessing
 
 from exod.processing.bayesian_computations import PrecomputeBayesLimits
@@ -11,15 +12,17 @@ import pandas as pd
 def process_obsid(obsid):
     args = {'obsid': obsid,
             'size_arcsec': 20.0,
-            'time_interval': 5,
+            'time_interval': 50,
             'gti_threshold': 1.5,
-            'min_energy': 0.2,
-            'max_energy': 2.0,
+            'min_energy': 2.0,
+            'max_energy': 12.0,
             'gti_only': False,
             'remove_partial_ccd_frames': False,
             'clobber': False,
             'precomputed_bayes_limit': pre}
     res = args.copy()
+
+    bayesian.run_pipeline(**args)
     try:
         bayesian.run_pipeline(**args)
         res['status'] = 'Run'
@@ -41,7 +44,7 @@ if __name__ == "__main__":
     # Load observation IDs
     obsids = read_observation_ids(data / 'observations.txt')
     # import random
-    # random.shuffle(obsids)
+    random.shuffle(obsids)
     threshold_sigma = 3
     pre = PrecomputeBayesLimits(threshold_sigma=threshold_sigma)
     pre.load()
@@ -53,6 +56,8 @@ if __name__ == "__main__":
     #     results = pool.map(process_obsid, obsids)
 
     for obsid in obsids:
+        # obsid = '0109130501'
+        obsid = '0112231801'
         res = process_obsid(obsid)
 
     for res in results:

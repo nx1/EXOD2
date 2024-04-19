@@ -23,7 +23,6 @@ def get_bti(time, data, threshold):
     if mask.all():
         logger.info('All values above threshold! Entire observation is bad :(')
         return [{'START': time[0], 'STOP': time[-1]}]
-        # raise ValueError(f'Entire Observation is a BTI')
     elif (~mask).all():
         logger.info('All values below Threshold! Entire observation is good :)')
         return []
@@ -104,7 +103,6 @@ def get_bti_bin_idx(bti, bin_t):
         idxs = np.arange(idx_starts[i], idx_stops[i], 1)
         bti_bin_idx = np.append(bti_bin_idx, idxs)
     bti_bin_idx = bti_bin_idx.astype(int)
-    logger.info(f'{len(bti_bin_idx)} bins in BTI out of {len(bin_t)}')
     return bti_bin_idx
 
 

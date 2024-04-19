@@ -7,7 +7,7 @@ from exod.pre_processing.data_loader import DataLoader
 from exod.utils.util import save_df, save_info, get_unique_xy
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 
 from random import shuffle
@@ -95,7 +95,9 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
     # plt.show()
 
 
-def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y):
+def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=False):
+    if not plot:
+        return None
     cube_mu_xy = cube_mu[x, y]
     cube_data_xy = cube_n.data[x, y]
     # Plot lightcurves
@@ -191,7 +193,7 @@ def run_pipeline(obsid,
         # DataCube(cube_n.data[:,:,0:60]).video()
 
         cube_n.video()
-        cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
+        cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
 
         # cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
         cube_mask_peaks, cube_mask_eclipses = precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)

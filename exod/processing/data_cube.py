@@ -96,22 +96,27 @@ class DataCubeXMM(DataCube):
         self.time_interval = time_interval
         self.extent = 51840  # Initial Cube Size
         self.pixel_size = size_arcsec / 0.05
-        self.n_bins = int(self.extent / self.pixel_size)
+        self.n_bins = int(self.extent / self.pixel_size) # Spatial Bins (x,y)
         self.bin_x = np.linspace(0, self.extent, self.n_bins + 1)
         self.bin_y = np.linspace(0, self.extent, self.n_bins + 1)
         self.bin_t = self.calc_time_bins()
+        self.n_t_bins = len(self.bin_t) - 1
 
         self.bti_bin_idx = []      # index of bad time interval bins e.g. [2,4,6]
         self.bti_bin_idx_bool = [] # Mask of the bad time interval bins e.g. [False, False, True, False, True, ...]
         self.n_bti_bin = None
+        self.bti_frac = None
 
         self.gti_bin_idx = []
         self.gti_bin_idx_bool = []
         self.n_gti_bin = None
+        self.gti_frac = None
 
         # Used for keeping track of frames (time bins) with uneven ccd exposures.
         self.bccd_bin_idx = []
         self.bccd_bin_idx_bool = []
+        self.n_bccd_bin = None
+        self.bccd_frac = None
 
         self.data = self.bin_event_list()
         self.bbox_img = self.get_cube_bbox()
@@ -167,6 +172,10 @@ class DataCubeXMM(DataCube):
         self.gti_bin_idx      = np.where(self.gti_bin_idx_bool)[0][:-1]
         self.n_gti_bin = len(self.gti_bin_idx)
         self.n_bti_bin = len(self.bti_bin_idx)
+        self.bti_frac = self.n_bti_bin / self.n_t_bins
+        self.gti_frac = self.n_gti_bin / self.n_t_bins
+        logger.info(f'n_gti = {self.n_gti_bin:<4} / {self.n_t_bins} ({self.gti_frac:.2f})')
+        logger.info(f'n_bti = {self.n_bti_bin:<4} / {self.n_t_bins} ({self.bti_frac:.2f})')
 
     def mask_bti(self):
         logger.info('Masking bad frames from Data Cube (setting to nan)')
@@ -201,7 +210,7 @@ class DataCubeXMM(DataCube):
             # Get the lightcurves for each CCD.
             sample = evt_list.data['CCDNR'], evt_list.data['TIME']
             lcs_ccd, bin_edges, bin_number = binned_statistic_dd(sample, values=None, statistic='count', bins=[ccd_bins, self.bin_t])
-            if evt_list.instrument == 'EPN': #We rebin pn into quadrant-wise lightcurve, and use the median CCD of each quadrant
+            if evt_list.instrument == 'EPN':  # We rebin pn into quadrant-wise lightcurve, and use the median CCD of each quadrant
                 quadrant_split = np.split(lcs_ccd, (3,6,9))
                 lcs_ccd = np.sum(quadrant_split, axis=1)
                 lc_median_quadrant = np.median(quadrant_split, axis=1)
@@ -240,11 +249,11 @@ class DataCubeXMM(DataCube):
             if evt_list.instrument == 'EPN':
                 # We remove bright frames in EPICpn that have either one inactive CCD or a ratio between brightest and faintest over 3
                 # This corresponds to fully or partially inactive quadrants for pn
-                m1 = lcs_ccd_max > 10                       # Frame is more than 10 counts in the brightest CCD
-                m2 = self.bti_bin_idx_bool[:-1]           # Frame is a bad time index
+                m1 = lcs_ccd_max > 10  # Frame is more than 10 counts in the brightest CCD
+                m2 = self.bti_bin_idx_bool[:-1]  # Frame is a bad time index
                 # m2 = np.full(self.shape[-1:], True)
-                m3 = count_active_ccd < len(ccd_bins) - 1   # Frame is not running all CCDs
-                m4 = (lc_median_quadrant_max / lc_median_quadrant_min) > 3        # Frame is max/min > 3
+                m3 = count_active_ccd < len(ccd_bins) - 1  # Frame is not running all CCDs
+                m4 = (lc_median_quadrant_max / lc_median_quadrant_min) > 3  # Frame is max/min > 3
                 # We remove frames when one quadrant is off or (BTI & ratio of medians >3)
                 m5 =  m1 & (m3 | (m2 & m4)) # m1 & m2 & (m3 | m4)
                 frames_to_remove = m0 | m5
@@ -268,6 +277,7 @@ class DataCubeXMM(DataCube):
                 frames_to_remove = m0
             logger.info(f'Removing {np.sum(frames_to_remove)} / {len(frames_to_remove)} incomplete frames from {evt_list.instrument}')
 
+            # TODO THESE ATTRIBUTES ARE WRITTEN IN THE LOOP!!!!!
             self.bccd_bin_idx_bool = frames_to_remove
             self.bccd_bin_idx = np.where(self.bccd_bin_idx)[0]
             self.data = np.where(frames_to_remove, np.empty(self.data.shape) * np.nan, self.data)
@@ -302,6 +312,8 @@ class DataCubeXMM(DataCube):
                 'n_bins': self.n_bins,
                 'n_bti_bin' : self.n_bti_bin,
                 'n_gti_bin' : self.n_gti_bin,
+                'gti_frac' : self.gti_frac,
+                'bti_frac' : self.bti_frac,
                 'bbox_img': self.bbox_img,
                 'shape': self.shape,
                 'memory_mb': self.memory_mb}

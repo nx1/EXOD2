@@ -22,8 +22,7 @@ def get_regions_sky_position(data_cube, df_regions, wcs):
     values of X and Y on the final coordinates. We divide by 80 because the WCS from the image is binned by x80
     compared to X and Y values
     """
-    img_bin_size = 80
-    logger.warning(f'Interpolating assuming a binning of {img_bin_size} in the image file')
+    img_bin_size = 80  # This is the binning of the wcs image when it was created using evselect.
 
     interpX = interp1d(range(len(data_cube.bin_x)), data_cube.bin_x)
     interpY = interp1d(range(len(data_cube.bin_y)), data_cube.bin_y)
@@ -38,10 +37,10 @@ def get_regions_sky_position(data_cube, df_regions, wcs):
         skycoord = wcs.pixel_to_world(x_img, y_img)
         skycoord = correct_sky_position(skycoord, data_cube)
 
-        res = {'x_img'    : x_img, # x_position in the binned fits image
-               'y_img'    : y_img, # y_position in the binned fits image
-               'X'        : X,     # X in the event_list (sky coordinates)
-               'Y'        : Y,     # Y in the event-list (sky coordinates)
+        res = {'x_img'    : x_img,  # x_position in the binned fits image
+               'y_img'    : y_img,  # y_position in the binned fits image
+               'X'        : X,      # X in the event_list (sky coordinates)
+               'Y'        : Y,      # Y in the event-list (sky coordinates)
                'ra'       : skycoord.ra.to_string(unit=u.hourangle, precision=2),
                'dec'      : skycoord.dec.to_string(unit=u.deg, precision=2),
                'ra_deg'   : skycoord.ra.value,

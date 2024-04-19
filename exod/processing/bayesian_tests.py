@@ -6,7 +6,7 @@ from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
-from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import calc_cube_mu
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
     B_peak_log, B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
@@ -289,7 +289,7 @@ def bayes_rate_estimate(obsid='0886121001'):
 
             time_fraction = np.random.random()
             data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
-            estimated_cube  = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+            estimated_cube  = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
             cube_with_peak  = data_cube2.data
 
             peaks = cube_with_peak > minimum_for_peak(np.where(estimated_cube > 0, estimated_cube, np.nan))
@@ -378,7 +378,7 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
                 time_fraction = np.random.random()
 
                 data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
-                cube_mu = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+                cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
                 cube_mu = np.where(cube_mu > range_mu[0], cube_mu, np.nan)  # Remove small expectation values outside of interpolation range
                 cube_with_peak = data_cube2.data
 
@@ -484,7 +484,7 @@ def bayes_successrate_timebinning(obsid='0886121001'):
                 time_fraction = np.random.random()
                 cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
                 data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
-                cube_mu = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+                cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
                 cube_with_peak = data_cube2.data
                 cube_mu = np.where(cube_mu > 0, cube_mu, np.nan)
                 peaks = cube_with_peak > minimum_for_peak(cube_mu)
@@ -576,7 +576,7 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
                 tab_x_pos, tab_y_pos = np.random.randint(5, cube.shape[0] - 5, nbr_draws), np.random.randint(5, cube.shape[1] - 5, nbr_draws)
 
                 data_cube2.data = cube + create_multiple_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak_fraction, [10] * nbr_draws, [amplitude * base_rate] * nbr_draws, [base_rate] * nbr_draws)
-                cube_mu = compute_expected_cube_using_templates(data_cube=data_cube2, wcs=img.wcs)
+                cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
                 cube_with_eclipse = data_cube2.data
                 peaks_3, eclipses_3 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, cube_mu, threshold_sigma=3)
                 peaks_5, eclipses_5 = get_cube_masks_peak_and_eclipse(cube_with_eclipse, cube_mu, threshold_sigma=5)

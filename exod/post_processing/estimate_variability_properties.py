@@ -1,5 +1,5 @@
 from exod.pre_processing.data_loader import DataLoader
-from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
+from exod.processing.template_based_background_inference import calc_cube_mu
 from exod.utils.path import data_processed
 from exod.processing.bayesian_computations import B_peak_log, sigma_equivalent
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         img.read(wcs_only=True)
         
         cube_n  = dl.data_cube
-        cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
+        cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
 
         cube_sigma = calc_sigma_cube(cube_n=cube_n.data, cube_mu=cube_mu)
         s_vec = np.vectorize(sigma_equivalent)
