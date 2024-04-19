@@ -22,7 +22,6 @@ def process_obsid(obsid):
             'precomputed_bayes_limit': pre}
     res = args.copy()
 
-    bayesian.run_pipeline(**args)
     try:
         bayesian.run_pipeline(**args)
         res['status'] = 'Run'
@@ -42,23 +41,24 @@ if __name__ == "__main__":
     timestr = get_current_date_string()
 
     # Load observation IDs
-    obsids = read_observation_ids(data / 'observations.txt')
+    obsids = read_observation_ids(data / '.txt')
+    obsids = obsids[:8]
     # import random
-    random.shuffle(obsids)
+    # random.shuffle(obsids)
     threshold_sigma = 3
     pre = PrecomputeBayesLimits(threshold_sigma=threshold_sigma)
     pre.load()
     
     all_res = []
 
-    # num_processes = 4
-    # with multiprocessing.Pool(processes=num_processes) as pool:
-    #     results = pool.map(process_obsid, obsids)
+    num_processes = 4
+    with multiprocessing.Pool(processes=num_processes) as pool:
+        results = pool.map(process_obsid, obsids)
 
-    for obsid in obsids:
-        # obsid = '0109130501'
-        obsid = '0112231801'
-        res = process_obsid(obsid)
+    # for obsid in obsids:
+    #     # obsid = '0109130501'
+    #     obsid = '0112231801'
+    #     res = process_obsid(obsid)
 
     for res in results:
         all_res.append(res)

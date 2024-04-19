@@ -7,7 +7,7 @@ from exod.pre_processing.data_loader import DataLoader
 from exod.utils.util import save_df, save_info, get_unique_xy
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
-from exod.processing.template_based_background_inference import calc_cube_mu
+from exod.processing.background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 
 from random import shuffle
@@ -19,8 +19,10 @@ import pandas as pd
 from astropy.visualization import ImageNormalize, SqrtStretch
 
 
-def plot_region_lightcurve(df_lcs, i, savepath=None):
+def plot_region_lightcurve(df_lcs, i, savepath=None, plot=False):
     """Plot the ith region lightcurve."""
+    if not plot:
+        return None
     fig, ax = plt.subplots(figsize=(10, 4))
     ax2 = ax.twiny()
     t0 = df_lcs['time'] - df_lcs['time'].min()
@@ -192,7 +194,7 @@ def run_pipeline(obsid,
 
         # DataCube(cube_n.data[:,:,0:60]).video()
 
-        cube_n.video()
+        # cube_n.video()
         cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
 
         # cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
@@ -232,9 +234,9 @@ def run_pipeline(obsid,
         save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
         save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        plt.show()
-        # plt.close('all')
-        # plt.clf()
+        # plt.show()
+        plt.close('all')
+        plt.clf()
 
 def main():
     from exod.utils.path import read_observation_ids

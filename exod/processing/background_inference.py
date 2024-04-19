@@ -120,13 +120,13 @@ def calc_background_template(image_sub, image_mask_source):
     count_sub_outside_sources                 = np.nansum(image_sub[~image_mask_source])
     image_sub_no_source_template              = image_sub_no_source / count_sub_outside_sources
     image_sub_no_source_template_blur         = convolve(image_sub_no_source_template, Gaussian2DKernel(sigma_blurring))
-    image_mask_missing_pixels                    = (image_sub > 0) & np.isnan(image_sub_no_source_template_blur)
+    image_mask_missing_pixels                 = (image_sub > 0) & np.isnan(image_sub_no_source_template_blur)
     image_sub_no_source_template_blur_inpaint = inpaint(image_sub_no_source_template_blur.astype(np.float32), image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=inpaint_method)
     image_sub_background_template             = np.where(image_sub > 0, image_sub_no_source_template_blur_inpaint, np.nan)
 
     compare_images(images=[image_sub, image_sub_no_source],
                    titles=['image_sub', 'image_sub_no_source'],
-                   log=True)
+                   log=False)
 
     compare_images(images=[image_sub_no_source_template,
                            image_sub_no_source_template_blur,
@@ -136,7 +136,7 @@ def calc_background_template(image_sub, image_mask_source):
                            'image_sub_no_source_template_blur',
                            'image_sub_no_source_template_blur_inpaint',
                            'image_sub_background_template'],
-                   log=True)
+                   log=False)
     return image_sub_background_template, count_sub_outside_sources
 
 
@@ -156,7 +156,7 @@ def calc_source_contribution(image_subset, image_sub_background_template, image_
 
     compare_images(images=[image_sub_source_only1, image_sub_source_only2, image_sub_source_only3, image_source_only_mean],
                    titles=['image_sub_source_only1', 'image_sub_source_only2', 'image_sub_source_only3', 'image_source_only_mean'],
-                   log=True)
+                   log=False)
     return image_source_only_mean
 
 def calc_cube_mu(data_cube, wcs=None):
@@ -245,6 +245,8 @@ def calc_cube_mu(data_cube, wcs=None):
 if __name__=="__main__":
     from exod.utils.path import data
     obsids = read_observation_ids(data / 'observations.txt')
+    import random
+    random.shuffle(obsids)
     for obsid in obsids:
         size_arcsec = 20
         time_interval = 10
@@ -253,10 +255,7 @@ if __name__=="__main__":
         min_energy = 0.2
         max_energy = 12.0
 
-        threshold_sigma = 3
-
         try:
-            # Load data
             observation = Observation(obsid)
             observation.get_files()
             observation.get_events_overlapping_subsets()
@@ -271,7 +270,7 @@ if __name__=="__main__":
                                 gti_threshold=gti_threshold)
                 dl.run()
                 data_cube = dl.data_cube
-                estimated_cube = calc_cube_mu(data_cube=data_cube, wcs=img.wcst)
+                estimated_cube = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)
         except Exception as e:
             logger.warning(e)
 

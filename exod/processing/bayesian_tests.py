@@ -6,7 +6,7 @@ from tqdm import tqdm
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
-from exod.processing.template_based_background_inference import calc_cube_mu
+from exod.processing.background_inference import calc_cube_mu
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
     B_peak_log, B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
