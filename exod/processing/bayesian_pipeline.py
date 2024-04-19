@@ -4,7 +4,7 @@ from exod.processing.bayesian_computations import precompute_bayes_1000, load_pr
 from exod.utils.plotting import cmap_image
 from exod.utils.logger import logger
 from exod.pre_processing.data_loader import DataLoader
-from exod.utils.util import save_df, save_info
+from exod.utils.util import save_df, save_info, get_unique_xy
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.processing.template_based_background_inference import compute_expected_cube_using_templates
@@ -190,7 +190,7 @@ def run_pipeline(obsid,
 
         # DataCube(cube_n.data[:,:,0:60]).video()
 
-        # cube_n.video()
+        cube_n.video()
         cube_mu = compute_expected_cube_using_templates(cube_n, wcs=img.wcs)
 
         # cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
@@ -207,15 +207,15 @@ def run_pipeline(obsid,
         df_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
 
         # Plot Lightcurves for each region
-        # for i in df_regions.index:
-        #     plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=savedir / f'lc_{i}.png')
+        for i in df_regions.index:
+            plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=savedir / f'lc_{i}.png')
 
         # Plot Lightcurves for each pixel.
-        # x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
-        # x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
-        # unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        # for x, y in unique_xy:
-        #     plot_lc_pixel(cube_mu, cube_n, time_interval, x, y)
+        x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
+        x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
+        unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
+        for x, y in unique_xy:
+            plot_lc_pixel(cube_mu, cube_n, time_interval, x, y)
 
         # Plot Image
         plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
@@ -230,8 +230,9 @@ def run_pipeline(obsid,
         save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
         save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        # plt.show()
-        plt.close('all')
+        plt.show()
+        # plt.close('all')
+        # plt.clf()
 
 def main():
     from exod.utils.path import read_observation_ids

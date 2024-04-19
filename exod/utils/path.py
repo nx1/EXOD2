@@ -9,6 +9,7 @@ data_raw        = data / 'raw'
 data_processed  = data / 'processed'
 data_results    = data / 'results'
 data_combined   = data / 'results_combined'
+data_util       = data / 'util'
 logs            = base / 'logs'
 
 all_paths = {
@@ -19,6 +20,7 @@ all_paths = {
     'data_processed': data_processed,
     'data_results': data_results,
     'data_combined': data_combined,
+    'data_util': data_util,
     'logs': logs
 }
 

@@ -11,12 +11,12 @@ import pandas as pd
 def process_obsid(obsid):
     args = {'obsid': obsid,
             'size_arcsec': 20.0,
-            'time_interval': 50,
+            'time_interval': 5,
             'gti_threshold': 1.5,
             'min_energy': 0.2,
             'max_energy': 2.0,
             'gti_only': False,
-            'remove_partial_ccd_frames': True,
+            'remove_partial_ccd_frames': False,
             'clobber': False,
             'precomputed_bayes_limit': pre}
     res = args.copy()
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     timestr = get_current_date_string()
 
     # Load observation IDs
-    obsids = read_observation_ids(data / 'all_obsids.txt')
+    obsids = read_observation_ids(data / 'observations.txt')
     # import random
     # random.shuffle(obsids)
     threshold_sigma = 3
@@ -48,9 +48,12 @@ if __name__ == "__main__":
     
     all_res = []
 
-    num_processes = 4
-    with multiprocessing.Pool(processes=num_processes) as pool:
-        results = pool.map(process_obsid, obsids)
+    # num_processes = 4
+    # with multiprocessing.Pool(processes=num_processes) as pool:
+    #     results = pool.map(process_obsid, obsids)
+
+    for obsid in obsids:
+        res = process_obsid(obsid)
 
     for res in results:
         all_res.append(res)

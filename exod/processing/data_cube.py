@@ -42,7 +42,7 @@ class DataCube:
             return img,
 
         num_frames = self.shape[2]
-        ani = FuncAnimation(fig, update, frames=num_frames, interval=200)
+        ani = FuncAnimation(fig, update, frames=num_frames, interval=20)
         if savepath:
             logger.info(f'Saving {self} to {savepath}')
             ani.save(savepath)

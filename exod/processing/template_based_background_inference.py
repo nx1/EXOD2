@@ -38,7 +38,6 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     sigma_blurring = 0.5
     inpaint_method = INPAINT_NS # INPAINT_TELEA
 
-
     logger.info(f'Computing Expected Cube using templates.')
     cube_n = data_cube.data
     bti_indices = data_cube.bti_bin_idx
@@ -47,7 +46,6 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     N_BTI = data_cube.n_bti_bin
     cube_GTI = cube_n[:, :, gti_indices]
     cube_BTI = cube_n[:, :, bti_indices]
-
 
     # Get the summed Images.
     image_total = np.nansum(cube_n, axis=2)
@@ -108,8 +106,8 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
                        log=False)
 
         image_mask_missing_pixels = (image_GTI > 0) & np.isnan(image_GTI_no_source_template_blur)
-        image_BTI_no_source_template_blur = inpaint(image_BTI_no_source_template_blur.astype(np.float32), image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=inpaint_method)
-        image_BTI_no_source_template_blur = np.where(image_total > 0, image_BTI_no_source_template_blur, np.nan)
+        image_BTI_no_source_template_blur_inpaint = inpaint(image_BTI_no_source_template_blur.astype(np.float32), image_mask_missing_pixels.astype(np.uint8), inpaintRadius=2, flags=inpaint_method)
+        image_BTI_background_template = np.where(image_total > 0, image_BTI_no_source_template_blur_inpaint, np.nan)
 
     # image_BTI_no_source_template_blur=image_BTI_no_source_template
 
@@ -122,11 +120,11 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
         effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[gti_indices]) # Analagous to N_GTI if relative exposures = 1
         image_source_only_mean   = image_GTI_source_only3 / effective_exposed_frames # Average value of the source contribution per frame.
     else:
-        image_BTI_source_only1    = image_BTI - image_BTI_no_source_template_blur * count_GTI_outside_sources
-        image_BTI_source_only2    = np.where(image_mask_source, image_BTI_source_only1, 0)
-        image_BTI_source_only3    = np.where(image_BTI_source_only2 > 0, image_BTI_source_only2, 0)
-        effective_exposed_frames  = np.sum(data_cube.relative_frame_exposures[bti_indices])
-        image_source_only_mean    = image_BTI_source_only3 / effective_exposed_frames
+        image_BTI_source_only1   = image_BTI - image_BTI_background_template * count_GTI_outside_sources
+        image_BTI_source_only2   = np.where(image_mask_source, image_BTI_source_only1, 0)
+        image_BTI_source_only3   = np.where(image_BTI_source_only2 > 0, image_BTI_source_only2, 0)
+        effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[bti_indices])
+        image_source_only_mean   = image_BTI_source_only3 / effective_exposed_frames
 
     # Get data cube outside the sources to obtain the background light curve.
     cube_mask_source       = np.repeat(image_mask_source[:, :, np.newaxis], cube_n.shape[2], axis=2)
@@ -140,7 +138,7 @@ def compute_expected_cube_using_templates(data_cube, wcs=None):
     cube_mu = np.empty(cube_n.shape)
     cube_mu[:,:,gti_indices] = image_GTI_background_template[:,:,np.newaxis] * lc_outside_sources[gti_indices]
     if N_BTI:
-        cube_mu[:,:,bti_indices] = image_BTI_no_source_template_blur[:,:,np.newaxis] * lc_outside_sources[bti_indices]
+        cube_mu[:,:,bti_indices] = image_BTI_background_template[:,:,np.newaxis] * lc_outside_sources[bti_indices]
     cube_mu += image_source_only_mean[:,:,np.newaxis] * data_cube.relative_frame_exposures
     cube_mu = np.where(np.nansum(cube_n, axis=(0,1)) > 0, cube_mu, np.nan)
     logger.info('Expected cube created!')
