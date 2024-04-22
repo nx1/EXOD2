@@ -18,6 +18,18 @@ from scipy.interpolate import interp1d
 
 
 def mask_known_sources(data_cube, wcs=None):
+    """
+    Mask known sources from the data cube.
+
+    Parameters
+    ----------
+    data_cube : DataCube() object.
+    wcs : astropy.wcs.WCS() object.
+
+    Returns
+    -------
+    mask : np.ndarray : The mask of the sources.
+    """
     def cropping_radius_counts(data_cube, epic_total_rate):
         if epic_total_rate > 1:
             return 80
@@ -29,7 +41,6 @@ def mask_known_sources(data_cube, wcs=None):
     observation.get_source_list()
     obsmli_file_path = observation.source_list
     logger.info(f'OBSMLI file: {obsmli_file_path}')
-
     tab_src = Table(fits.open(obsmli_file_path)[1].data)
 
     # We include bright (i.e. large DET_ML) point sources & extended sources

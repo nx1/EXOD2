@@ -5,6 +5,8 @@ from matplotlib import pyplot as plt, pyplot
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm, ListedColormap
 
+from exod.utils.logger import logger
+
 
 def set_latex_font():
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
@@ -58,9 +60,9 @@ def compare_images(images, titles, log=False, plot=False):
 def plot_frame_masks(instrum, masks, labels, plot=False):
     if not plot:
         return None
-
     cmap = ListedColormap([[1, 0, 0], [0, 1, 0]])
     mask_stack = np.vstack(masks)
+
     fig, ax = plt.subplots(figsize=(13, 5))
     ax.set_title(f'{instrum} | Frame Masks | Green=True, Red=False')
     ax.imshow(mask_stack, cmap=cmap, aspect='auto', interpolation='none')
@@ -85,6 +87,47 @@ def plot_3d_image(image):
 
     # ax.set_zlim(0,100)ax.set_zticks([])
 
+    plt.tight_layout()
+
+    plt.show()
+
+
+def plot_cube_statistics(data):
+    cube = data
+    logger.info('Calculating and plotting data cube statistics...')
+    image_max = np.nanmax(cube, axis=2)
+    image_min = np.nanmin(cube, axis=2)  # The Minimum and median are basically junk
+    image_median = np.nanmedian(cube, axis=2)
+    image_mean = np.nanmean(cube, axis=2)
+    image_std = np.nanstd(cube, axis=2)
+    image_sum = np.nansum(cube, axis=2)
+
+    fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+    # Plotting images
+    cmap = cmap_image()
+    im_max = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower', cmap=cmap)
+    im_min = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower', cmap=cmap)
+    im_mean = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower', cmap=cmap)
+    im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower', cmap=cmap)
+    im_std = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower', cmap=cmap)
+    im_sum = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower', cmap=cmap)
+
+    # Adding colorbars
+    shrink = 0.55
+    cbar_max = fig.colorbar(im_max, ax=ax[0, 0], shrink=shrink)
+    cbar_min = fig.colorbar(im_min, ax=ax[0, 1], shrink=shrink)
+    cbar_mean = fig.colorbar(im_mean, ax=ax[1, 0], shrink=shrink)
+    cbar_median = fig.colorbar(im_median, ax=ax[1, 1], shrink=shrink)
+    cbar_std = fig.colorbar(im_std, ax=ax[1, 2], shrink=shrink)
+    cbar_sum = fig.colorbar(im_sum, ax=ax[0, 2], shrink=shrink)
+
+    # Setting titles
+    ax[0, 0].set_title('max')
+    ax[0, 1].set_title('min')
+    ax[1, 0].set_title('mean')
+    ax[1, 1].set_title('median')
+    ax[1, 2].set_title('std')
+    ax[0, 2].set_title('sum')
     plt.tight_layout()
 
     plt.show()

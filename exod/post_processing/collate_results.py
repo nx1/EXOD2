@@ -1,6 +1,6 @@
 from exod.post_processing.crossmatch import crossmatch_simbad, get_df_regions_no_crossmatch, \
     get_df_regions_with_crossmatch
-from exod.utils.path import data_results
+from exod.utils.path import data_results, data_combined
 from exod.utils.logger import logger
 
 import tarfile
@@ -84,7 +84,6 @@ def make_results_tarfile(output_filename):
     print(f'tarfile save to: {tarfile_savepath}')
 
 if __name__ == '__main__':
-    from exod.utils.path import data_combined
     df_all_regions = combine_all_region_files()
     tab_res = crossmatch_simbad(df_region=df_all_regions, radius=1 * u.arcmin)
     df_all_regions_no_crossmatch = get_df_regions_no_crossmatch(df_regions=df_all_regions, tab_res=tab_res)

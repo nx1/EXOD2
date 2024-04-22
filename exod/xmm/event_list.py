@@ -11,6 +11,7 @@ class EventList:
     def __init__(self, path):
         self.path      = Path(path)
         self.filename  = self.path.name
+        self.data      = None
         self.is_read   = False
         self.is_merged = False
 
@@ -38,7 +39,7 @@ class EventList:
         # self.check_submode()
         self.remove_bad_rows()
         self.remove_borders()
-        self.remove_MOS_central_pixel()
+        self.remove_MOS_central_ccd()
         self.is_read = True
 
     @classmethod
@@ -109,14 +110,14 @@ class EventList:
     def is_supported_submode(self):
         return ALL_SUBMODES[self.submode]
 
-    def remove_MOS_central_pixel(self):
+    def remove_MOS_central_ccd(self):
         if (self.instrument in ('EMOS1','EMOS2')) and (self.submode!='PrimeFullWindow'):
-            logger.info('Removing central CCD of MOS because not in Full Frame mode')
+            logger.info('Removing central CCD of MOS because NOT in PrimeFullWindow')
             self.data = self.data[~(self.data['CCDNR'] == 1)]
 
     def remove_bad_rows(self):
         if self.instrument == 'EPN':
-            logger.info('Removing Bad PN Rows Struder et al. 2001b')
+            logger.info('Removing bad PN rows Struder et al. 2001b')
             self.data = self.data[~((self.data['CCDNR'] == 4) & (self.data['RAWX'] == 12)) &
                                   ~((self.data['CCDNR'] == 5) & (self.data['RAWX'] == 11)) &
                                   ~((self.data['CCDNR'] == 10) & (self.data['RAWX'] == 28))]
@@ -147,6 +148,12 @@ class EventList:
             self.data = self.data[self.data['RAWX'] < 64-margin]
             self.data = self.data[self.data['RAWX'] > 1+margin]
 
+    def get_ccd_bins(self):
+        """Get the CCD bins for the instrument. This is used in calculating the bad CCD bins."""
+        ccd_bins = list(set(self.data['CCDNR']))
+        ccd_bins.append(ccd_bins[-1] + 1)  # Just to get a right edge for the final bin
+        return ccd_bins
+
     def unload_data(self):
         del(self.data)
         self.is_read = False
@@ -167,3 +174,4 @@ class EventList:
         for k, v in info.items():
             logger.info(f'{k:>10} : {v}')
         return info
+

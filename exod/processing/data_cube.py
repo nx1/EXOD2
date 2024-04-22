@@ -1,14 +1,12 @@
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image, plot_frame_masks
 from exod.pre_processing.bti import get_bti_bin_idx, get_bti_bin_idx_bool
-import exod.utils.synthetic_data as synthetic_data
 
 import copy
 import numpy as np
 from scipy.stats import binned_statistic_dd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from matplotlib.colors import LogNorm
 
 
 class DataCube:
@@ -32,8 +30,8 @@ class DataCube:
             return None
 
         fig, ax = plt.subplots()
-        img = ax.imshow(self.data[:, :, 0].T, cmap='hot', animated=True, interpolation='none',
-                        origin='lower', norm=LogNorm())# norm=LogNorm())
+        img = ax.imshow(self.data[:, :, 0].T, cmap=cmap_image(), animated=True, interpolation='none',
+                        origin='lower')
         colorbar = fig.colorbar(img, ax=ax)
 
         def update(frame):
@@ -46,46 +44,6 @@ class DataCube:
         if savepath:
             logger.info(f'Saving {self} to {savepath}')
             ani.save(savepath)
-        plt.show()
-
-    def plot_cube_statistics(self):
-        cube = self.data
-        logger.info('Calculating and plotting data cube statistics...')
-        image_max = np.nanmax(cube, axis=2)
-        image_min = np.nanmin(cube, axis=2)  # The Minimum and median are basically junk
-        image_median = np.nanmedian(cube, axis=2)
-        image_mean = np.nanmean(cube, axis=2)
-        image_std = np.nanstd(cube, axis=2)
-        image_sum = np.nansum(cube, axis=2)
-
-        fig, ax = plt.subplots(2, 3, figsize=(15, 10))
-        # Plotting images
-        cmap = cmap_image()
-        im_max = ax[0, 0].imshow(image_max.T, interpolation='none', origin='lower', cmap=cmap)
-        im_min = ax[0, 1].imshow(image_min.T, interpolation='none', origin='lower', cmap=cmap)
-        im_mean = ax[1, 0].imshow(image_mean.T, interpolation='none', origin='lower', cmap=cmap)
-        im_median = ax[1, 1].imshow(image_median.T, interpolation='none', origin='lower', cmap=cmap)
-        im_std = ax[1, 2].imshow(image_std.T, interpolation='none', origin='lower', cmap=cmap)
-        im_sum = ax[0, 2].imshow(image_sum.T, interpolation='none', origin='lower', cmap=cmap)
-
-        # Adding colorbars
-        shrink = 0.55
-        cbar_max = fig.colorbar(im_max, ax=ax[0, 0], shrink=shrink)
-        cbar_min = fig.colorbar(im_min, ax=ax[0, 1], shrink=shrink)
-        cbar_mean = fig.colorbar(im_mean, ax=ax[1, 0], shrink=shrink)
-        cbar_median = fig.colorbar(im_median, ax=ax[1, 1], shrink=shrink)
-        cbar_std = fig.colorbar(im_std, ax=ax[1, 2], shrink=shrink)
-        cbar_sum = fig.colorbar(im_sum, ax=ax[0, 2], shrink=shrink)
-
-        # Setting titles
-        ax[0, 0].set_title('max')
-        ax[0, 1].set_title('min')
-        ax[1, 0].set_title('mean')
-        ax[1, 1].set_title('median')
-        ax[1, 2].set_title('std')
-        ax[0, 2].set_title('sum')
-        plt.tight_layout()
-
         plt.show()
 
 
@@ -188,100 +146,108 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_frames_partial_CCDexposure(self, plot=False):
+    def remove_frames_partial_CCDexposure(self, plot=True):
         """
         Remove the frames with irregular exposures between CCDs.
+        
+        https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/pnchipgeom.html
         
         Test Cases: 0165560101, 0765080801, 0116700301, 0765080801, 0872390901, 0116700301
         0201900201, 0724840301, 0743700201
 
         """
-        for evt_list in self.event_list.event_lists:
-            logger.info(f'{evt_list.filename}, {evt_list.instrument} {evt_list.submode}')
-            if evt_list.instrument == 'EPN':
-                ccd_bins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-            elif evt_list.instrument == "EMOS1":
-                ccd_bins = list(set(evt_list.data['CCDNR']))
-                logger.info(f'MOS 1 CCDS: {ccd_bins}')
-            elif evt_list.instrument == "EMOS2":
-                ccd_bins = [1, 2, 3, 4, 5, 6, 7]
-            ccd_bins.append(13) # Just to get a right edge for the final bin
+        all_masks = {}
+        for e in self.event_list.event_lists:
+            bad_ccd_mask = self.get_bad_ccd_mask(event_list=e, plot=plot)
+            all_masks[e.instrument] = bad_ccd_mask
 
-            # Get the lightcurves for each CCD.
-            sample = evt_list.data['CCDNR'], evt_list.data['TIME']
-            lcs_ccd, bin_edges, bin_number = binned_statistic_dd(sample, values=None, statistic='count', bins=[ccd_bins, self.bin_t])
-            if evt_list.instrument == 'EPN':  # We rebin pn into quadrant-wise lightcurve, and use the median CCD of each quadrant
-                quadrant_split = np.split(lcs_ccd, (3,6,9))
-                lcs_ccd = np.sum(quadrant_split, axis=1)
-                lc_median_quadrant = np.median(quadrant_split, axis=1)
-                lc_median_quadrant_max = np.max(lc_median_quadrant, axis=0)
-                lc_median_quadrant_min = np.min(lc_median_quadrant, axis=0)
-                ccd_bins = [1, 4, 7, 10, 13]
-            lcs_ccd_max = np.max(lcs_ccd, axis=0)
-            lcs_ccd_min = np.min(lcs_ccd, axis=0)
-            # lcs_ccd_min[lcs_ccd_min == 0] = 1
-            count_active_ccd = np.sum(lcs_ccd > 0, axis=0) # Nbr of CCDs active in each frame
+        if all_masks:
+            self.bccd_bin_idx_bool = np.any(list(all_masks.values()), axis=0)
+            self.bccd_bin_idx = np.where(self.bccd_bin_idx_bool)[0]
+            self.data = np.where(self.bccd_bin_idx_bool, np.empty(self.data.shape) * np.nan, self.data)
+            self.relative_frame_exposures = np.where(self.bccd_bin_idx_bool, 0, self.relative_frame_exposures)
+            self.n_bccd_bin = len(self.bccd_bin_idx)
+            self.bccd_frac = self.n_bccd_bin / self.n_t_bins
+            logger.info(f'n_bccd = {self.n_bccd_bin:<4} / {self.n_t_bins} ({self.bccd_frac:.2f})')
 
-            if plot:
-                # Plot all Lightcurves
-                fig, ax = plt.subplots(nrows=len(lcs_ccd)+3, ncols=1, figsize=(10,10), sharex=True)
-                plt.suptitle(evt_list.instrument)
-                for i, lc in enumerate(lcs_ccd):
-                    ax[i].plot(lc, label=f'ccd={i}')
-                if evt_list.instrument == 'EPN':
-                    ax[-3].plot(lc_median_quadrant_min, label='ccd min')
-                    ax[-2].plot(lc_median_quadrant_max, label='ccd max')
-                    ax[-1].plot(np.where(lc_median_quadrant_min > 0, lc_median_quadrant_max / lc_median_quadrant_min, np.nan), label='max/min')
-                else:
-                    ax[-3].plot(lcs_ccd_min, label='ccd min')
-                    ax[-2].plot(lcs_ccd_max, label='ccd max')
-                    ax[-1].plot(np.where(lcs_ccd_min>0, lcs_ccd_max/lcs_ccd_min, np.nan), label='max/min')
-                ax[-1].axhline(3, color='red', lw=1.0)
+    def get_bad_ccd_mask(self, event_list, plot=True):
+        """
+        Get the frames with irregular CCD exposures.
 
-                for a in ax:
-                    a.legend(loc='right')
-                plt.tight_layout()
-                plt.show()
-            #############################
+        Parameters
+        ----------
+        event_list : EventList() object.
+        plot : bool, optional
 
-            m0 = count_active_ccd == 0 # Frame is entirely empty
+        Returns
+        -------
+        bccd_bin_idx_bool : np.array. Array of bools indicating the frames with irregular CCD exposures.
+        """
+        ccd_bins = event_list.get_ccd_bins()
 
-            if evt_list.instrument == 'EPN':
-                # We remove bright frames in EPICpn that have either one inactive CCD or a ratio between brightest and faintest over 3
-                # This corresponds to fully or partially inactive quadrants for pn
-                m1 = lcs_ccd_max > 10  # Frame is more than 10 counts in the brightest CCD
-                m2 = self.bti_bin_idx_bool[:-1]  # Frame is a bad time index
-                # m2 = np.full(self.shape[-1:], True)
-                m3 = count_active_ccd < len(ccd_bins) - 1  # Frame is not running all CCDs
-                m4 = (lc_median_quadrant_max / lc_median_quadrant_min) > 3  # Frame is max/min > 3
-                # We remove frames when one quadrant is off or (BTI & ratio of medians >3)
-                m5 =  m1 & (m3 | (m2 & m4)) # m1 & m2 & (m3 | m4)
-                frames_to_remove = m0 | m5
+        # Get the lightcurves for each CCD.
+        lcs_ccd, bin_edges, bin_number = binned_statistic_dd(sample=(event_list.data['CCDNR'], event_list.data['TIME']),
+                                                             values=None,
+                                                             statistic='count',
+                                                             bins=[ccd_bins, self.bin_t])
 
-                masks  = [m0, m1, m3, m4, m5, frames_to_remove]
-                labels = ['empty', 'max > 10', 'active_ccds <  #_ccds', 'max/min > 3', 'combined', 'to remove']
-                plot_frame_masks(instrum=evt_list.instrument, masks=masks, labels=labels, plot=plot)
+        if event_list.instrument == 'EPN':
+            quadrant_split = np.split(lcs_ccd, indices_or_sections=(3, 6, 9))
+            lcs_ccd                = np.sum(quadrant_split, axis=1)
+            lcs_median_quadrant     = np.median(quadrant_split, axis=1)
+            lc_median_quadrant_max = np.max(lcs_median_quadrant, axis=0)
+            lc_median_quadrant_min = np.min(lcs_median_quadrant, axis=0)
+            ccd_bins = [1, 4, 7, 10, 13]
 
-            # elif evt_list.submode.startswith('PrimePartial'):
-            #     logger.info(f'PrimePartial submode!')
-            #     m6 = lcs_ccd[0] == 0                    # Main central CCD is off
-            #     m7 = np.mean(lcs_ccd[0]) > 5            # Main Central CCD has > 5 mean counts (NOT AN ARRAY)
-            #     m8 = np.concatenate(([False], m6[:-1])) # We also remove the next frame
-            #     frames_to_remove = m0 | (m6 & m7) | m8
-            #
-            #     logger.info(f'central ccd mean>5? {m7}')
-            #     # Plot masks
-            #     labels = ['empty', 'central off', 'central + 1', 'to remove']
-            #     plot_frame_masks(instrum=evt_list.instrument, masks=[m0, m6, m8, frames_to_remove], labels=labels, plot=True)
-            else:
-                frames_to_remove = m0
-            logger.info(f'Removing {np.sum(frames_to_remove)} / {len(frames_to_remove)} incomplete frames from {evt_list.instrument}')
 
-            # TODO THESE ATTRIBUTES ARE WRITTEN IN THE LOOP!!!!!
-            self.bccd_bin_idx_bool = frames_to_remove
-            self.bccd_bin_idx = np.where(self.bccd_bin_idx)[0]
-            self.data = np.where(frames_to_remove, np.empty(self.data.shape) * np.nan, self.data)
-            self.relative_frame_exposures = np.where(frames_to_remove, 0, self.relative_frame_exposures)
+        n_ccd = len(lcs_ccd)
+        lcs_ccd_max = np.max(lcs_ccd, axis=0)
+        # lcs_ccd_min = np.min(lcs_ccd, axis=0)
+        count_active_ccd = np.sum(lcs_ccd > 0, axis=0)  # Nbr of CCDs active in each frame
+
+        m0 = count_active_ccd == 0  # Frame is entirely empty
+
+        if event_list.instrument == 'EPN':
+            lc_min_counts = 10
+            lc_max_norm_diff = 0.5
+            logger.info(f'Removing PN frames lc_min_counts > {lc_min_counts} and lc_max_norm_diff > {lc_max_norm_diff}')
+            lc_median_norm_diff = (lc_median_quadrant_max - lc_median_quadrant_min) / (lc_median_quadrant_max + lc_median_quadrant_min)
+            m1 = lcs_ccd_max > lc_min_counts             # Frame is more than 10 counts in the brightest CCD
+            m2 = self.bti_bin_idx_bool[:-1]              # Frame is a bad time index
+            m3 = count_active_ccd < len(ccd_bins) - 1    # Frame is not running all CCDs
+            m4 = lc_median_norm_diff > lc_max_norm_diff  # When this is >0.5 it is equivalent to max/min > 3
+            m5 = m1 & (m3 | (m2 & m4))
+            bccd_bin_idx_bool = m0 | m5
+            # Remove the frames that are 1 left of a True frame that are False
+            bccd_bin_idx_bool = bccd_bin_idx_bool | np.roll(bccd_bin_idx_bool, shift=1)
+
+            masks = [m0, m2, m1, m3, m4, m5, bccd_bin_idx_bool]
+            labels = ['empty', 'is_bti', 'max > 10', 'active_ccds <  #_ccds', 'relative_diff > 0.5', 'combined', 'to remove']
+            plot_frame_masks(instrum=event_list.instrument, masks=masks, labels=labels, plot=plot)
+        else:
+            bccd_bin_idx_bool = m0
+
+        bccd_bin_idx = np.where(bccd_bin_idx_bool)[0]
+        logger.info(f'Removing {np.sum(bccd_bin_idx_bool)} / {len(bccd_bin_idx_bool)} incomplete frames from {event_list.instrument}')
+
+        if plot and event_list.instrument == 'EPN':
+            fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10, 10), sharex=True)
+            for i, lc in enumerate(lcs_median_quadrant):
+                ax[0].plot(lcs_ccd[i], label=f'lc ccd={i+1}')
+                ax[1].plot(lcs_median_quadrant[i], label=f'median quadrant={i+1}')
+
+            ax[-2].plot(lc_median_quadrant_min, label='ccd min')
+            ax[-2].plot(lc_median_quadrant_max, label='ccd max')
+            ax[-1].plot(lc_median_norm_diff, label='max-min/max+min')
+            ax[-1].axhline(0.5, color='red', lw=1.0)
+            for a in ax:
+                a.legend(loc='right')
+                for j in range(len(bccd_bin_idx)):
+                    a.axvspan(bccd_bin_idx[j], bccd_bin_idx[j]+1, color='red', alpha=0.2)
+            plt.tight_layout()
+            plt.show()
+
+        return bccd_bin_idx_bool
 
     def multiply_time_interval(self, n_factor):
         """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
@@ -314,6 +280,8 @@ class DataCubeXMM(DataCube):
                 'n_gti_bin' : self.n_gti_bin,
                 'gti_frac' : self.gti_frac,
                 'bti_frac' : self.bti_frac,
+                'n_bccd_bin' : self.n_bccd_bin,
+                'bccd_frac' : self.bccd_frac,
                 'bbox_img': self.bbox_img,
                 'shape': self.shape,
                 'memory_mb': self.memory_mb}

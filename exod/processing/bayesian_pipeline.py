@@ -161,8 +161,8 @@ def extract_lc_from_cube(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
 
 
 def run_pipeline(obsid,
-                 size_arcsec=20,
-                 time_interval=5,
+                 size_arcsec=20.0,
+                 time_interval=50,
                  gti_only=False,
                  remove_partial_ccd_frames=True,
                  gti_threshold=1.5,
@@ -194,7 +194,7 @@ def run_pipeline(obsid,
 
         # DataCube(cube_n.data[:,:,0:60]).video()
 
-        # cube_n.video()
+        cube_n.video()
         cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
 
         # cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
@@ -241,13 +241,14 @@ def run_pipeline(obsid,
 def main():
     from exod.utils.path import read_observation_ids
     from exod.utils.path import data
-    precompute_bayes_limits(threshold_sigma=3)
-    precompute_bayes_limits(threshold_sigma=5)
-    precompute_bayes_1000()
-    load_precomputed_bayes1000()
+    # precompute_bayes_limits(threshold_sigma=3)
+    # precompute_bayes_limits(threshold_sigma=5)
+    # precompute_bayes_1000()
+    # load_precomputed_bayes1000()
 
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids = read_observation_ids(data / 'obs_ccd_check.txt')
+    # obsids = obsids[1:]
     shuffle(obsids)
 
     # obsids=['0792180301']
