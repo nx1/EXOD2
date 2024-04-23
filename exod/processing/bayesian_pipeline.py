@@ -1,15 +1,15 @@
-from exod.processing.bayesian_computations import precompute_bayes_1000, load_precomputed_bayes1000, \
-    load_precomputed_bayes_limits, precompute_bayes_limits, get_cube_masks_peak_and_eclipse, B_peak, B_eclipse, \
+from exod.processing.bayesian_computations import load_precomputed_bayes_limits, B_peak, B_eclipse, \
     PrecomputeBayesLimits
 from exod.utils.plotting import cmap_image
 from exod.utils.logger import logger
 from exod.pre_processing.data_loader import DataLoader
-from exod.utils.util import save_df, save_info, get_unique_xy
+from exod.utils.util import save_df, save_info, get_unique_xy, save_result
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 
+import itertools
 from random import shuffle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ import pandas as pd
 from astropy.visualization import ImageNormalize, SqrtStretch
 
 
-def plot_region_lightcurve(df_lcs, i, savepath=None, plot=False):
+def plot_region_lightcurve(df_lcs, i, savepath=None, plot=True):
     """Plot the ith region lightcurve."""
     if not plot:
         return None
@@ -160,108 +160,203 @@ def extract_lc_from_cube(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
     return lc
 
 
-def run_pipeline(obsid,
-                 size_arcsec=20.0,
-                 time_interval=50,
-                 gti_only=False,
-                 remove_partial_ccd_frames=True,
-                 gti_threshold=1.5,
-                 min_energy=0.2,
-                 max_energy=10.0,
-                 clobber=False,
-                 precomputed_bayes_limit=PrecomputeBayesLimits(threshold_sigma=3)):
-    precomputed_bayes_limit.load()
-    observation = Observation(obsid)
-    observation.filter_events(clobber=clobber)
-    observation.create_images(clobber=clobber)
-    observation.get_files()
-    observation.get_events_overlapping_subsets()
+class Pipeline:
+    def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False, 
+                 remove_partial_ccd_frames=True, gti_threshold=1.5, min_energy=0.2, 
+                 max_energy=10.0, clobber=False, precomputed_bayes_limit=PrecomputeBayesLimits(threshold_sigma=3)):
+        self.obsid = obsid
+        self.observation = Observation(obsid)
+        self.subset = None
+        self.total_subsets = None
 
-    for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
-        savedir = observation.path_results / f'subset_{i_subset}'
-        savedir.mkdir(exist_ok=True)
-        
-        event_list = EventList.from_event_lists(subset_overlapping_exposures)
-        dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
-                        gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
-                        gti_threshold=gti_threshold, remove_partial_ccd_frames=remove_partial_ccd_frames)
-        dl.run()
+        self.size_arcsec = size_arcsec
+        self.time_interval = time_interval
+        self.gti_only = gti_only
+        self.remove_partial_ccd_frames = remove_partial_ccd_frames
+        self.gti_threshold = gti_threshold
+        self.min_energy = min_energy
+        self.max_energy = max_energy
+        self.clobber = clobber
+        self.precomputed_bayes_limit = precomputed_bayes_limit
+        self.savedir = None
 
-        img = observation.images[0]
-        img.read(wcs_only=True)
+    def get_savedir(self, subset_number):
+        """
+        Create the directory to save results to:
+        /results/0765080801/subset_0/tbin=50_Elo=0.2_Ehi=12.0/
+        """
+        savedir = (self.observation.path_results
+                    / f'subset_{subset_number}'
+                    / f'tbin={self.time_interval}_Elo={self.min_energy}_Ehi={self.max_energy}')
+        logger.info(f'savedir set to: {savedir}')
+        self.savedir = savedir
+        return self.savedir
 
-        cube_n = dl.data_cube
+    def run(self):
+        self.precomputed_bayes_limit.load()
+        self.observation.filter_events(clobber=self.clobber)
+        self.observation.create_images(clobber=self.clobber)
+        self.observation.get_files()
+        self.observation.get_events_overlapping_subsets()
+        self.total_subsets = len(self.observation.events_overlapping_subsets)
 
-        # DataCube(cube_n.data[:,:,0:60]).video()
+        for i_subset, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
+            savedir = self.get_savedir(subset_number=i_subset)
+            savedir.mkdir(parents=True, exist_ok=True)
 
-        cube_n.video()
-        cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
+            # Create Merged EventList
+            event_list = EventList.from_event_lists(subset_overlapping_exposures)
 
-        # cube_mask_peaks, cube_mask_eclipses = get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu, threshold_sigma=threshold_sigma)
-        cube_mask_peaks, cube_mask_eclipses = precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)
+            # Run Data Loader
+            dl = DataLoader(event_list=event_list,
+                            time_interval=self.time_interval,
+                            size_arcsec=self.size_arcsec,
+                            gti_only=self.gti_only,
+                            min_energy=self.min_energy,
+                            max_energy=self.max_energy,
+                            gti_threshold=self.gti_threshold,
+                            remove_partial_ccd_frames=self.remove_partial_ccd_frames)
+            dl.run()
 
-        image_n       = np.nansum(cube_n.data, axis=2)        # Total Counts.
-        image_peak    = np.nansum(cube_mask_peaks, axis=2)    # Each Pixel is the number of peaks in cube_n
-        image_eclipse = np.nansum(cube_mask_eclipses, axis=2) # Each Pixel is the number of eclipses in cube_n
+            cube_n = dl.data_cube
+            cube_n.video()
 
-        image_mask_combined = (image_peak > 0) | (image_eclipse > 0)
-        df_reg = calc_df_regions(image=image_n, image_mask=image_mask_combined)
-        df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_reg, wcs=img.wcs)
-        df_regions = pd.concat([df_reg, df_sky], axis=1).reset_index(drop=True)
-        df_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
+            img = self.observation.images[0]
+            img.read(wcs_only=True)
 
-        # Plot Lightcurves for each region
-        for i in df_regions.index:
-            plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=savedir / f'lc_{i}.png')
+            # Calculate Expectation Cube
+            cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
+            cube_mask_peaks, cube_mask_eclipses = self.precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)
 
-        # Plot Lightcurves for each pixel.
-        x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
-        x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
-        unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        for x, y in unique_xy:
-            plot_lc_pixel(cube_mu, cube_n, time_interval, x, y)
+            image_n = np.nansum(cube_n.data, axis=2)  # Total Counts.
+            image_peak = np.nansum(cube_mask_peaks, axis=2)  # Each Pixel is the number of peaks in cube_n
+            image_eclipse = np.nansum(cube_mask_eclipses, axis=2)  # Each Pixel is the number of eclipses in cube_n
+            image_mask_combined = (image_peak > 0) | (image_eclipse > 0)
 
-        # Plot Image
-        plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
+            df_reg = calc_df_regions(image=image_n, image_mask=image_mask_combined)
+            df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_reg, wcs=img.wcs)
+            df_regions = pd.concat([df_reg, df_sky], axis=1).reset_index(drop=True)
 
-        # Save Results
-        save_df(df=dl.df_bti, savepath=savedir / 'bti.csv')
-        save_df(df=df_lcs, savepath=savedir / 'lcs.csv')
-        save_df(df=df_regions, savepath=savedir / 'regions.csv')
+            df_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
 
-        save_info(dictionary=observation.info, savepath=savedir / 'obs_info.csv')
-        save_info(dictionary=event_list.info, savepath=savedir / 'evt_info.csv')
-        save_info(dictionary=dl.info, savepath=savedir / 'dl_info.csv')
-        save_info(dictionary=dl.data_cube.info, savepath=savedir / 'data_cube_info.csv')
 
-        # plt.show()
-        plt.close('all')
-        plt.clf()
 
-def main():
-    from exod.utils.path import read_observation_ids
-    from exod.utils.path import data
-    # precompute_bayes_limits(threshold_sigma=3)
-    # precompute_bayes_limits(threshold_sigma=5)
-    # precompute_bayes_1000()
-    # load_precomputed_bayes1000()
+            # Plot Lightcurves for each pixel.
+            # x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
+            # x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
+            # unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
+            # for x, y in unique_xy:
+            #     plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
 
-    obsids = read_observation_ids(data / 'observations.txt')
-    # obsids = read_observation_ids(data / 'obs_ccd_check.txt')
-    # obsids = obsids[1:]
-    shuffle(obsids)
 
-    # obsids=['0792180301']
-    # obsids=['0112570701']
-    # obsids=['0810811801']#'0764420101',
-    # obsids=['0911990501']
+            # Plot Lightcurves for each region
+            for i in df_regions.index:
+                plot_region_lightcurve(df_lcs=df_lcs, i=i, savepath=savedir / f'lc_{i}.png')
 
-    pre = PrecomputeBayesLimits(threshold_sigma=3)
-    pre.load()
-    for obsid in obsids:
-        # observation='0765080801' #'0886121001' '0872390901',
-        run_pipeline(obsid, precomputed_bayes_limit=pre)
+            # Plot Image
+            plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
+
+            # Save Results
+            results = {}
+            results['bti']      = dl.df_bti
+            results['lc']       = df_lcs
+            results['regions']  = df_regions
+            results['obs_info'] = self.observation.info
+            results['evt_info'] = event_list.info
+            results['dl_info']  = dl.info
+            results['dc_info']  = cube_n.info
+            results['run_info'] = self.info
+
+            for k, v in results.items():
+                save_result(key=k, value=v, savedir=savedir)
+
+            plt.show()
+            # plt.close('all')
+            # plt.clf()
+
+    def list_results(self):
+        total_subsets = len(list(self.observation.path_results.glob('subset_*')))
+        print(f'Found {total_subsets} subset folders')
+        for i in range(total_subsets):
+            self.get_savedir(subset_number=i)
+            results = {}
+            csv_files = self.savedir.glob('*.csv')
+            for f in csv_files:
+                results[f.stem] = f
+            print(results)
+
+
+    @property
+    def info(self):
+        info = {
+            'obsid'                     : self.obsid,
+            'subset'                    : self.subset,
+            'total_subsets'             : self.total_subsets,
+            'size_arcsec'               : self.size_arcsec,
+            'time_interval'             : self.time_interval,
+            'gti_only'                  : self.gti_only,
+            'gti_threshold'             : self.gti_threshold,
+            'remove_partial_ccd_frames' : self.remove_partial_ccd_frames,
+            'min_energy'                : self.min_energy,
+            'max_energy'                : self.max_energy,
+            'clobber'                   : self.clobber,
+            'precomputed_bayes_limit'   : self.precomputed_bayes_limit,
+            'savedir'                   : self.savedir,
+        }
+        for k, v in info.items():
+            logger.info(f'{k:>25} : {v}')
+        return info
+
+
+def parameter_grid(obsids):
+    """
+    usage:
+    for params in parameter_grid(['0792180301', '0792180302', ...]:
+        print(params)
+
+    Parameters
+    ----------
+    obsids : list of obsids
+
+    Returns
+    -------
+    params : parameters for a run.
+    """
+    parameter_grid = {
+        'obsid'                     : obsids,
+        'size_arcsec'               : [20.0],
+        'time_interval'             : [5, 50, 500],
+        'gti_only'                  : [False],
+        'remove_partial_ccd_frames' : [True],
+        'gti_threshold'             : [1.5],
+        'energy_ranges'             : [[0.2, 2.0], [2.0, 12.0], [0.2, 12.0]],
+        'clobber'                   : [False],
+        'precomputed_bayes_limit'   : [PrecomputeBayesLimits(threshold_sigma=3)],
+    }
+    parameter_combinations = list(itertools.product(*parameter_grid.values()))
+    logger.info(f'{len(parameter_combinations)} parameter combinations\n'
+                f'predicted size ~{(500*len(parameter_combinations)) / 1e6} Gb\n'
+                f'predicted runtime ~{1*len(parameter_combinations)/60/24:.2f} days (@ 1min/obs)')
+
+    for combination in parameter_combinations:
+        params = dict(zip(parameter_grid.keys(), combination))
+        params['min_energy'] = params['energy_ranges'][0]
+        params['max_energy'] = params['energy_ranges'][1]
+        del(params['energy_ranges'])
+        yield params
+
 
 if __name__=="__main__":
-    main()
+    from exod.utils.path import read_observation_ids
+    from exod.utils.path import data
+
+    obsids = read_observation_ids(data / 'observations.txt')
+    # obsids = read_observation_ids(data / 'all_obsids.txt')
+    shuffle(obsids)
+
+    for params in parameter_grid(obsids=obsids):
+        p = Pipeline(**params)
+        p.run()
+        p.list_results()
+
 

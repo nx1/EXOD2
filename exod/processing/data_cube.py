@@ -146,11 +146,12 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_frames_partial_CCDexposure(self, plot=True):
+    def remove_frames_partial_CCDexposure(self, plot=False):
         """
         Remove the frames with irregular exposures between CCDs.
         
         https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/pnchipgeom.html
+        https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/moschipgeom.html
         
         Test Cases: 0165560101, 0765080801, 0116700301, 0765080801, 0872390901, 0116700301
         0201900201, 0724840301, 0743700201
@@ -162,15 +163,20 @@ class DataCubeXMM(DataCube):
             all_masks[e.instrument] = bad_ccd_mask
 
         if all_masks:
+            # Combine the frame masks from all the individual event lists.
             self.bccd_bin_idx_bool = np.any(list(all_masks.values()), axis=0)
-            self.bccd_bin_idx = np.where(self.bccd_bin_idx_bool)[0]
+            self.bccd_bin_idx      = np.where(self.bccd_bin_idx_bool)[0]
+
+            # Remove from the data cube and update the relative frame exposures.
             self.data = np.where(self.bccd_bin_idx_bool, np.empty(self.data.shape) * np.nan, self.data)
             self.relative_frame_exposures = np.where(self.bccd_bin_idx_bool, 0, self.relative_frame_exposures)
+
+            # Calculate the number and fraction of bins
             self.n_bccd_bin = len(self.bccd_bin_idx)
             self.bccd_frac = self.n_bccd_bin / self.n_t_bins
             logger.info(f'n_bccd = {self.n_bccd_bin:<4} / {self.n_t_bins} ({self.bccd_frac:.2f})')
 
-    def get_bad_ccd_mask(self, event_list, plot=True):
+    def get_bad_ccd_mask(self, event_list, plot=False):
         """
         Get the frames with irregular CCD exposures.
 
@@ -199,8 +205,6 @@ class DataCubeXMM(DataCube):
             lc_median_quadrant_min = np.min(lcs_median_quadrant, axis=0)
             ccd_bins = [1, 4, 7, 10, 13]
 
-
-        n_ccd = len(lcs_ccd)
         lcs_ccd_max = np.max(lcs_ccd, axis=0)
         # lcs_ccd_min = np.min(lcs_ccd, axis=0)
         count_active_ccd = np.sum(lcs_ccd > 0, axis=0)  # Nbr of CCDs active in each frame
@@ -230,6 +234,7 @@ class DataCubeXMM(DataCube):
         bccd_bin_idx = np.where(bccd_bin_idx_bool)[0]
         logger.info(f'Removing {np.sum(bccd_bin_idx_bool)} / {len(bccd_bin_idx_bool)} incomplete frames from {event_list.instrument}')
 
+        # Plot the Lightcurves for PN
         if plot and event_list.instrument == 'EPN':
             fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10, 10), sharex=True)
             for i, lc in enumerate(lcs_median_quadrant):
@@ -242,6 +247,7 @@ class DataCubeXMM(DataCube):
             ax[-1].axhline(0.5, color='red', lw=1.0)
             for a in ax:
                 a.legend(loc='right')
+                # Plot the Masked frames.
                 for j in range(len(bccd_bin_idx)):
                     a.axvspan(bccd_bin_idx[j], bccd_bin_idx[j]+1, color='red', alpha=0.2)
             plt.tight_layout()
@@ -251,6 +257,7 @@ class DataCubeXMM(DataCube):
 
     def multiply_time_interval(self, n_factor):
         """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
+        #TODO
         Important: the BTI need to be re-computed as well, at the DataLoader level most likely"""
 
         self.time_interval = n_factor*self.time_interval
@@ -270,21 +277,22 @@ class DataCubeXMM(DataCube):
 
     @property
     def info(self):
-        info = {'event_list': self.event_list.filename,
-                'size_arcsec': self.size_arcsec,
+        info = {'event_list'   : self.event_list.filename,
+                'size_arcsec'  : self.size_arcsec,
                 'time_interval': self.time_interval,
-                'extent': self.extent,
-                'pixel_size': self.pixel_size,
-                'n_bins': self.n_bins,
-                'n_bti_bin' : self.n_bti_bin,
-                'n_gti_bin' : self.n_gti_bin,
-                'gti_frac' : self.gti_frac,
-                'bti_frac' : self.bti_frac,
-                'n_bccd_bin' : self.n_bccd_bin,
-                'bccd_frac' : self.bccd_frac,
-                'bbox_img': self.bbox_img,
-                'shape': self.shape,
-                'memory_mb': self.memory_mb}
+                'extent'       : self.extent,
+                'pixel_size'   : self.pixel_size,
+                'n_bins'       : self.n_bins,
+                'n_t_bins'     : self.n_t_bins,
+                'n_bti_bin'    : self.n_bti_bin,
+                'n_gti_bin'    : self.n_gti_bin,
+                'gti_frac'     : self.gti_frac,
+                'bti_frac'     : self.bti_frac,
+                'n_bccd_bin'   : self.n_bccd_bin,
+                'bccd_frac'    : self.bccd_frac,
+                'bbox_img'     : self.bbox_img,
+                'shape'        : self.shape,
+                'memory_mb'    : self.memory_mb}
         for k, v in info.items():
             logger.info(f'{k:>13} : {v}')
         return info

@@ -1,3 +1,4 @@
+import pandas
 import pandas as pd
 
 from exod.utils.logger import logger
@@ -13,9 +14,24 @@ def save_df(df, savepath):
     if df is None:
         logger.info(f'No df found, not saving to {savepath}')
         return None
+    if df.empty:
+        logger.info(f'df is empty, not saving to {savepath}')
+        return None
     logger.info(f'Saving df to: {savepath}')
     logger.info(f'\n{df}')
     df.to_csv(savepath, index=False)
+
+
+def save_result(key, value, savedir):
+    """
+    Save a key/value pair to a .csv file.
+    """
+    if isinstance(value, pd.DataFrame):
+        save_df(df=value, savepath=savedir / f'{key}.csv')
+    elif isinstance(value, dict):
+        save_info(dictionary=value, savepath=savedir / f'{key}.csv')
+    else:
+        logger.warning(f'{key} {value} is not a dict or df!!')
 
 
 def get_unique_xy(x, y):
@@ -24,5 +40,3 @@ def get_unique_xy(x, y):
     for x, y in zip(x, y):
         unique_xy.add((x, y))
     return unique_xy
-
-

@@ -30,13 +30,20 @@ def mask_known_sources(data_cube, wcs=None):
     -------
     mask : np.ndarray : The mask of the sources.
     """
-    def cropping_radius_counts(data_cube, epic_total_rate):
+    def cropping_radius_counts(epic_total_rate, size_arcsec):
+        """
+        Get cropping radius for a given EPIC count rate.
+        0.0 < RATE < 0.1 = 20
+        0.1 < RATE < 1.0 = 40
+        RATE > 1.0 = 80
+        """
         if epic_total_rate > 1:
             return 80
         elif epic_total_rate > 0.1:
             return 40
         else:
-            return data_cube.size_arcsec
+            return size_arcsec
+
     observation = Observation(data_cube.event_list.obsid)
     observation.get_source_list()
     obsmli_file_path = observation.source_list
@@ -47,7 +54,7 @@ def mask_known_sources(data_cube, wcs=None):
     tab_src_point    = tab_src[(tab_src['EP_DET_ML'] > 8) & (tab_src['EP_EXTENT'] == 0)]
     tab_src_extended = tab_src[(tab_src['EP_DET_ML'] > 8) & (tab_src['EP_EXTENT'] > 0)]
 
-    radius_point_sources    = [cropping_radius_counts(data_cube, counts) for counts in tab_src_point['EP_TOT']]
+    radius_point_sources    = [cropping_radius_counts(counts, data_cube.size_arcsec) for counts in tab_src_point['EP_TOT']]
     radius_extended_sources = tab_src_extended['EP_EXTENT']
 
     logger.info(f'Total rows: {len(tab_src)} Point sources: {len(tab_src_point)} Extended Sources: {len(tab_src_extended)}')
@@ -151,24 +158,37 @@ def calc_background_template(image_sub, image_mask_source):
     return image_sub_background_template, count_sub_outside_sources
 
 
-def calc_source_contribution(image_subset, image_sub_background_template, image_mask_source, data_cube,
-                             count_sub_outside_sources, subset_bin_idx):
+def calc_source_template(image_subset, image_sub_background_template, image_mask_source, data_cube,
+                         count_sub_outside_sources, subset_bin_idx):
     """
     Calculate the average contribution from the sources in the field of the observation.
 
-    This is done by masking out the background and dividing the the effective exposed frames.
+    This is done by masking out the background and dividing by the effective exposed frames.
     This essentially gives the image of the average contribution of the sources in each frame.
+
+    Parameters
+    ----------
+    image_subset : image of GTI or BTIs obtained by summing the frames.
+    image_sub_background_template : The template for the BTI or GTI obtained via calc_background_template.
+    image_mask_source : Images with sources masked.
+    data_cube : DataCube() object.
+    count_sub_outside_sources : The number of counts outside the sources (total counts in background).
+    subset_bin_idx : The bins corresponding to either the GTI  or BTIs.
+
+    Returns
+    -------
+    image_source_template : The average contribution of the sources in each frame.
     """
     image_sub_source_only1   = image_subset - image_sub_background_template * count_sub_outside_sources
     image_sub_source_only2   = np.where(image_mask_source, image_sub_source_only1, 0)           # Replace everything that is not a source with 0
     image_sub_source_only3   = np.where(image_sub_source_only2 > 0, image_sub_source_only2, 0)  # Replace negative values with 0
     effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[subset_bin_idx])       # Analagous to n_gti_bin if relative exposures = 1
-    image_source_only_mean   = image_sub_source_only3 / effective_exposed_frames                # Average value of the source contribution per frame.
+    image_source_template    = image_sub_source_only3 / effective_exposed_frames                # Average value of the source contribution per frame.
 
-    compare_images(images=[image_sub_source_only1, image_sub_source_only2, image_sub_source_only3, image_source_only_mean],
-                   titles=['image_sub_source_only1', 'image_sub_source_only2', 'image_sub_source_only3', 'image_source_only_mean'],
+    compare_images(images=[image_sub_source_only1, image_sub_source_only2, image_sub_source_only3, image_source_template],
+                   titles=['image_sub_source_only1', 'image_sub_source_only2', 'image_sub_source_only3', 'image_source_template'],
                    log=False)
-    return image_source_only_mean
+    return image_source_template
 
 def calc_cube_mu(data_cube, wcs=None):
     """
@@ -213,6 +233,7 @@ def calc_cube_mu(data_cube, wcs=None):
 
     if n_gti_bin:
         logger.info('Calculating gti template...')
+        image_gti = np.nansum(cube_gti, axis=2)
         image_gti_background_template, count_gti_outside_sources = calc_background_template(image_sub=image_gti, image_mask_source=image_mask_source)
 
     if n_bti_bin:
@@ -225,27 +246,27 @@ def calc_cube_mu(data_cube, wcs=None):
     # Obtain the Image with the mean source contribution (zero everywhere that is not a source)
     if n_gti_bin > n_bti_bin:
         logger.info('Calculating source contribution using gtis')
-        image_source_only_mean = calc_source_contribution(image_gti, image_gti_background_template, image_mask_source,
-                                                          data_cube, count_gti_outside_sources, gti_bin_idx)
+        image_source_template = calc_source_template(image_gti, image_gti_background_template, image_mask_source,
+                                                     data_cube, count_gti_outside_sources, gti_bin_idx)
     else:
         logger.info('Calculating source contribution using btis')
-        image_source_only_mean = calc_source_contribution(image_bti, image_bti_background_template, image_mask_source,
-                                                          data_cube, count_bti_outside_sources, bti_bin_idx)
+        image_source_template = calc_source_template(image_bti, image_bti_background_template, image_mask_source,
+                                                     data_cube, count_bti_outside_sources, bti_bin_idx)
 
     # Get data cube outside the sources to obtain the background light curve.
     cube_mask_source       = np.repeat(image_mask_source[:, :, np.newaxis], cube_n.shape[2], axis=2)
     cube_n_outside_sources = np.where(cube_mask_source, np.nan, cube_n)
     lc_outside_sources     = np.nansum(cube_n_outside_sources, axis=(0, 1)) # Essentially the background light curve.
 
-    # We then create the expected (mu) cube.
-    # For both gti and bti, we estimate their background by using the lightcurve and the templates.
-    # We then add the constant source contribution.
-    logger.info('Creating expected cube...')
+
+    logger.info('Creating expected (mu) cube...')
+    # Create the expectation cube by combining the source and background templates.
     cube_mu = np.empty(cube_n.shape)
-    cube_mu[:,:,gti_bin_idx] = image_gti_background_template[:,:,np.newaxis] * lc_outside_sources[gti_bin_idx]
+    if n_gti_bin:
+        cube_mu[:,:,gti_bin_idx] = image_gti_background_template[:,:,np.newaxis] * lc_outside_sources[gti_bin_idx]
     if n_bti_bin:
         cube_mu[:,:,bti_bin_idx] = image_bti_background_template[:,:,np.newaxis] * lc_outside_sources[bti_bin_idx]
-    cube_mu += image_source_only_mean[:,:,np.newaxis] * data_cube.relative_frame_exposures
+    cube_mu += image_source_template[:,:,np.newaxis] * data_cube.relative_frame_exposures
     cube_mu = np.where(np.nansum(cube_n, axis=(0,1)) > 0, cube_mu, np.nan)
     logger.info('Expected cube created!')
     return cube_mu

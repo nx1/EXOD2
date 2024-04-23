@@ -75,7 +75,20 @@ class Observation:
         self.get_source_list()
 
     def get_events_overlapping_subsets(self):
-        self.events_overlapping_subsets = get_events_overlapping_subsets(self)
+        """
+        Get the overlapping eventlists for a given observation.
+
+        Returns the subsets as a list of lists
+        [[001PI.fits, 001M1.fits, 001M2.fits], [002PI.fits, 002M1.fits, 002M2.fits]]
+        """
+        self.get_event_lists_processed()
+
+        if len(self.events_processed) == 0:
+            raise KeyError(f'No eventlists found for {self.obsid}')
+
+        subsets = get_overlapping_eventlist_subsets(self.events_processed)
+        self.events_overlapping_subsets = subsets
+        return self.events_overlapping_subsets
 
 
     @property
@@ -152,27 +165,11 @@ def get_overlapping_eventlist_subsets(event_lists):
             subsets_to_return.append(subset)
         else:
             subsets_to_return.append(list(s))
+
+    # Sort the inner lists and outer lists
+    subsets_to_return = [sorted(subset, key=lambda x: x.filename) for subset in subsets_to_return]
+    subsets_to_return = sorted(subsets_to_return, key=lambda subset: subset[0].filename)
     return subsets_to_return
-
-
-def get_events_overlapping_subsets(observation):
-    """
-    Get the overlapping eventlists for a given observation.
-
-    Returns the subsets as a list of lists
-    [[001PI.fits, 001M1.fits, 001M2.fits], [002PI.fits, 002M1.fits, 002M2.fits]]
-    """
-    observation.get_event_lists_processed()
-
-    # No eventlists
-    if len(observation.events_processed) == 0:
-        raise KeyError(f'No eventlists found for {observation.obsid}')
-
-    subsets = get_overlapping_eventlist_subsets(observation.events_processed)
-    return subsets
-
-
-
 
 
 if __name__ == "__main__":
