@@ -9,10 +9,10 @@ from astroquery.vizier import Vizier
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
-from exod.pre_processing.read_events import get_PN_image_file
 from exod.utils.logger import logger
 from exod.utils.path import data_util, data_results
 from exod.utils.simbad_classes import simbad_classifier
+from exod.xmm.observation import Observation
 
 
 def crossmatch_dr13_slim(df_regions):
@@ -206,12 +206,13 @@ def plot_simbad_crossmatch_image(obsid,
                                  df_all_regions_no_crossmatch,
                                  df_all_regions_with_crossmatch,
                                  tab_res):
-    img_file = get_PN_image_file(obsid=obsid)
 
-    hdul = fits.open(img_file)
-    header = hdul[0].header
-    img_data = hdul[0].data
-    wcs = WCS(header=header)
+    observation = Observation(obsid)
+    observation.get_files()
+    img = observation.images[0]
+    img.read()
+    img_data = img.data
+    wcs = img.wcs
 
     fig, ax = plt.subplots(figsize=(12, 12), subplot_kw={'projection': wcs}, facecolor='grey')
     cmap = plt.cm.hot

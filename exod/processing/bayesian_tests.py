@@ -1,3 +1,6 @@
+"""
+This module contains functions to test the Bayesian computations in the exod package.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

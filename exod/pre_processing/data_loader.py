@@ -1,3 +1,6 @@
+"""
+DataLoader class to load data from EventList object and create a DataCubeXMM object.
+"""
 from exod.processing.data_cube import DataCubeXMM
 from exod.pre_processing.bti import get_bti, get_bti_bin_idx, get_bti_bin_idx_bool
 from exod.utils.logger import logger
@@ -9,13 +12,17 @@ from scipy.stats import binned_statistic_dd
 
 class DataLoader:
     """
-    event_list : EventList object with data already loaded.
-    size_arcsec : float : Size in arcseconds of the final spatial grid on which the data is binned
-    time_interval : Time in seconds for data cube binning
-    gti_only : If true use only the data found in GTIs
-    min_energy : Minimum energy for final data cube
-    max_energy : Maximum energy for final data cube
-    gti_threshold : Count rate below which will be considered good time intervals
+    DataLoader class to load data from EventList object and create a DataCubeXMM object.
+
+    Attributes:
+        event_list (EventList): EventList object with data already loaded.
+        size_arcsec (float): Size in arcseconds of the final spatial grid on which the data is binned.
+        time_interval (float): Time in seconds for data cube binning.
+        gti_only (bool): If True, use only the data found in GTIs.
+        min_energy (float): Minimum energy for final data cube.
+        max_energy (float): Maximum energy for final data cube.
+        gti_threshold (float): Count rate below which will be considered good time intervals.
+        remove_partial_ccd_frames (bool): If True, remove frames with partial CCD exposure.
     """
     def __init__(self, event_list, time_interval=50, size_arcsec=10, gti_only=False, min_energy=0.2, max_energy=12.0,
                  gti_threshold=0.5, remove_partial_ccd_frames=True):

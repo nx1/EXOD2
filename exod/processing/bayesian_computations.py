@@ -156,8 +156,8 @@ def load_precomputed_bayes1000():
 def load_precomputed_bayes_limits(threshold_sigma):
     """Loads the precomputed Bayes factor limit numbers, for a chosen threshold."""
     data = np.loadtxt(path.utils / f'bayesfactorlimits_{threshold_sigma}.txt')
-    range_mu = data[0]
-    n_peak_threshold = interp1d(range_mu, data[1])
+    range_mu            = data[0]
+    n_peak_threshold    = interp1d(range_mu, data[1])
     n_eclipse_threshold = interp1d(range_mu, data[2])
     return range_mu, n_peak_threshold, n_eclipse_threshold
 
@@ -202,28 +202,19 @@ def sigma_equivalent(n, mu):
     This is done by finding the root of the function:
         B_peak(n, mu=1000) - B_peak(n=n_peak_large_mu(mu=1000, sigma), mu=1000) = 0
     """
-    if n > mu:  # Means it's a peak
+    if n > mu:  # Peak
         b = B_peak_log(n, mu)
         function_to_invert = lambda sigma: b - B_peak_log(n_peak_large_mu(mu=1000, sigma=sigma), mu=1000)
-        # We need to provide a range for the inversion method. To exclude edge cases, we check if it's above 10 sigma
-        # or below 1 sigma, which we both exclude. We can then look in the region in between
-        if function_to_invert(10) > 0:
-            return 10
-        elif function_to_invert(1) < 0:
-            return 0
-        else:
-            return root_scalar(function_to_invert, bracket=(1, 10)).root
-
-    else:  # Means it's an eclipse
+    else:  # Eclipse
         b = B_eclipse_log(n, mu)
         function_to_invert = lambda sigma: b - B_eclipse_log(n_eclipse_large_mu(mu=1000, sigma=sigma), mu=1000)
-        if function_to_invert(10) > 0:
-            return 10
-        elif function_to_invert(1) < 0:
-            return 0
-        else:
-            return root_scalar(function_to_invert, bracket=(1, 10)).root
 
+    if function_to_invert(10) > 0:
+        return 10
+    elif function_to_invert(1) < 0:
+        return 0
+    else:
+        return root_scalar(function_to_invert, bracket=(1, 10)).root
 
 class PrecomputeBayesLimits:
     def __init__(self, threshold_sigma):
@@ -238,7 +229,9 @@ class PrecomputeBayesLimits:
         return f'{self.threshold_sigma}'
 
     def load(self):
+        logger.info(f'Loading precomputed Bayes limits for sigma={self.threshold_sigma}')
         if self.is_loaded:
+            logger.info('Already loaded!')
             return None
         range_mu, n_peak_threshold, n_eclipse_threshold = load_precomputed_bayes_limits(threshold_sigma=self.threshold_sigma)
         self.range_mu = range_mu

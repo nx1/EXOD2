@@ -73,4 +73,5 @@ def calc_df_regions(image, image_mask):
     properties_ = ('label', 'bbox', 'centroid', 'weighted_centroid', 'intensity_mean', 'equivalent_diameter_area', 'area_bbox')
     region_dict = regionprops_table(label_image=label(image_mask), intensity_image=image, properties=properties_)
     df_region = pd.DataFrame(region_dict)
+    df_region['label'] = df_region['label'] - 1 # Start labels at 0
     return df_region

@@ -17,18 +17,16 @@ from astropy.convolution import convolve, Gaussian2DKernel
 from scipy.interpolate import interp1d
 
 
-def mask_known_sources(data_cube, wcs=None):
+def mask_known_sources(data_cube, wcs):
     """
     Mask known sources from the data cube.
 
-    Parameters
-    ----------
-    data_cube : DataCube() object.
-    wcs : astropy.wcs.WCS() object.
+    Parameters:
+        data_cube (DataCube): DataCube object.
+        wcs (astropy.wcs.WCS): wcs object.
 
-    Returns
-    -------
-    mask : np.ndarray : The mask of the sources.
+    Returns:
+        image_mask (np.ndarray): The mask of the sources.
     """
     def cropping_radius_counts(epic_total_rate, size_arcsec):
         """
@@ -59,7 +57,7 @@ def mask_known_sources(data_cube, wcs=None):
 
     logger.info(f'Total rows: {len(tab_src)} Point sources: {len(tab_src_point)} Extended Sources: {len(tab_src_extended)}')
 
-    mask = np.full(data_cube.shape[:2], fill_value=False)
+    image_mask = np.full(data_cube.shape[:2], fill_value=False)
 
     for tab_data, tab_radius, color in zip((tab_src_point, tab_src_extended),
                                            (radius_point_sources, radius_extended_sources),
@@ -97,7 +95,7 @@ def mask_known_sources(data_cube, wcs=None):
             rr, cc = disk(center=(x, y), radius=radius_image)
             kept_pixels = (rr>0) & (rr<data_cube.shape[0]-1) & (cc>0) & (cc<data_cube.shape[1]-1) # Keep mask pixels only if in image
             rr, cc = rr[kept_pixels], cc[kept_pixels]
-            mask[rr, cc] = True
+            image_mask[rr, cc] = True
 
     #         im[rr,cc] = np.nan
     #         circle = plt.Circle((x, y), radius_image, color=color, fill=False)
@@ -110,7 +108,7 @@ def mask_known_sources(data_cube, wcs=None):
 
     # plt.figure(figsize=(10, 10))
     # plt.imshow(im.T, origin='lower', norm=LogNorm(), interpolation='none')
-    return mask
+    return image_mask
 
 def calc_background_template(image_sub, image_mask_source):
     """
@@ -125,11 +123,13 @@ def calc_background_template(image_sub, image_mask_source):
     We then blur the image and inpaint again, this is to deal with issues where if large
     sources were removed we can fill them in, we should probably only do this if we need to.
 
-    image_sub : Summed image of BTI or GTI frames.
+    Parameters:
+        image_sub (np.ndarray): Summed image of BTI or GTI frames.
+        image_mask_source (np.ndarray): Mask of the sources.
 
     Returns:
-        image_sub_background_template : The normalized template for the image subset.
-        count_sub_outside_sources : The number of counts outside the sources (total counts in background)
+        image_sub_background_template (np.ndarray): The background template for the image subset.
+        count_sub_outside_sources (float): The number of counts outside the sources (total counts in background)
     """
     sigma_blurring = 0.5
     inpaint_method = INPAINT_NS # INPAINT_TELEA
@@ -166,18 +166,16 @@ def calc_source_template(image_subset, image_sub_background_template, image_mask
     This is done by masking out the background and dividing by the effective exposed frames.
     This essentially gives the image of the average contribution of the sources in each frame.
 
-    Parameters
-    ----------
-    image_subset : image of GTI or BTIs obtained by summing the frames.
-    image_sub_background_template : The template for the BTI or GTI obtained via calc_background_template.
-    image_mask_source : Images with sources masked.
-    data_cube : DataCube() object.
-    count_sub_outside_sources : The number of counts outside the sources (total counts in background).
-    subset_bin_idx : The bins corresponding to either the GTI  or BTIs.
+    Parameters:
+        image_subset (np.ndarray): image of GTI or BTIs obtained by summing the frames.
+        image_sub_background_template (np.ndarray): The template for the BTI or GTI obtained via calc_background_template.
+        image_mask_source (np.ndarray): Mask of the sources.
+        data_cube (DataCube): DataCube object.
+        count_sub_outside_sources (float): The number of counts outside the sources (total counts in background).
+        subset_bin_idx (np.ndarray): The bins corresponding to the subset (eitehr the GTI or BTIs).
 
-    Returns
-    -------
-    image_source_template : The average contribution of the sources in each frame.
+    Returns:
+        image_source_template (np.ndarray): The average contribution of the sources in each frame.
     """
     image_sub_source_only1   = image_subset - image_sub_background_template * count_sub_outside_sources
     image_sub_source_only2   = np.where(image_mask_source, image_sub_source_only1, 0)           # Replace everything that is not a source with 0
@@ -190,7 +188,7 @@ def calc_source_template(image_subset, image_sub_background_template, image_mask
                    log=False)
     return image_source_template
 
-def calc_cube_mu(data_cube, wcs=None):
+def calc_cube_mu(data_cube, wcs):
     """
     Calculates an expectation (mu) data cube.
 
@@ -203,10 +201,11 @@ def calc_cube_mu(data_cube, wcs=None):
     The sources are dealt with assuming they are constant.
     We take their net emission, and distribute it evenly across all frames.
 
-    Parameters
-    ----------
-    data_cube : DataCube() object.
-    wcs       : astropy.wcs.WCS() object.
+    Parameters:
+        data_cube (DataCube): DataCube object.
+        wcs (astropy.wcs.WCS): wcs object.
+    Returns:
+        cube_mu (np.ndarray): The expectation (mu) data cube.
     """
     cube_n = data_cube.data
     bti_bin_idx = data_cube.bti_bin_idx

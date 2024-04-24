@@ -23,7 +23,7 @@ if __name__ == "__main__":
         try:
             p = Pipeline(**params)
             p.run()
-            p.list_results()
+            p.load_results()
             res['status'] = 'Run'
             all_res.append(res)
         except Exception as e:

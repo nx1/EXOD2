@@ -1,5 +1,7 @@
 """
-Requires having pre-set 'setsas' and 'export CCFPATH=' in the terminal.
+Functions to filter events files and create images from the raw data.
+
+Requires having pre-run the sas task 'setsas' and the enviroment variable 'export CCFPATH=' in the terminal.
 """
 import os
 

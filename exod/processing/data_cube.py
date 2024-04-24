@@ -10,6 +10,9 @@ from matplotlib.animation import FuncAnimation
 
 
 class DataCube:
+    """
+    Class to represent a 3D data cube.
+    """
     def __init__(self, data):
         self.data = data
         self.shape = self.data.shape
@@ -48,6 +51,33 @@ class DataCube:
 
 
 class DataCubeXMM(DataCube):
+    """
+    Class to represent a 3D data cube from XMM data.
+
+    Attributes:
+        event_list (EventList): EventList object.
+        size_arcsec (float): size of one side of a cell in the cube in arcseconds.
+        time_interval (float): time interval for each frame in seconds.
+        extent (int): Initial Cube Size.
+        pixel_size (float): size of one side of a cell in the cube in pixels.
+        n_bins (int): Spatial Bins (x,y).
+        bin_x (np.array): Bins for the x-axis.
+        bin_y (np.array): Bins for the y-axis.
+        bin_t (np.array): Bins for the t-axis.
+        n_t_bins (int): Number of time bins.
+        bti_bin_idx (np.array): Indexs of the bad time intervals (BTIs)
+        bti_bin_idx_bool (np.array): Boolean Mask of the bad time intervals that can be applied to bin_t
+        n_bti_bin (int): Number of bad time intervals bins.
+        bti_frac (float): Fraction of bad time intervals.
+        gti_bin_idx (np.array): Indexs of the good time intervals (GTIs)
+        gti_bin_idx_bool (np.array): Boolean Mask of the good time intervals that can be applied to bin_t
+        n_gti_bin (int): Number of good time intervals bins.
+        gti_frac (float): Fraction of good time intervals.
+        bccd_bin_idx (np.array): Indexs of frames marked as having irregular (bad) CCD exposures.
+        bccd_frac (float): Fraction of time frames marked as having bad CCD exposures.
+        data (np.array): 3-D numpy array containing the data.
+        bbox_img (tuple): Bounding box of the image (single time slice).
+    """
     def __init__(self, event_list, size_arcsec, time_interval):
         self.event_list = event_list
         self.size_arcsec = size_arcsec
@@ -120,12 +150,11 @@ class DataCubeXMM(DataCube):
         """
         Calculate the good and bad time interval indexes & masks.
 
-        Parameters
-        ----------
-        bti : {['START':344.2, 'STOP':454.2], ...}
+        Parameters:
+            bti (dict): {['START':344.2, 'STOP':454.2], ...}
         """
         self.bti_bin_idx      = get_bti_bin_idx(bti=bti, bin_t=self.bin_t)
-        self.bti_bin_idx_bool = get_bti_bin_idx_bool(rejected_idx=self.bti_bin_idx, bin_t=self.bin_t)
+        self.bti_bin_idx_bool = get_bti_bin_idx_bool(bti_bin_idx=self.bti_bin_idx, bin_t=self.bin_t)
         self.gti_bin_idx_bool = ~self.bti_bin_idx_bool
         self.gti_bin_idx      = np.where(self.gti_bin_idx_bool)[0][:-1]
         self.n_gti_bin = len(self.gti_bin_idx)
@@ -151,6 +180,7 @@ class DataCubeXMM(DataCube):
         Remove the frames with irregular exposures between CCDs.
         
         https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/pnchipgeom.html
+
         https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/moschipgeom.html
         
         Test Cases: 0165560101, 0765080801, 0116700301, 0765080801, 0872390901, 0116700301
@@ -180,14 +210,12 @@ class DataCubeXMM(DataCube):
         """
         Get the frames with irregular CCD exposures.
 
-        Parameters
-        ----------
-        event_list : EventList() object.
-        plot : bool, optional
+        Parameters:
+            event_list (EventList): EventList object.
+            plot (bool): if True, then plot.
 
-        Returns
-        -------
-        bccd_bin_idx_bool : np.array. Array of bools indicating the frames with irregular CCD exposures.
+        Returns:
+            bccd_bin_idx_bool (np.array): Array of bools indicating the frames with irregular CCD exposures.
         """
         ccd_bins = event_list.get_ccd_bins()
 
@@ -280,9 +308,6 @@ class DataCubeXMM(DataCube):
         info = {'event_list'   : self.event_list.filename,
                 'size_arcsec'  : self.size_arcsec,
                 'time_interval': self.time_interval,
-                'extent'       : self.extent,
-                'pixel_size'   : self.pixel_size,
-                'n_bins'       : self.n_bins,
                 'n_t_bins'     : self.n_t_bins,
                 'n_bti_bin'    : self.n_bti_bin,
                 'n_gti_bin'    : self.n_gti_bin,
@@ -297,6 +322,13 @@ class DataCubeXMM(DataCube):
             logger.info(f'{k:>13} : {v}')
         return info
 
+def extract_lc(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
+    """
+    Extract a lightcurve from a data cube by summing through a bounding box.
+    """
+    data = data_cube[xlo:xhi, ylo:yhi]
+    lc = np.nansum(data, axis=(0, 1), dtype=dtype)
+    return lc
 
 if __name__ == "__main__":
     data_array = np.random.rand(10, 10, 10)
@@ -305,3 +337,6 @@ if __name__ == "__main__":
     print(np.sum(data_cube.data, axis=(0, 1)))
     data_cube.video()
     print(data_cube)
+
+
+

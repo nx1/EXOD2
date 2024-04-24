@@ -1,3 +1,10 @@
+"""
+Functions to calculate bad time intervals (BTI) for a given lightcurve.
+
+BTIs are defined as time intervals where average count rate the 10.0-12.0 keV energy band
+exceeds a certain threshold. This threshold is usually set to 0.5 ct/s.
+However when combining multiple lightcurves, the threshold can be set to 1.5 ct/s.
+"""
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -9,15 +16,13 @@ def get_bti(time, data, threshold):
     """
     Get the bad time intervals for a given lightcurve.
 
-    Parameters
-    ----------
-    time : Time Array
-    data : Data Array
-    threshold: Threshold for bad time intervals
+    Parameters:
+        time (array): Time Array.
+        data (array): Data Array.
+        threshold (float): Threshold for bad time intervals.
 
-    Returns
-    -------
-    bti : [{'START':500, 'STOP':600}, {'START':700, 'STOP':800}, ...]
+    Returns:
+        bti (list): [{'START':500, 'STOP':600}, {'START':700, 'STOP':800}, ...]
     """
     mask = data > threshold  # you can flip this to get the gti instead (it works)
     if mask.all():
@@ -81,22 +86,20 @@ def plot_bti(time, data, threshold, bti, savepath=None):
 
 def get_bti_bin_idx(bti, bin_t):
     """
-    Get the rejected indexs for an array of time windows
-    given a list of bad time intervals.
+    Get the indexs corresponding to the bad time intervals for an array of time windows given
+    a set of bad time intervals.
 
-    Parameters
-    ----------
-    bti : [{'START':300, 'STOP':500}, {'START':600, 'STOP':800}, ...]
-    bin_t : array
+    Parameters:
+        bti (list): [{'START':300, 'STOP':500}, {'START':600, 'STOP':800}, ...]
+        bin_t (array): Array of time bins.
 
-    Returns
-    -------
-    bti_bin_idx : array of indexs coreesponding to BTIs
+    Returns:
+        bti_bin_idx (array): array of indexs corresponding to BTIs.
     """
     t_starts = [b['START'] for b in bti]
-    t_stops = [b['STOP'] for b in bti]
+    t_stops  = [b['STOP'] for b in bti]
     idx_starts = np.searchsorted(bin_t, t_starts)
-    idx_stops = np.searchsorted(bin_t, t_stops) - 1
+    idx_stops  = np.searchsorted(bin_t, t_stops) - 1
 
     bti_bin_idx = np.array([])
     for i in range(len(idx_starts)):
@@ -106,21 +109,17 @@ def get_bti_bin_idx(bti, bin_t):
     return bti_bin_idx
 
 
-def get_bti_bin_idx_bool(rejected_idx, bin_t):
+def get_bti_bin_idx_bool(bti_bin_idx, bin_t):
     """
-    Get the boolean array corresponding to if a time
-    window was a bad time interval or not.
+    Get the boolean array mask corresponding to if a time window was a bad time interval or not.
 
-    Parameters
-    ----------
-    rejected_idx : [1,4,6]
-    bin_t : [0, 1.5, 2.0, 3.5, 5.0, 6.5, 8.0]
+    Parameters:
+        bti_bin_idx (array): [1,4,6]
+        bin_t (array): [0, 1.5, 2.0, 3.5, 5.0, 6.5, 8.0]
 
-    Returns
-    -------
-    bti_bin_idx_bool : [F,T,F,F,T,F,T,F]
-
+    Returns:
+        bti_bin_idx_bool (array): [F,T,F,F,T,F,T,F]
     """
     arr = np.arange(len(bin_t))
-    bti_bin_idx_bool = np.isin(arr, rejected_idx)
+    bti_bin_idx_bool = np.isin(arr, bti_bin_idx)
     return bti_bin_idx_bool

@@ -1,7 +1,21 @@
+"""
+This module contains classes for filtering regions and lightcurves.
+"""
 from abc import ABC, abstractmethod
 
 
 class FilterBase(ABC):
+    """
+    Base class for filters. All filters should inherit from this class.
+
+    Parameters:
+        name (str): Name of the filter.
+
+    Methods:
+        apply(df): Apply the filter to the input dataframe.
+        get_parameters(): Return a dictionary of filter-specific parameters.
+        info(): Return a dictionary with information about the filter.
+    """
     def __init__(self, name):
         self.name = name
         self.df = None

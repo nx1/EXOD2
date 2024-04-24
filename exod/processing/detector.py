@@ -147,7 +147,7 @@ class Detector:
         Extract the lightcurves from the variable regions found.
         Returns
         -------
-        df_lcs : DataFrame of Lightcurves
+        df_lc : DataFrame of Lightcurves
         """
         df_lcs = get_region_lcs(data_cube=self.data_cube, df_regions=self.df_regions)
         return df_lcs
@@ -329,7 +329,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    # dl.data_cube.video(savepath=None)
+    # dl.data_cube.video(savedir=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)

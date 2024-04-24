@@ -159,6 +159,14 @@ class EventList:
         self.is_read = False
 
     @property
+    def N_events(self):
+        return len(self.data)
+
+    @property
+    def mean_rate(self):
+        return self.N_events / self.exposure
+
+    @property
     def info(self):
         info = {
             'filename'   : self.filename,
