@@ -1,19 +1,45 @@
 from exod.utils.logger import logger
+from exod.utils.path import data_util
 from exod.xmm.epic_submodes import ALL_SUBMODES
 
 from pathlib import Path
 import numpy as np
 from astropy.io import fits
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, setdiff
 
 
 class EventList:
+    """
+    Class for handling EventList objects.
+
+    Attributes:
+        path (Path): Path to the event list file.
+        filename (str): Name of the event list file.
+        data (Table): Data from the event list file.
+        is_read (bool): Flag indicating if the event list file has been read.
+        is_merged (bool): Flag indicating if the event list is a merged one.
+
+    Methods:
+        read: Reads the event list file and extracts necessary information.
+        from_event_lists: Creates a merged EventList from a list of existing ones.
+        filter_by_energy: Filters the event list data by energy range.
+        check_submode: Checks if the submode of the event list is supported.
+        is_supported_submode: Returns if the submode of the event list is supported.
+        remove_MOS_central_ccd: Removes the central CCD of MOS if not in PrimeFullWindow.
+        remove_bad_rows: Removes bad PN rows as per Struder et al. 2001b.
+        remove_borders: Removes borders from the event list data.
+        get_ccd_bins: Gets the CCD bins for the instrument.
+        unload_data: Unloads the data from the event list to save memory.
+        info: Returns a dictionary containing information about the event list.
+    """
     def __init__(self, path):
         self.path      = Path(path)
         self.filename  = self.path.name
         self.data      = None
         self.is_read   = False
         self.is_merged = False
+
+        self.N_event_lists = 1
 
     def __repr__(self):
         return f'EventList({self.path})'
@@ -29,10 +55,11 @@ class EventList:
         self.instrument = self.header['INSTRUME']
         self.submode    = self.header['SUBMODE']
         self.date       = self.header['DATE-OBS']
+        self.revolution = self.header['REVOLUT']
         self.object     = self.header['OBJECT']
         self.exposure   = self.header['TELAPSE']
-        self.N_events   = self.header['NAXIS2']
-        self.mean_rate  = self.N_events / self.exposure
+        # self.N_events   = self.header['NAXIS2']
+        # self.mean_rate  = self.N_events / self.exposure
         self.time_min   = np.min(self.data['TIME'])
         self.time_max   = np.max(self.data['TIME'])
 
@@ -40,6 +67,7 @@ class EventList:
         self.remove_bad_rows()
         self.remove_borders()
         self.remove_MOS_central_ccd()
+        self.remove_hot_pixels()
         self.is_read = True
 
     @classmethod
@@ -91,12 +119,13 @@ class EventList:
         event_list.instrument    = [e.instrument for e in event_lists]
         event_list.submode       = [e.submode for e in event_lists]
         event_list.date          = event_lists[0].date
+        event_list.revolution    = event_lists[0].revolution
         event_list.object        = event_lists[0].object
         event_list.time_min      = latest_start
         event_list.time_max      = earliest_stop
         event_list.exposure      = event_list.time_max - event_list.time_min
-        event_list.N_events      = len(data_stacked)
-        event_list.mean_rate     = event_list.N_events / event_list.exposure
+        # event_list.N_events      = len(data_stacked)
+        # event_list.mean_rate     = event_list.N_events / event_list.exposure
         return event_list
 
     def filter_by_energy(self, min_energy, max_energy):
@@ -121,6 +150,20 @@ class EventList:
             self.data = self.data[~((self.data['CCDNR'] == 4) & (self.data['RAWX'] == 12)) &
                                   ~((self.data['CCDNR'] == 5) & (self.data['RAWX'] == 11)) &
                                   ~((self.data['CCDNR'] == 10) & (self.data['RAWX'] == 28))]
+
+    def remove_hot_pixels(self):
+        """
+        Remove hot pixels from the event list data.
+        """
+        hot_pixels = {'EPN': data_util / 'hotpix_PN.csv',
+                      'EMOS1': data_util / 'hotpix_M1.csv',
+                      'EMOS2': data_util / 'hotpix_M2.csv'}
+        pre = self.N_events
+        tab_hotpix = Table.read(hot_pixels[self.instrument], format='csv')
+        tab_hotpix = tab_hotpix[(self.revolution > tab_hotpix['REV1']) & (self.revolution < tab_hotpix['REV2'])]
+        self.data = setdiff(table1=self.data, table2=tab_hotpix, keys=['CCDNR', 'RAWX', 'RAWY'])
+        logger.info(f'Removed Hot Pixels {self.instrument} | Pre: {pre} Post: {self.N_events} (-{pre - self.N_events})')
+
 
     def remove_borders(self):
         """
@@ -169,17 +212,23 @@ class EventList:
     @property
     def info(self):
         info = {
-            'filename'   : self.filename,
-            'obsid'      : self.obsid,
-            'instrument' : self.instrument,
-            'submode'    : self.submode,
-            'date'       : self.date,
-            'object'     : self.object,
-            'exposure'   : self.exposure,
-            'N_events'   : self.N_events,
-            'mean_rate'  : self.mean_rate
+            'filename'      : self.filename,
+            'obsid'         : self.obsid,
+            'N_event_lists' : self.N_event_lists,
+            'instrument'    : self.instrument,
+            'submode'       : self.submode,
+            'date'          : self.date,
+            'revolution'    : self.revolution,
+            'object'        : self.object,
+            'exposure'      : self.exposure,
+            'N_events'      : self.N_events,
+            'mean_rate'     : self.mean_rate
             }
         for k, v in info.items():
             logger.info(f'{k:>10} : {v}')
         return info
 
+if __name__ == "__main__":
+    evt = EventList('../../data/processed/0891803001/P0891803001PNS003PIEVLI0000_FILT.fits')
+    evt.read()
+    print(repr(evt.header))

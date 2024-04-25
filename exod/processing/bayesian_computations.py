@@ -229,9 +229,7 @@ class PrecomputeBayesLimits:
         return f'{self.threshold_sigma}'
 
     def load(self):
-        logger.info(f'Loading precomputed Bayes limits for sigma={self.threshold_sigma}')
         if self.is_loaded:
-            logger.info('Already loaded!')
             return None
         range_mu, n_peak_threshold, n_eclipse_threshold = load_precomputed_bayes_limits(threshold_sigma=self.threshold_sigma)
         self.range_mu = range_mu

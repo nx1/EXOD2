@@ -1,16 +1,14 @@
-from tqdm import tqdm
-
-from exod.processing.bayesian_computations import load_precomputed_bayes_limits, B_peak, B_eclipse, \
-    PrecomputeBayesLimits, B_peak_log, B_eclipse_log
-from exod.processing.data_cube import extract_lc
-from exod.utils.plotting import cmap_image
 from exod.utils.logger import logger
-from exod.pre_processing.data_loader import DataLoader
+from exod.utils.path import data, read_observation_ids, savepaths_combined
 from exod.utils.util import save_result, load_info, load_df, get_unique_xy
-from exod.xmm.event_list import EventList
-from exod.xmm.observation import Observation
+from exod.utils.plotting import cmap_image
+from exod.pre_processing.data_loader import DataLoader
+from exod.processing.bayesian_computations import load_precomputed_bayes_limits, PrecomputeBayesLimits, B_peak_log, B_eclipse_log
+from exod.processing.data_cube import extract_lc
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
+from exod.xmm.event_list import EventList
+from exod.xmm.observation import Observation
 
 import itertools
 from random import shuffle
@@ -36,7 +34,6 @@ class Pipeline:
         time_interval (int): Time interval in seconds.
         gti_only (bool): Use only Good Time Intervals.
         remove_partial_ccd_frames (bool): Remove partial CCD frames.
-        gti_threshold (float): Threshold for Good Time Intervals.
         min_energy (float): Minimum energy in keV.
         max_energy (float): Maximum energy in keV.
         clobber (bool): Overwrite existing files.
@@ -45,7 +42,7 @@ class Pipeline:
         n_regions (int): Number of regions detected.
     """
     def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False,
-                 remove_partial_ccd_frames=True, gti_threshold=1.5, min_energy=0.2,
+                 remove_partial_ccd_frames=True, min_energy=0.2,
                  max_energy=10.0, clobber=False, precomputed_bayes_limit=PrecomputeBayesLimits(threshold_sigma=3)):
         self.runid = None
         self.obsid = obsid
@@ -57,7 +54,6 @@ class Pipeline:
         self.time_interval = time_interval
         self.gti_only = gti_only
         self.remove_partial_ccd_frames = remove_partial_ccd_frames
-        self.gti_threshold = gti_threshold
         self.min_energy = min_energy
         self.max_energy = max_energy
         self.clobber = clobber
@@ -102,13 +98,9 @@ class Pipeline:
         """
         Run the pipeline on a subset of overlapping exposures.
 
-        Parameters
-        ----------
-        i_subset : int : The subset number
-        subset_overlapping_exposures: list of EventList : The list of EventList objects that overlap
-
-        Returns
-        -------
+        Parameters:
+            i_subset (int): The subset number
+            subset_overlapping_exposures (list of EventList): The list of EventList objects that overlap.
 
         """
         savedir = self.get_savedir(subset_number=i_subset)
@@ -120,13 +112,8 @@ class Pipeline:
         event_list = EventList.from_event_lists(subset_overlapping_exposures)
 
         # Run Data Loader
-        dl = DataLoader(event_list=event_list,
-                        time_interval=self.time_interval,
-                        size_arcsec=self.size_arcsec,
-                        gti_only=self.gti_only,
-                        min_energy=self.min_energy,
-                        max_energy=self.max_energy,
-                        gti_threshold=self.gti_threshold,
+        dl = DataLoader(event_list=event_list, time_interval=self.time_interval, size_arcsec=self.size_arcsec,
+                        gti_only=self.gti_only, min_energy=self.min_energy, max_energy=self.max_energy,
                         remove_partial_ccd_frames=self.remove_partial_ccd_frames)
         dl.run()
 
@@ -153,16 +140,16 @@ class Pipeline:
         dfs_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
 
         # Plot Lightcurves for each pixel.
-        x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
-        x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
-        unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        for x, y in unique_xy:
-            plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
+        # x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
+        # x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
+        # unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
+        # for x, y in unique_xy:
+        #     plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
 
         # Plot Lightcurves for each region
-        if dfs_lcs:
-            for df_lc in dfs_lcs:
-                plot_df_lc(df_lc=df_lc, savedir=savedir)
+        # if dfs_lcs:
+        #     for df_lc in dfs_lcs:
+        #         plot_df_lc(df_lc=df_lc, savedir=savedir)
 
         # Plot Image
         plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
@@ -192,7 +179,6 @@ class Pipeline:
 
     def load_results(self):
         """Load results for all observation subsets, returns a list of dictionaries."""
-        print('=======================\n=======================\n=======================')
         total_subsets = len(list(self.observation.path_results.glob('subset_*')))
         logger.debug(f'Found {total_subsets} subset folders')
         if total_subsets == 0:
@@ -236,7 +222,6 @@ class Pipeline:
             'size_arcsec'               : self.size_arcsec,
             'time_interval'             : self.time_interval,
             'gti_only'                  : self.gti_only,
-            'gti_threshold'             : self.gti_threshold,
             'remove_partial_ccd_frames' : self.remove_partial_ccd_frames,
             'min_energy'                : self.min_energy,
             'max_energy'                : self.max_energy,
@@ -400,21 +385,18 @@ def parameter_grid(obsids):
         print(params)
         pipeline = Pipeline(**params)
 
-    Parameters
-    ----------
-    obsids : list of obsids
+    Parameters:
+        obsids (list): list of obsids
 
     Returns
-    -------
-    params : parameters for a run.
+        params (dict): parameters for a run.
     """
     parameter_grid = {
         'obsid'                     : obsids,
         'size_arcsec'               : [20.0],
-        'time_interval'             : [50, 100],
+        'time_interval'             : [5, 50, 200],
         'gti_only'                  : [False],
         'remove_partial_ccd_frames' : [True],
-        'gti_threshold'             : [1.5],
         'energy_ranges'             : [[0.2, 2.0], [2.0, 12.0], [0.2, 12.0]],
         'clobber'                   : [False],
         'precomputed_bayes_limit'   : [PrecomputeBayesLimits(threshold_sigma=3)],
@@ -432,26 +414,12 @@ def parameter_grid(obsids):
         yield params
 
 
-if __name__=="__main__":
-    from exod.utils.path import read_observation_ids
-    from exod.utils.path import data
-
-    obsids = read_observation_ids(data / 'observations.txt')
-    # obsids = read_observation_ids(data / 'all_obsids.txt')
-    # shuffle(obsids)
-    obsids = obsids[:3]
-
+def combine_results(obsids):
     """
-    all_results = []
-    for params in parameter_grid(obsids=obsids):
-        p = Pipeline(**params)
-        p.run()
+    Combine all results into a single DataFrame and save to results_combined.
 
-        # Collect results.
-        results_list = p.load_results()
-        if results_list:
-            for r in results_list:
-                all_results.append(r)
+    Parameters:
+        obsids (list): list of observation IDs
     """
     all_results = []
     for params in parameter_grid(obsids=obsids):
@@ -460,24 +428,45 @@ if __name__=="__main__":
         if results_list:
             for r in results_list:
                 all_results.append(r)
-                print(len(all_results))
 
-    # combine all info
+    # Combine all DataFrames
+    df_bti      = pd.concat([r.get('bti') for r in all_results], axis=0)
+    df_regions  = pd.concat([r.get('regions') for r in all_results], axis=0)
+    df_lc       = pd.concat([df for r in all_results for key, df in r.items() if key.startswith('lc_')])
     df_run_info = pd.DataFrame([r['run_info'] for r in all_results])
     df_obs_info = pd.DataFrame([r['obs_info'] for r in all_results])
     df_dl_info  = pd.DataFrame([r['dl_info'] for r in all_results])
     df_dc_info  = pd.DataFrame([r['dc_info'] for r in all_results])
     df_evt_info = pd.DataFrame([r['evt_info'] for r in all_results])
-    print(df_run_info)
-    print(df_obs_info)
-    print(df_dl_info)
-    print(df_dc_info)
-    print(df_evt_info)
 
-    # combine all DataFrames
-    df_bti     = pd.concat([r.get('bti') for r in all_results], axis=0)
-    df_regions = pd.concat([r.get('regions') for r in all_results], axis=0)
-    df_lc      = pd.concat([df for key, df in r.items() if key.startswith('lc_')])
-    print(df_bti)
-    print(df_regions)
-    print(df_lc)
+    # Save all dataframes
+    logger.info('Saving DataFrames...')
+    df_bti.to_csv(savepaths_combined['bti'], index=False)
+    df_regions.to_csv(savepaths_combined['regions'], index=False)
+    df_lc.to_csv(savepaths_combined['lc'], index=False)
+    df_run_info.to_csv(savepaths_combined['run_info'], index=False)
+    df_obs_info.to_csv(savepaths_combined['obs_info'], index=False)
+    df_dl_info.to_csv(savepaths_combined['dl_info'], index=False)
+    df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
+    df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
+    logger.info(df_bti)
+    logger.info(df_regions)
+    logger.info(df_lc)
+    logger.info(df_run_info)
+    logger.info(df_obs_info)
+    logger.info(df_dl_info)
+    logger.info(df_dc_info)
+    logger.info(df_evt_info)
+
+
+if __name__=="__main__":
+
+    obsids = read_observation_ids(data / 'observations.txt')
+    # obsids = read_observation_ids(data / 'all_obsids.txt')
+    shuffle(obsids)
+
+    for params in parameter_grid(obsids=obsids):
+        p = Pipeline(**params)
+        p.run()
+
+    combine_results()

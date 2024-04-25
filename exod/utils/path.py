@@ -24,7 +24,14 @@ all_paths = {
     'logs': logs
 }
 
-
+savepaths_combined = {'bti'      : data_combined / 'df_bti.csv',
+                      'regions'  : data_combined / 'df_regions.csv',
+                      'lc'       : data_combined / 'df_lc.csv',
+                      'run_info' : data_combined / 'df_run_info.csv',
+                      'obs_info' : data_combined / 'df_obs_info.csv',
+                      'dl_info'  : data_combined / 'df_dl_info.csv',
+                      'dc_info'  : data_combined / 'df_dc_info.csv',
+                      'evt_info' : data_combined / 'df_evt_info.csv'}
 def create_all_paths():
     for name, path in all_paths.items():
         logger.info(f'Creating Path: {path}')
@@ -61,5 +68,6 @@ if __name__ == "__main__":
     for name, path in all_paths.items():
         exists = "exists" if path.exists() else "does not exist"
         logger.info(f"{name:<15} : {path} : {exists}")
+
 
 

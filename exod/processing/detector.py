@@ -324,7 +324,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Initialize the Data Loader
     dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec, gti_only=gti_only,
-                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=remove_partial_ccd_frames)
+                    min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=remove_partial_ccd_frames)
     dl.run()
 
     # Create Data Cube

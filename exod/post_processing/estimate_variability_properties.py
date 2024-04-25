@@ -194,9 +194,8 @@ if __name__ == "__main__":
 
     for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
         event_list = EventList.from_event_lists(subset_overlapping_exposures)
-        dl = DataLoader(event_list=event_list, time_interval=500, size_arcsec=20,
-                        gti_only=False, min_energy=0.2, max_energy=10.0,
-                        gti_threshold=1.5, remove_partial_ccd_frames=True)
+        dl = DataLoader(event_list=event_list, time_interval=500, size_arcsec=20, gti_only=False, min_energy=0.2,
+                        max_energy=10.0, remove_partial_ccd_frames=True)
         dl.run()
 
         img = observation.images[0]

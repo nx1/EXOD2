@@ -114,8 +114,8 @@ class Observation:
 def get_overlapping_eventlist_subsets(event_lists):
     """
     Return the overlapping eventlists for a given observation.
-
-    event_lists : list of EventLists that have been .read()
+    Parameters:
+        event_lists (list): list of EventList() objects that have been .read()
 
     In most cases this will just return a list of 1 list like
     [[M1.fits, M2.fits, PN.fits'] with the event files. However,

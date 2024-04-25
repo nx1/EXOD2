@@ -317,6 +317,7 @@ class DataCubeXMM(DataCube):
                 'bccd_frac'    : self.bccd_frac,
                 'bbox_img'     : self.bbox_img,
                 'shape'        : self.shape,
+                'total_values' : np.prod(self.shape),
                 'memory_mb'    : self.memory_mb}
         for k, v in info.items():
             logger.info(f'{k:>13} : {v}')

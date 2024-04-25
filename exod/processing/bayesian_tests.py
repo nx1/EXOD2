@@ -260,7 +260,7 @@ def bayes_rate_estimate(obsid='0886121001'):
 
     range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
     dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                    min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold, remove_partial_ccd_frames=False)
+                    min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
     dl.run()
 
 
@@ -347,8 +347,7 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     tab_all_amplitudes = []
     for size_arcsec in spacebins:
         dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold,
-                        remove_partial_ccd_frames=False)
+                        min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
         dl.run()
 
         data_cube = dl.data_cube
@@ -456,8 +455,7 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     tab_all_amplitudes = []
     for timebin in timebins:
         dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                        min_energy=min_energy, max_energy=max_energy, gti_threshold=gti_threshold,
-                        remove_partial_ccd_frames=False)
+                        min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
         dl.run()
 
         data_cube = dl.data_cube
@@ -562,8 +560,7 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
         for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
             event_list = EventList.from_event_lists(subset_overlapping_exposures)
             dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
-                            gti_only=gti_only, min_energy=min_energy, max_energy=max_energy,
-                            gti_threshold=gti_threshold)
+                            gti_only=gti_only, min_energy=min_energy, max_energy=max_energy)
             dl.run()
 
             data_cube = dl.data_cube

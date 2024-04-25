@@ -1,3 +1,6 @@
+"""
+This module contains code for crossmatching the regions with various catalogues.
+"""
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -14,8 +17,16 @@ from exod.utils.path import data_util, data_results
 from exod.utils.simbad_classes import simbad_classifier
 from exod.xmm.observation import Observation
 
-
 def crossmatch_dr13_slim(df_regions):
+    """
+    Crossmatch the regions with the 4XMM DR13 slim catalogue.
+
+    Parameters:
+        df_regions (pd.DataFrame): DataFrame containing the regions to crossmatch.
+
+    Returns:
+        tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
+    """
     tab_xmm = Table.read(data_util / '4XMM_slim_DR13cat_v1.0.fits')
     skycoord_xmm = SkyCoord(ra=tab_xmm['SC_RA'], dec=tab_xmm['SC_DEC'], unit=u.deg)
     sky_coords = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
@@ -33,6 +44,15 @@ def crossmatch_dr13_slim(df_regions):
 
 
 def crossmatch_tranin_dr12(df_regions):
+    """
+    Crossmatch the regions with the CLAXON Hugo Tranin DR12 catalogue.
+
+    Parameters:
+        df_regions (pd.DataFrame): DataFrame containing the regions to crossmatch.
+
+    Returns:
+        tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
+    """
     tab_xmm = Table.read(data_util / 'tranin/classification_DR12_with_input.fits')
     skycoord_xmm = SkyCoord(ra=tab_xmm['RA'], dec=tab_xmm['DEC'], unit=u.deg)
     sky_coords = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
@@ -59,14 +79,12 @@ def crossmatch_simbad(df_region, radius):
     This function queries SIMBAD with all the coordinates at once which saves time
     as you don't need to perform an individual query for each set of coordinates.
 
-    Parameters
-    ----------
-    df_region : astropy.Table or pd.DataFrame containing 'ra' and 'dec' in degrees
-    radius : astropy.units eg. 2*u.arcmin
+    Parameters:
+        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees
+        radius (astropy.units): Radius to search around the coordinates.
 
-    Returns
-    -------
-    tab_res : astropy.Table result from SIMBAD query.
+    Returns:
+        tab_res (astropy.Table) result from SIMBAD query.
     """
     logger.info(f'Crossmatching df_region len={len(df_region)} with SIMBAD, radius={radius}')
 
@@ -104,15 +122,13 @@ def crossmatch_vizier(df_region, radius, catalog):
     """
     Crossmatch Vizier catalogue.
 
-    Parameters
-    ----------
-    df_region : astropy.Table or pd.DataFrame containing 'ra' and 'dec' in degrees
-    radius : astropy.units eg. 2*u.arcmin
-    catalog : Vizier Catalogue to query.
+    Parameters:
+        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees.
+        radius (astropy.units): Radius to search around the coordinates. eg. 2*u.arcmin.
+        catalog (str): Name of the Vizier catalogue to query.
 
-    Returns
-    -------
-    tab_res : astropy.table.Table
+    Returns:
+        tab_res (astropy.Table) result from Vizier query.
     """
     v = Vizier
     coords = SkyCoord(ra=df_region['ra'],
@@ -135,14 +151,12 @@ def get_df_regions_no_crossmatch(df_regions, tab_res):
     tab_res provided by astropy, it does this by looking at the dataframe index and the
     SCRIPT_NUMBER_ID (which has been adjusted to use 0 indexing).
 
-    Parameters
-    ----------
-    df_regions : pd.DataFrame that was used to query SIMBAD.
-    tab_res : astropy.Table that was returned by the SIMBAD query.
+    Parameters:
+        df_regions (pd.DataFrame): DataFrame that was used to query SIMBAD.
+        tab_res (astropy.Table): Table that was returned by the SIMBAD query.
 
-    Returns
-    -------
-    df_regions_no_crossmatch : pd.DataFrame All the regions that did not have a successful crossmatch.
+    Returns:
+        df_regions_no_crossmatch (pd.DataFrame): All the regions that did not have a successful crossmatch.
     """
     col = _get_table_id_col(tab_res)
     l1 = df_regions.index
@@ -162,14 +176,12 @@ def get_df_regions_with_crossmatch(df_regions, tab_res):
     tab_res provided by astropy, it does this by looking at the dataframe index and the
     SCRIPT_NUMBER_ID or _q (which has been adjusted to use 0 indexing).
 
-    Parameters
-    ----------
-    df_regions : pd.DataFrame that was used to query SIMBAD.
-    tab_res : astropy.Table that was returned by the SIMBAD query.
+    Parameters:
+        df_regions (pd.DataFrame): DataFrame that was used to query SIMBAD.
+        tab_res (astropy.Table): Table that was returned by the SIMBAD query.
 
-    Returns
-    -------
-    df_regions_no_crossmatch : pd.DataFrame All the regions that did not have a successful crossmatch.
+    Returns:
+        df_regions_with_crossmatch (pd.DataFrame): All the regions that did have a successful crossmatch.
     """
     col = _get_table_id_col(tab_res)
     l1 = np.array(df_regions.index)
@@ -189,24 +201,28 @@ def classify_simbad_otype(tab_res):
     not in the simbad_classifier dictionary which causes errors. My Guess is that
     we will do something more sophisticated than this, however it is a good start.
 
-    Parameters
-    ----------
-    tab_res : astropy.Table with OTYPE column
+    Parameters:
+        tab_res (astropy.Table): Table containing the SIMBAD results with an OTYPE column.
 
-    Returns
-    -------
-    tab_res : astropy.Table with the CLASSIFICATION column added.
+    Returns:
+        tab_res (astropy.Table): Table with the CLASSIFICATION column added.
     """
     classification = [simbad_classifier[t] for t in tab_res['OTYPE']]
     tab_res['CLASSIFICATION'] = classification
     return tab_res
 
 
-def plot_simbad_crossmatch_image(obsid,
-                                 df_all_regions_no_crossmatch,
-                                 df_all_regions_with_crossmatch,
-                                 tab_res):
+def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch,
+                                 df_all_regions_with_crossmatch, tab_res):
+    """
+    Plot the SIMBAD crossmatch results on the image for a specific observation.
 
+    Parameters:
+        obsid (str): Observation ID to plot.
+        df_all_regions_no_crossmatch (pd.DataFrame): DataFrame containing all regions with no crossmatch.
+        df_all_regions_with_crossmatch (pd.DataFrame): DataFrame containing all regions with a crossmatch.
+        tab_res (astropy.Table): Table containing the SIMBAD results.
+    """
     observation = Observation(obsid)
     observation.get_files()
     img = observation.images[0]

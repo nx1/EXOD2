@@ -25,14 +25,14 @@ class DataLoader:
         remove_partial_ccd_frames (bool): If True, remove frames with partial CCD exposure.
     """
     def __init__(self, event_list, time_interval=50, size_arcsec=10, gti_only=False, min_energy=0.2, max_energy=12.0,
-                 gti_threshold=0.5, remove_partial_ccd_frames=True):
+                 remove_partial_ccd_frames=True):
         self.event_list    = event_list
         self.time_interval = time_interval
         self.size_arcsec   = size_arcsec
         self.gti_only      = gti_only
         self.min_energy    = min_energy
         self.max_energy    = max_energy
-        self.gti_threshold = gti_threshold
+        self.gti_threshold = self.set_gti_threshold()
         self.remove_partial_ccd_frames = remove_partial_ccd_frames
 
     def __repr__(self):
@@ -47,6 +47,13 @@ class DataLoader:
             self.data_cube.remove_frames_partial_CCDexposure()
         if self.gti_only:
             self.data_cube.mask_bti()
+
+    def set_gti_threshold(self):
+        thresholds = {1 : 0.5,
+                      2 : 1.0,
+                      3 : 1.5}
+        self.gti_threshold = thresholds[self.event_list.N_event_lists]
+        return self.gti_threshold
 
     def get_high_energy_lc(self):
         min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
@@ -105,8 +112,8 @@ if __name__ == "__main__":
     obs.get_files()
     obs.get_events_overlapping_subsets()
     event_list = EventList.from_event_lists(obs.events_overlapping_subsets[0])
-    dl = DataLoader(event_list=event_list, size_arcsec=15, time_interval=100, gti_only=False,
-                    gti_threshold=1.5, min_energy=0.2, max_energy=12)
+    dl = DataLoader(event_list=event_list, time_interval=100, size_arcsec=15, gti_only=False, min_energy=0.2,
+                    max_energy=12)
     dl_info = dl.info
     dl.run()
     print(dl.data_cube.shape, dl.data_cube.time_interval)
