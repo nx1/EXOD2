@@ -25,12 +25,12 @@ if __name__ == "__main__":
     timestr = get_current_date_string()
 
     # Load observation IDs
-    obsids = read_observation_ids(data / 'all_obsids.txt')
+    obsids = read_observation_ids(data / 'observations.txt')
     random.shuffle(obsids)
 
     # Define the number of processes to use
     num_processes = 4
-
+    """
     # Create a pool of processes
     with multiprocessing.Pool(processes=num_processes) as pool:
         # Use the pool's map method to apply the process_params function to each set of parameters
@@ -42,5 +42,5 @@ if __name__ == "__main__":
     savepath_csv = data_results / f'EXOD_simlist_{timestr}.csv'
     logger.info(f'Saving EXOD run results to: {savepath_csv}')
     df_results.to_csv(savepath_csv, index=False)
-
+    """
     combine_results(obsids=obsids)

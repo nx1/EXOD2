@@ -161,6 +161,9 @@ class EventList:
         pre = self.N_events
         tab_hotpix = Table.read(hot_pixels[self.instrument], format='csv')
         tab_hotpix = tab_hotpix[(self.revolution > tab_hotpix['REV1']) & (self.revolution < tab_hotpix['REV2'])]
+        if len(tab_hotpix) == 0:
+            logger.info(f'No Hot Pixels found for {self.instrument}')
+            return None
         self.data = setdiff(table1=self.data, table2=tab_hotpix, keys=['CCDNR', 'RAWX', 'RAWY'])
         logger.info(f'Removed Hot Pixels {self.instrument} | Pre: {pre} Post: {self.N_events} (-{pre - self.N_events})')
 

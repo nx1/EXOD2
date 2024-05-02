@@ -10,18 +10,22 @@ data_processed  = data / 'processed'
 data_results    = data / 'results'
 data_combined   = data / 'results_combined'
 data_util       = data / 'util'
+data_plots      = data / 'plots'
 logs            = base / 'logs'
+docs            = base / 'docs'
 
 all_paths = {
-    'base': base,
-    'data': data,
-    'utils': utils,
-    'data_raw': data_raw,
+    'base'          : base,
+    'data'          : data,
+    'utils'         : utils,
+    'data_raw'      : data_raw,
     'data_processed': data_processed,
-    'data_results': data_results,
-    'data_combined': data_combined,
-    'data_util': data_util,
-    'logs': logs
+    'data_results'  : data_results,
+    'data_combined' : data_combined,
+    'data_util'     : data_util,
+    'data_plots'    : data_plots,
+    'logs'          : logs,
+    'docs'          : docs
 }
 
 savepaths_combined = {'bti'      : data_combined / 'df_bti.csv',

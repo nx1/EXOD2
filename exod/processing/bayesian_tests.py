@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from exod.utils.path import data_plots
 from exod.pre_processing.data_loader import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
@@ -19,11 +20,13 @@ import cmasher as cmr
 
 def check_estimate_success():
     """
-    If I remember correctly, it is to assess if the count-rate estimation worked,
-    independently of the value of the quiescent state mu. So, for a range of mu,
-    I add a peak of three different amplitudes, I generate poisson realisations of mu+peak (the crosses),
-    and see the value we can estimate for the peak (the envelopes). You have the residuals at the bottom
-    It might be an earlier version, and not work anymore. It was just to check the success of the rate estimate function
+    If I remember correctly, it is to assess if the count-rate estimation
+    worked, independently of the value of the quiescent state mu. So, for a
+    range of mu, I add a peak of three different amplitudes, I generate poisson
+    realisations of mu+peak (the crosses), and see the value we can estimate
+    for the peak (the envelopes). You have the residuals at the bottom It might
+    be an earlier version, and not work anymore. It was just to check the
+    success of the rate estimate function
     """
     fig, ax = plt.subplots(2,1, sharex=True, gridspec_kw={'height_ratios' : [3, 1]})
     colors = cmr.take_cmap_colors(cmap='cmr.ocean', N=3, cmap_range=(0, 0.7))
@@ -73,6 +76,8 @@ def check_estimate_success():
 
     plt.subplots_adjust(hspace=0)
     ax[0].legend(loc='upper left')
+    plt.savefig(data_plots / 'check_estimate_success1.png')
+    plt.savefig(data_plots / 'check_estimate_success1.pdf')
     df_res = pd.DataFrame(all_res)
     print(df_res)
 
@@ -102,6 +107,8 @@ def check_estimate_success():
     plt.xlim(min(tab_peak), max(tab_peak))
     plt.ylim(min(tab_peak), max(tab_peak))
     plt.legend()
+    plt.savefig(data_plots / 'check_estimate_success2.png')
+    plt.savefig(data_plots / 'check_estimate_success2.pdf')
     plt.show()
 
 
@@ -149,6 +156,8 @@ def check_eclipse_estimate_success():
         ax[1].set_ylabel('Residual')
     ax[0].legend(loc='upper left')
     plt.subplots_adjust(hspace=0)
+    plt.savefig(data_plots / 'check_eclipse_estimate_success1.png')
+    plt.savefig(data_plots / 'check_eclipse_estimate_success1.pdf')
     plt.show()
     df = pd.DataFrame(all_res)
     print(df)
@@ -176,6 +185,8 @@ def check_eclipse_estimate_success():
     plt.xlabel('Eclipse amplitude')
     plt.ylabel('Eclipse Count Estimate')
     plt.legend()
+    plt.savefig(data_plots / 'check_eclipse_estimate_success2.png')
+    plt.savefig(data_plots / 'check_eclipse_estimate_success2.pdf')
     plt.show()
 
 
@@ -194,6 +205,9 @@ def plot_some_n_bayes():
     plt.xlabel("Mu")
     plt.ylabel("P(Peak|Data)/P(No Peak|Data)")
     plt.loglog()
+    plt.savefig(data_plots / 'plot_some_n_bayes.png')
+    plt.savefig(data_plots / 'plot_some_n_bayes.pdf')
+    plt.show()
 
 
 def test_bayes_on_false_cube(size):
@@ -238,6 +252,8 @@ def accepted_n_values():
     plt.loglog()
     plt.xlabel(r"$\mu$")
     plt.ylabel("Range of accepted # photons")
+    plt.savefig(data_plots / 'accepted_n_values.png')
+    plt.savefig(data_plots / 'accepted_n_values.pdf')
     plt.show()
 # accepted_n_values()
 
@@ -318,6 +334,8 @@ def bayes_rate_estimate(obsid='0886121001'):
     plt.ylabel('Estimated amplitude')
     # plt.xscale('log')
     # plt.yscale("log")
+    plt.savefig(data_plots / 'bayes_rate_estimate.png')
+    plt.savefig(data_plots / 'bayes_rate_estimate.pdf')
     plt.show()
 
 def bayes_successrate_spacebinning(obsid='0886121001'):
@@ -366,13 +384,13 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
             n_draws_bti = 0
             n_draws_gti = 0
             for trial in range(n_draws):
-                print(f'size_arcsec = {size_arcsec}'
-                      f'amplitude = {amplitude} '
-                      f'trial={trial}/{n_draws} '
-                      f'nbr_caught_gti = {nbr_caught_bti} '
-                      f'nbr_caught_bti = {nbr_caught_bti} '
-                      f'n_draws_bti = {n_draws_bti} '
-                      f'n_draws_gti = {n_draws_gti}')
+                print(f'size_arcsec    = {size_arcsec}\n'
+                      f'amplitude      = {amplitude}\n'
+                      f'trial          = {trial}/{n_draws}\n'
+                      f'nbr_caught_gti = {nbr_caught_bti}\n'
+                      f'nbr_caught_bti = {nbr_caught_bti}\n'
+                      f'n_draws_bti    = {n_draws_bti}\n'
+                      f'n_draws_gti    = {n_draws_gti}')
                 x_pos = np.random.randint(low=10, high=cube.shape[0]-10)
                 y_pos = np.random.randint(low=10, high=cube.shape[1]-10)
                 while np.sum(cube[x_pos,y_pos]) < 1:
@@ -415,6 +433,8 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     plt.xlabel('Peak amplitude')
     plt.ylabel('Fraction of detected')
     plt.xscale('log')
+    plt.savefig(data_plots / 'bayes_rate_estimate.png')
+    plt.savefig(data_plots / 'bayes_rate_estimate.pdf')
     plt.show()
 
     plt.figure()
@@ -518,7 +538,10 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     plt.xlabel('Peak amplitude')
     plt.ylabel('Fraction of detected')
     plt.xscale('log')
+    plt.savefig(data_plots / 'bayes_successrate_timebinning1.png')
+    plt.savefig(data_plots / 'bayes_successrate_timebinning1.pdf')
     plt.show()
+
 
     plt.figure()
     for (tab_result_gti,tab_result_bti), timebin, tab_amplitude, color in zip(all_timebin_results, timebins,tab_all_amplitudes, colors):
@@ -531,6 +554,8 @@ def bayes_successrate_timebinning(obsid='0886121001'):
     plt.xlabel('Peak count')
     plt.ylabel('Fraction of detected')
     plt.xscale('log')
+    plt.savefig(data_plots / 'bayes_successrate_timebinning2.png')
+    plt.savefig(data_plots / 'bayes_successrate_timebinning2.pdf')
     plt.show()
 
 def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_interval=1000):
@@ -593,6 +618,8 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
     plt.legend()
     plt.xlabel("Relative amplitude of eclipse")
     plt.ylabel("Fraction of detected eclipses")
+    plt.savefig(data_plots / 'bayes_eclipse_successrate_depth.png')
+    plt.savefig(data_plots / 'bayes_eclipse_successrate_depth.pdf')
     plt.show()
 
 
@@ -627,6 +654,8 @@ def plot_B_peak():
     plt.ylim(0)
     plt.xlim(mu_lo, mu_hi)
     plt.legend()
+    plt.savefig(data_plots / 'B_peak.png')
+    plt.savefig(data_plots / 'B_peak.pdf')
     plt.show()
 
 
@@ -660,6 +689,8 @@ def plot_B_eclipse():
     plt.tight_layout()
     plt.xlim(mu_lo, mu_hi)
     plt.legend()
+    plt.savefig(data_plots / 'B_eclipse.png')
+    plt.savefig(data_plots / 'B_eclipse.pdf')
     plt.show()
 
 
@@ -687,6 +718,8 @@ def plot_B_values_3d():
     ax.set_ylabel(r'Expected ($\mu$)')
     ax.set_zlabel('Bayes Factor (B)')
     plt.tight_layout()
+    plt.savefig(data_plots / 'B_values_3d.png')
+    plt.savefig(data_plots / 'B_values_3d.pdf')
     plt.show()
 
 if __name__ == "__main__":

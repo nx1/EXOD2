@@ -11,6 +11,23 @@ from itertools import combinations
 
 
 class Observation:
+    """
+    Class for handling XMM-Newton observations.
+
+    Attributes:
+        obsid (str): The observation ID.
+        path_raw (Path): Path to the raw data directory (unprocessed).
+        path_processed (Path): Path to the processed data directory (filtered).
+        path_results (Path): Path to the results directory.
+        events_raw (list): List of raw event lists.
+        events_processed (list): List of processed event lists.
+        events_processed_pn (list): List of processed PN event lists.
+        events_processed_mos1 (list): List of processed MOS1 event lists.
+        events_processed_mos2 (list): List of processed MOS2 event lists.
+        events_overlapping_subsets (list): List of overlapping event list subsets.
+        images (list): List of images.
+        source_list (list): List of source lists (OMSMLI files).
+    """
     def __init__(self, obsid):
         self.obsid = obsid
         self.path_raw = data_raw / obsid
