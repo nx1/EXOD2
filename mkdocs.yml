@@ -1,0 +1,18 @@
+site_name: EXOD Documentation
+nav:
+  - Home: index.md
+  - Plots: plots.md
+theme:
+  name: "material"
+  logo: "images/exod_logo_transparent.png"
+  palette:
+    scheme: slate
+
+
+plugins:
+- search
+- mkdocstrings:
+    handlers:
+      python:
+        options:
+          show_submodules: true
