@@ -54,7 +54,6 @@ def create_fake_onebin_burst(data_cube, x_pos, y_pos, time_peak_fraction, amplit
         x_pos (int): x position of the burst.
         y_pos (int): y position of the burst.
         time_peak_fraction (float): 0.0 - 1.0.
-        width_time (float): how long the burst lasts in seconds.
         amplitude (int): Height of burst.
 
     Returns:
