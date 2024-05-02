@@ -226,9 +226,9 @@ class DataCubeXMM(DataCube):
                                                              bins=[ccd_bins, self.bin_t])
 
         if event_list.instrument == 'EPN':
-            quadrant_split = np.split(lcs_ccd, indices_or_sections=(3, 6, 9))
+            quadrant_split         = np.split(lcs_ccd, indices_or_sections=(3, 6, 9))
             lcs_ccd                = np.sum(quadrant_split, axis=1)
-            lcs_median_quadrant     = np.median(quadrant_split, axis=1)
+            lcs_median_quadrant    = np.median(quadrant_split, axis=1)
             lc_median_quadrant_max = np.max(lcs_median_quadrant, axis=0)
             lc_median_quadrant_min = np.min(lcs_median_quadrant, axis=0)
             ccd_bins = [1, 4, 7, 10, 13]
@@ -284,9 +284,10 @@ class DataCubeXMM(DataCube):
         return bccd_bin_idx_bool
 
     def multiply_time_interval(self, n_factor):
-        """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
-        #TODO
-        Important: the BTI need to be re-computed as well, at the DataLoader level most likely"""
+        """
+        Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
+        #TODO the BTI need to be re-computed as well, at the DataLoader level most likely
+        """
 
         self.time_interval = n_factor*self.time_interval
         self.bin_t = self.calc_time_bins()

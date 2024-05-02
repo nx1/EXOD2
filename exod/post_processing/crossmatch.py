@@ -4,18 +4,19 @@ This module contains code for crossmatching the regions with various catalogues.
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
-from astropy.table import Table
-from astropy.wcs import WCS
+from astropy.table import Table, vstack
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
+from tqdm import tqdm
 
 from exod.utils.logger import logger
 from exod.utils.path import data_util, data_results
+from exod.utils.plotting import cmap_image
 from exod.utils.simbad_classes import simbad_classifier
 from exod.xmm.observation import Observation
+
 
 def crossmatch_dr13_slim(df_regions):
     """
@@ -27,9 +28,10 @@ def crossmatch_dr13_slim(df_regions):
     Returns:
         tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
     """
+    logger.info('Crossmatching with 4XMM DR13 slim catalogue')
     tab_xmm = Table.read(data_util / '4XMM_slim_DR13cat_v1.0.fits')
     skycoord_xmm = SkyCoord(ra=tab_xmm['SC_RA'], dec=tab_xmm['SC_DEC'], unit=u.deg)
-    sky_coords = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
+    sky_coords   = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
 
     cmatch = sky_coords.match_to_catalog_sky(skycoord_xmm)
     tab_cmatch = Table(cmatch)
@@ -39,7 +41,7 @@ def crossmatch_dr13_slim(df_regions):
 
     tab_xmm_cmatch = tab_xmm[tab_cmatch['idx']]
     tab_xmm_cmatch['SEP'] = tab_cmatch['sep2d']
-    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'] * 3600
+    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'].to(u.arcsec)
     return tab_xmm_cmatch
 
 
@@ -53,9 +55,10 @@ def crossmatch_tranin_dr12(df_regions):
     Returns:
         tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
     """
+    logger.info('Crossmatching with CLAXON Hugo Tranin DR12 catalogue')
     tab_xmm = Table.read(data_util / 'tranin/classification_DR12_with_input.fits')
     skycoord_xmm = SkyCoord(ra=tab_xmm['RA'], dec=tab_xmm['DEC'], unit=u.deg)
-    sky_coords = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
+    sky_coords   = SkyCoord(ra=df_regions['ra_deg'].values, dec=df_regions['dec_deg'].values, unit='deg', frame='icrs')
 
     cmatch = sky_coords.match_to_catalog_sky(skycoord_xmm)
     tab_cmatch = Table(cmatch)
@@ -65,9 +68,8 @@ def crossmatch_tranin_dr12(df_regions):
 
     tab_xmm_cmatch = tab_xmm[tab_cmatch['idx']]
     tab_xmm_cmatch['SEP'] = tab_cmatch['sep2d']
-    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'] * 3600
+    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'].to(u.arcsec)
     return tab_xmm_cmatch
-
 
 
 def crossmatch_simbad(df_region, radius):
@@ -80,26 +82,19 @@ def crossmatch_simbad(df_region, radius):
     as you don't need to perform an individual query for each set of coordinates.
 
     Parameters:
-        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees
+        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees.
         radius (astropy.units): Radius to search around the coordinates.
 
     Returns:
-        tab_res (astropy.Table) result from SIMBAD query.
+        tab_res (astropy.Table): Result from SIMBAD query.
     """
     logger.info(f'Crossmatching df_region len={len(df_region)} with SIMBAD, radius={radius}')
-
-    logger.info('Creating SkyCoord Object')
-    coords = SkyCoord(ra=df_region['ra'],
-                      dec=df_region['dec'],
-                      unit='deg',
-                      frame='icrs')
-
+    coords = SkyCoord(ra=df_region['ra'], dec=df_region['dec'], unit='deg', frame='icrs')
     simbad = Simbad()
     # Additional fields can be checked with simbad.list_votable_fields()
     simbad.add_votable_fields('otype', 'distance')
 
-
-    logger.info('Querying Region (This can take a while)')
+    logger.info('Querying Region (This can take a while...)')
     tab_res = simbad.query_region(coordinates=coords, radius=radius)
     tab_res['SCRIPT_NUMBER_ID'] = tab_res['SCRIPT_NUMBER_ID'] - 1  # Use 0 Indexing
     logger.info(f'Found {len(tab_res)} results')
@@ -115,7 +110,16 @@ def crossmatch_simbad(df_region, radius):
     tab_res['SEP_DEG'] = sep
     tab_res['SEP_ARCMIN'] = tab_res['SEP_DEG'].to(u.arcmin)
     tab_res['SEP_ARCSEC'] = tab_res['SEP_DEG'].to(u.arcsec)
-    return tab_res
+    
+    logger.info('Keeping Only closest match for each region')
+    rows = []
+    for tab in tqdm(tab_res.group_by('SCRIPT_NUMBER_ID').groups):
+        min_idx = tab['SEP_ARCSEC'].argmin()
+        row = tab[min_idx]
+        rows.append(row)
+    tab_res_closest = vstack(rows)
+    tab_res_closest.errors = tab_res.errors # Append errors attribute
+    return tab_res_closest
 
 
 def crossmatch_vizier(df_region, radius, catalog):
@@ -130,15 +134,30 @@ def crossmatch_vizier(df_region, radius, catalog):
     Returns:
         tab_res (astropy.Table) result from Vizier query.
     """
+    logger.info(f'Crossmatching df_region len={len(df_region)} with Vizier, radius={radius} catalog={catalog}')
     v = Vizier
-    coords = SkyCoord(ra=df_region['ra'],
-                      dec=df_region['dec'],
-                      unit='deg',
-                      frame='icrs')
+    coords = SkyCoord(ra=df_region['ra'], dec=df_region['dec'], unit='deg', frame='icrs')
     tab_list = v.query_region(coords, radius=radius, frame='icrs', catalog=catalog)
     tab_res = tab_list[0]
     tab_res['_q'] = tab_res['_q'] - 1
-    return tab_res
+
+    # Append Seperation To table
+    coords1 = SkyCoord([coords[i] for i in tab_res['_q']])
+    coords2 = SkyCoord(ra=tab_res['RA_ICRS'], dec=tab_res['DE_ICRS'], unit='deg', frame='icrs')
+    sep = coords1.separation(coords2).to(u.arcsec)
+    tab_res['SEP_ARCSEC'] = sep
+
+    print(tab_res)
+
+    # Only Keep the closest Match for each _q
+    rows = []
+    for tab in tqdm(tab_res.group_by('_q').groups):
+        min_idx = tab['SEP_ARCSEC'].argmin()
+        row = tab[min_idx]
+        rows.append(row)
+    tab_res_closest = vstack(rows)
+    print(tab_res_closest)
+    return tab_res_closest
 
 
 def get_df_regions_no_crossmatch(df_regions, tab_res):
@@ -212,8 +231,7 @@ def classify_simbad_otype(tab_res):
     return tab_res
 
 
-def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch,
-                                 df_all_regions_with_crossmatch, tab_res):
+def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch, df_all_regions_with_crossmatch, tab_res):
     """
     Plot the SIMBAD crossmatch results on the image for a specific observation.
 
@@ -231,14 +249,11 @@ def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch,
     wcs = img.wcs
 
     fig, ax = plt.subplots(figsize=(12, 12), subplot_kw={'projection': wcs}, facecolor='grey')
-    cmap = plt.cm.hot
-    cmap.set_bad('black')
-
     m1 = ax.imshow(img_data,
                    norm=LogNorm(),
                    interpolation='none',
                    origin='lower',
-                   cmap=cmap)
+                   cmap=cmap_image)
 
     # Plot Detections without a crossmatch
     df_all_regions_no_crossmatch_obsid = df_all_regions_no_crossmatch[df_all_regions_no_crossmatch['obsid'] == obsid]
@@ -306,3 +321,149 @@ def _get_table_id_col(tab_res):
         return 'SCRIPT_NUMBER_ID'
     else:
         raise KeyError('_q or SCRIPT_NUMBER_ID not found in table columns!')
+
+class CrossMatch:
+    def __init__(self, df_regions):
+        self.df_regions = df_regions
+        self.n_regions  = len(df_regions)
+
+        self.radius_simbad = 1*u.arcmin
+        self.radius_gaia   = 0.5*u.arcmin
+        self.max_sep = 15*u.arcsec # Maximum separation for crossmatch
+
+    def run(self):
+        self.crossmatch_dr13_slim()
+        self.crossmatch_tranin_dr12()
+        self.crossmatch_simbad()
+        self.crossmatch_gaia()
+
+    def split_by_max_seperation(self, tab, colname='SEP_ARCSEC'):
+        mask = tab[colname] < self.max_sep
+        tab_cmatch = tab[mask]
+        tab_no_cmatch = tab[~mask]
+        return tab_cmatch, tab_no_cmatch
+    def crossmatch_dr13_slim(self):
+        self.tab_dr13 = crossmatch_dr13_slim(self.df_regions)
+        self.tab_dr13_cmatch, self.tab_dr13_no_cmatch = self.split_by_max_seperation(self.tab_dr13)
+
+    def crossmatch_tranin_dr12(self):
+        self.tab_dr12 = crossmatch_tranin_dr12(self.df_regions)
+        self.tab_dr12_cmatch, self.tab_dr12_no_cmatch = self.split_by_max_seperation(self.tab_dr12)
+
+    def crossmatch_simbad(self):
+        self.tab_simbad = crossmatch_simbad(self.df_regions, radius=self.radius_simbad)
+        self.tab_simbad_cmatch, self.tab_simbad_no_cmatch = self.split_by_max_seperation(self.tab_simbad)
+        logger.info('Getting Errored SIMBAD Queries')
+        err_idx = [e.line for e in self.tab_simbad.errors]
+        logger.info(f'Found {len(err_idx)} errors')
+
+    def crossmatch_gaia(self):
+        self.tab_gaia = crossmatch_vizier(self.df_regions, radius=self.radius_gaia, catalog='I/355/gaiadr3')
+        self.tab_gaia_cmatch, self.tab_gaia_no_cmatch = self.split_by_max_seperation(self.tab_gaia)
+
+    def plot_pie_chart(self):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2,2, figsize=(8,8))
+        info = self.info
+
+
+        # Plot Pie Charts
+        def autopct_format(values):
+            def my_format(pct):
+                total = sum(values)
+                val = int(round(pct * total / 100.0))
+                return f'{pct:.1f}%\n({val:d})'
+            return my_format
+
+        pie_kwargs = {'labels'     : ['Crossmatch', 'No Crossmatch'],
+                      'startangle' : 90,
+                      'colors'     : ['lime', 'red']}
+
+        fig.suptitle(f'Crossmatch Information | {info["n_regions"]} Regions | max_sep={info["max_sep"]}')
+
+        ax[0,0].set_title('4XMM DR13')
+        data = [info['n_dr13_slim_cmatch'], info['n_dr13_slim_no_cmatch']]
+        ax[0,0].pie(data, autopct=autopct_format(data), **pie_kwargs)
+
+        ax[0,1].set_title('Tranin DR12')
+        data = [info['n_tranin_dr12_cmatch'], info['n_tranin_dr12_no_cmatch']]
+        ax[0,1].pie(data, autopct=autopct_format(data), **pie_kwargs)
+
+        ax[1,0].set_title(f'GAIA ({info['radius_gaia']})')
+        data = [info['n_gaia_dr3_cmatch'], info['n_gaia_dr3_no_cmatch']]
+        ax[1,0].pie(data, autopct=autopct_format(data), **pie_kwargs)
+
+        ax[1,1].set_title(f'SIMBAD ({info["radius_simbad"]})')
+        data = [info['n_simbad_cmatch'], info['n_simbad_no_cmatch']]
+        ax[1,1].pie(data, autopct=autopct_format(data), **pie_kwargs)
+
+        plt.show()
+
+    def plot_seperations(self):
+        fig, ax = plt.subplots(2,2, figsize=(8,8))
+        bins = np.linspace(start=0, stop=100, num=100)
+
+        ax[0,0].set_title('4XMM DR13')
+        ax[0,0].hist(self.tab_dr13['SEP_ARCSEC'], bins=bins, histtype='step', label='SIMBAD Total', color='black')
+        ax[0,0].hist(self.tab_dr13_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
+        ax[0,0].hist(self.tab_dr12_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
+        ax[0,0].set_xlabel('Seperation (arcsec)')
+
+        ax[0,1].set_title('4XMM DR13')
+        ax[0,1].hist(self.tab_dr12['SEP_ARCSEC'], bins=bins, histtype='step', label='SIMBAD Total', color='black')
+        ax[0,1].hist(self.tab_dr12_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
+        ax[0,1].hist(self.tab_dr12_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
+        ax[0,1].set_xlabel('Seperation (arcsec)')
+
+
+        ax[1,0].set_title('GAIA')
+        ax[1,0].hist(self.tab_gaia['SEP_ARCSEC'], bins=bins, histtype='step', label='SIMBAD Total', color='black')
+        ax[1,0].hist(self.tab_gaia_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
+        ax[1,0].hist(self.tab_gaia_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
+        ax[1,0].set_xlabel('Seperation (arcsec)')
+
+        ax[1,1].set_title('SIMBAD')
+        ax[1,1].hist(self.tab_simbad['SEP_ARCSEC'], bins=bins, histtype='step', label='SIMBAD Total', color='black')
+        ax[1,1].hist(self.tab_simbad_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
+        ax[1,1].hist(self.tab_simbad_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
+        ax[1,1].set_xlabel('Seperation (arcsec)')
+
+        for a in ax.flatten():
+            a.legend()
+        plt.show()
+
+    @property
+    def info(self):
+        info = {'radius_simbad'           : self.radius_simbad,
+                'radius_gaia'             : self.radius_gaia,
+                'max_sep'                 : self.max_sep,
+                'n_regions'               : self.n_regions,
+                'n_dr13_slim'             : len(self.tab_dr13),
+                'n_dr13_slim_cmatch'      : len(self.tab_dr13_cmatch),
+                'n_dr13_slim_no_cmatch'   : len(self.tab_dr13_no_cmatch),
+                'n_tranin_dr12'           : len(self.tab_dr12),
+                'n_tranin_dr12_cmatch'    : len(self.tab_dr12_cmatch),
+                'n_tranin_dr12_no_cmatch' : len(self.tab_dr12_no_cmatch),
+                'n_simbad'                : len(self.tab_simbad),
+                'n_simbad_cmatch'         : len(self.tab_simbad_cmatch),
+                'n_simbad_no_cmatch'      : len(self.tab_simbad_no_cmatch),
+                'n_gaia_dr3'              : len(self.tab_gaia),
+                'n_gaia_dr3_cmatch'       : len(self.tab_gaia_cmatch),
+                'n_gaia_dr3_no_cmatch'    : len(self.tab_gaia_no_cmatch)}
+        for k, v in info.items():
+            logger.info(f'{k:>25} : {v}')
+        return info
+
+
+if __name__ == "__main__":
+    from exod.utils.path import data_combined
+    import pandas as pd
+    df_regions = pd.read_csv(data_combined / '30_4_2024' / 'df_regions.csv')
+    df_regions = df_regions[df_regions['runid'].str.contains('50_0.2_12.0')]
+    df_regions = df_regions.iloc[100:200]
+    # df_regions = df_regions.sample(250)
+    crossmatch = CrossMatch(df_regions)
+    crossmatch.run()
+    cmatch_info = crossmatch.info
+    crossmatch.plot_pie_chart()
+    crossmatch.plot_seperations()
