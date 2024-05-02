@@ -1,6 +1,9 @@
 ![](data/EXOD_Logo.png)
+[![Documentation Status](https://readthedocs.org/projects/exod2/badge/?version=latest)](https://exod2.readthedocs.io/en/latest/?badge=latest)
 
 EPIC XMM X-ray outburst detector (EXOD).
+See Documentation at [ReadTheDocs](https://exod2.readthedocs.io/)
+
 # Installation
 ```
 git clone https://github.com/nx1/EXOD2
