@@ -1,0 +1,5 @@
+mkdocs-autorefs
+mkdocs-material
+mkdocs-material-extensions
+mkdocstrings
+mkdocstrings-python
