@@ -1,4 +1,4 @@
-![](data/EXOD_Logo.png)
+![](docs/images/EXOD_Logo.png)
 
 See documentation at [exod2.readthedocs.io](https://exod2.readthedocs.io/)
 
