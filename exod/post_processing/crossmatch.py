@@ -18,57 +18,54 @@ from exod.utils.simbad_classes import simbad_classifier
 from exod.xmm.observation import Observation
 
 
-def crossmatch_dr13_slim(df_region):
+def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     """
-    Crossmatch the regions with the 4XMM DR13 slim catalogue.
+    Crossmatch with an arbitrary Fits Table.
 
     Parameters:
+        fits_path (Path): Path to the FITS file.
         df_region (pd.DataFrame): DataFrame containing the regions to crossmatch.
+        ra_col (str): Column name for the RA values in FITS file.
+        dec_col (str): Column name for the DEC values in FITS file.
 
     Returns:
-        tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
+        tab_fits_cmatch (astropy.Table): Table containing the crossmatched data.
     """
-    logger.info('Crossmatching with 4XMM DR13 slim catalogue')
-    tab_xmm = Table.read(data_util / '4XMM_slim_DR13cat_v1.0.fits')
-    skycoord_xmm = SkyCoord(ra=tab_xmm['SC_RA'], dec=tab_xmm['SC_DEC'], unit=u.deg)
+    tab_fits = Table.read(fits_path)
+
+    skycoord_xmm = SkyCoord(ra=tab_fits[ra_col], dec=tab_fits[dec_col], unit=u.deg, frame='fk5', equinox='J2000')
     skycoord_reg = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
 
     cmatch = skycoord_reg.match_to_catalog_sky(skycoord_xmm)
+
     tab_cmatch = Table(cmatch)
     tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['idx', 'sep2d', 'dist3d'])
     tab_cmatch['sep2d_arcsec'] = tab_cmatch['sep2d'].to(u.arcsec)
     tab_cmatch['idx_orig'] = np.arange(len(tab_cmatch))
 
-    tab_xmm_cmatch = tab_xmm[tab_cmatch['idx']]
-    tab_xmm_cmatch['SEP'] = tab_cmatch['sep2d']
-    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'].to(u.arcsec)
+    tab_fits_cmatch = tab_fits[tab_cmatch['idx']]
+    tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
+    print(tab_fits_cmatch)
+    return tab_fits_cmatch
+
+
+def crossmatch_dr13_slim(df_region):
+    """
+    Crossmatch the regions with the 4XMM DR13 slim catalogue.
+    """
+    logger.info('Crossmatching with 4XMM DR13 slim catalogue')
+    fits_path = data_util / '4XMM_slim_DR13cat_v1.0.fits'
+    tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
     return tab_xmm_cmatch
 
 
 def crossmatch_tranin_dr12(df_region):
     """
     Crossmatch the regions with the CLAXON Hugo Tranin DR12 catalogue.
-
-    Parameters:
-        df_region (pd.DataFrame): DataFrame containing the regions to crossmatch.
-
-    Returns:
-        tab_xmm_cmatch (astropy.Table): Table containing the crossmatched XMM data.
     """
     logger.info('Crossmatching with CLAXON Hugo Tranin DR12 catalogue')
-    tab_xmm = Table.read(data_util / 'tranin/classification_DR12_with_input.fits')
-    skycoord_xmm = SkyCoord(ra=tab_xmm['RA'], dec=tab_xmm['DEC'], unit=u.deg)
-    skycoord_reg = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
-
-    cmatch = skycoord_reg.match_to_catalog_sky(skycoord_xmm)
-    tab_cmatch = Table(cmatch)
-    tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['idx', 'sep2d', 'dist3d'])
-    tab_cmatch['sep2d_arcsec'] = tab_cmatch['sep2d'].to(u.arcsec)
-    tab_cmatch['idx_orig'] = np.arange(len(tab_cmatch))
-
-    tab_xmm_cmatch = tab_xmm[tab_cmatch['idx']]
-    tab_xmm_cmatch['SEP'] = tab_cmatch['sep2d']
-    tab_xmm_cmatch['SEP_ARCSEC'] = tab_xmm_cmatch['SEP'].to(u.arcsec)
+    fits_path = data_util / 'tranin/classification_DR12_with_input.fits'
+    tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='RA', dec_col='DEC')
     return tab_xmm_cmatch
 
 
@@ -219,65 +216,13 @@ def crossmatch_xmm_om(df_region, radius):
     err_sep = [9999 * u.arcsec] * len(err_idx)
     ra_reg  = [skycoord_reg[i].ra for i in err_idx]
     dec_reg = [skycoord_reg[i].dec for i in err_idx]
-    tab_err = Table({'_q' : err_idx,
-                     'RA_REGION_DEG'    : ra_reg,
-                     'DEC_REGION_DEG'   : dec_reg,
-                     'SEP_ARCSEC'       : err_sep})
+    tab_err = Table({'_q'             : err_idx,
+                     'RA_REGION_DEG'  : ra_reg,
+                     'DEC_REGION_DEG' : dec_reg,
+                     'SEP_ARCSEC'     : err_sep})
     tab_res_closest = vstack([tab_res_closest, tab_err])
     tab_res_closest.sort('_q')
-    
     return tab_res_closest
-
-
-def get_df_region_no_crossmatch(df_region, tab_res):
-
-    """
-    Get the rows in df_region containing the regions that did not provide a crossmatch
-    with SIMBAD.
-
-    This function finds all the indexs in the df_region dataframe that are not in the
-    tab_res provided by astropy, it does this by looking at the dataframe index and the
-    SCRIPT_NUMBER_ID (which has been adjusted to use 0 indexing).
-
-    Parameters:
-        df_region (pd.DataFrame): DataFrame that was used to query SIMBAD.
-        tab_res (astropy.Table): Table that was returned by the SIMBAD query.
-
-    Returns:
-        df_region_no_crossmatch (pd.DataFrame): All the regions that did not have a successful crossmatch.
-    """
-    col = _get_table_id_col(tab_res)
-    l1 = df_region.index
-    l2 = tab_res[col]
-    no_crossmatch_indexes = np.setdiff1d(l1, l2)
-    logger.info(f'{len(no_crossmatch_indexes)} / {len(l1)} regions have no counterparts with SIMBAD')
-    df_region_no_crossmatch = df_region.iloc[no_crossmatch_indexes]
-    return df_region_no_crossmatch
-
-
-def get_df_region_with_crossmatch(df_region, tab_res):
-    """
-    Get the rows in df_region containing the regions that did not provide a crossmatch
-    with SIMBAD.
-
-    This function finds all the indexs in the df_region dataframe that are not in the
-    tab_res provided by astropy, it does this by looking at the dataframe index and the
-    SCRIPT_NUMBER_ID or _q (which has been adjusted to use 0 indexing).
-
-    Parameters:
-        df_region (pd.DataFrame): DataFrame that was used to query SIMBAD.
-        tab_res (astropy.Table): Table that was returned by the SIMBAD query.
-
-    Returns:
-        df_region_with_crossmatch (pd.DataFrame): All the regions that did have a successful crossmatch.
-    """
-    col = _get_table_id_col(tab_res)
-    l1 = np.array(df_region.index)
-    l2 = np.array(tab_res[col])
-    common_idx = np.intersect1d(l1, l2)
-    logger.info(f'{len(common_idx)} / {len(l1)} regions have counterparts with SIMBAD')
-    df_region_with_crossmatch = df_region.iloc[common_idx]
-    return df_region_with_crossmatch
 
 
 def classify_simbad_otype(tab_res):
@@ -298,6 +243,17 @@ def classify_simbad_otype(tab_res):
     classification = [simbad_classifier[t] for t in tab_res['OTYPE']]
     tab_res['CLASSIFICATION'] = classification
     return tab_res
+
+def crossmatch_regions_subsets():
+    """
+    Crossmatch regions between the different simulation subsets.
+
+    """
+
+
+    return ''
+
+
 
 
 def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch, df_all_regions_with_crossmatch, tab_res):
@@ -380,16 +336,6 @@ def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch, df_all_reg
     plt.savefig(savepath)
     # plt.show()
 
-
-def _get_table_id_col(tab_res):
-    """Get the correct ID column to use for crossmatching from the astropy table."""
-    logger.info('Getting table ID column')
-    if '_q' in tab_res.columns:
-        return '_q'
-    elif 'SCRIPT_NUMBER_ID' in tab_res.columns:
-        return 'SCRIPT_NUMBER_ID'
-    else:
-        raise KeyError('_q or SCRIPT_NUMBER_ID not found in table columns!')
 
 class CrossMatch:
     def __init__(self, df_region):
@@ -539,8 +485,8 @@ if __name__ == "__main__":
     import pandas as pd
     df_region = pd.read_csv(data_combined / '30_4_2024' / 'df_regions.csv')
     df_region = df_region[df_region['runid'].str.contains('50_0.2_12.0')]
-    # df_region = df_region.iloc[100:200]
-    df_region = df_region.sample(1000)
+    df_region = df_region.iloc[100:200]
+    # df_region = df_region.sample(1000)
     crossmatch = CrossMatch(df_region)
     crossmatch.run()
     cmatch_info = crossmatch.info
