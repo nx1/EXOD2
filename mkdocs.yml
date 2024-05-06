@@ -1,4 +1,6 @@
 site_name: EXOD Documentation
+repo_url: "https://github.com/nx1/EXOD2"
+site_url: "https://exod2.readthedocs.io"
 nav:
   - Home: index.md
   - Plots: plots.md
@@ -7,6 +9,8 @@ theme:
   logo: "images/exod_logo_transparent.png"
   palette:
     scheme: slate
+  features:
+    - navigation.instant
 
 
 plugins:

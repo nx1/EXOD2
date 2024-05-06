@@ -10,7 +10,7 @@ Norman.Khan@irap.omp.eu
 
 Erwan.Quintin@irap.omp.eu
 
-# Installation
+## Installation
 ```
 git clone https://github.com/nx1/EXOD2
 cd EXOD
@@ -19,7 +19,7 @@ Then set the 'EXOD' enviroment in your .bashrc to point to this repo i.e.
 export EXOD='/home/{username}/EXOD2'
 ```
 
-# Running
+## Running
 The main script for the pipeline is found in EXOD2/exod/main.py
 This will run over all the obsids specified in
 `EXOD2/data/observations.txt`
