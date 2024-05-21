@@ -12,10 +12,11 @@ from matplotlib.colors import LogNorm
 from tqdm import tqdm
 
 from exod.utils.logger import logger
-from exod.utils.path import data_util, data_results
+from exod.utils.path import data_util, data_results, data_plots
 from exod.utils.plotting import cmap_image
 from exod.utils.simbad_classes import simbad_classifier
 from exod.xmm.observation import Observation
+import exod.post_processing.crossmatch_simulation as crossmatch_simulation
 
 
 def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
@@ -45,7 +46,6 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
 
     tab_fits_cmatch = tab_fits[tab_cmatch['idx']]
     tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
-    print(tab_fits_cmatch)
     return tab_fits_cmatch
 
 
@@ -166,8 +166,6 @@ def crossmatch_gaia(df_region, radius):
     sep = coords1.separation(coords2).to(u.arcsec)
     tab_res['SEP_ARCSEC'] = sep
 
-    print(tab_res)
-
     # Only Keep the closest Match for each _q
     rows = []
     for tab in tqdm(tab_res.group_by('_q').groups):
@@ -249,11 +247,7 @@ def crossmatch_regions_subsets():
     Crossmatch regions between the different simulation subsets.
 
     """
-
-
     return ''
-
-
 
 
 def plot_simbad_crossmatch_image(obsid, df_all_regions_no_crossmatch, df_all_regions_with_crossmatch, tab_res):
@@ -353,6 +347,7 @@ class CrossMatch:
         self.crossmatch_simbad()
         self.crossmatch_gaia()
         self.crossmatch_om()
+        crossmatch_simulation.main()
 
     def split_by_max_seperation(self, tab, colname='SEP_ARCSEC'):
         mask = tab[colname] < self.max_sep
@@ -383,8 +378,6 @@ class CrossMatch:
         fig, ax = plt.subplots(3,2, figsize=(8,8))
         info = self.info
 
-
-        # Plot Pie Charts
         def autopct_format(values):
             def my_format(pct):
                 total = sum(values)
@@ -418,6 +411,8 @@ class CrossMatch:
         ax[2,0].pie(data, autopct=autopct_format(data), **pie_kwargs)
 
         ax[2,1].axis('off')
+        plt.savefig(data_plots / 'crossmatch_pie_chart.png')
+        plt.savefig(data_plots / 'crossmatch_pie_chart.pdf')
 
         # plt.show()
 
@@ -451,6 +446,8 @@ class CrossMatch:
 
         for a in ax.flatten():
             a.legend()
+        plt.savefig(data_plots / 'crossmatch_seperations.png')
+        plt.savefig(data_plots / 'crossmatch_seperations.pdf')
         # plt.show()
 
     @property

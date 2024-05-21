@@ -1,3 +1,6 @@
+"""This module is used for various the simulation subsets with each other
+In order to determine the crossmatch fraction and various other metrics."""
+
 from itertools import combinations
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +15,15 @@ from exod.utils.logger import logger
 
 
 def split_subsets(df_regions):
-    """Split the regions into subsets based on the t_bin, E_lo, E_hi values in the runid."""
+    """
+    Split the regions into subsets based on the t_bin, E_lo, E_hi values in the runid.
+
+    Parameters:
+        df_regions (pd.DataFrame): The DataFrame containing the region information.
+
+    Returns:
+        dfs_subsets (dict): A dictionary containing the DataFrames for each subset.
+    """
     logger.info('Splitting df_regions into simulations subsets...')
     subsets = ['5_0.2_2.0',
                '5_2.0_12.0',
@@ -33,6 +44,14 @@ def split_subsets(df_regions):
 def crossmatch_simulation_subsets(dfs_subsets):
     """
     Crossmatch the subsets of simulations to each other.
+
+    Parameters:
+        dfs_subsets (dict): A dictionary containing the DataFrames for each subset.
+
+    Returns:
+        dfs_subset_crossmatch (dict): A dictionary containing the crossmatch results for each subset.
+            Each DataFrame contains the indices of the crossmatched sources in the other subsets.
+            A placeholder value of -1 is denoted for sources without a crossmatch.
     """
     max_sep = 15 * u.arcsec  # Maximum separation for considering a crossmatch
     no_cmatch_id = -1  # Placeholder value for sources without a crossmatch
@@ -81,6 +100,7 @@ def calc_subset_stats(dfs_subsets):
 
 
 def calc_subset_n_regions(dfs_subset_crossmatch):
+    """Calculate the number of regions in each subset."""
     n_regions_sim = {}
     for k, df in dfs_subset_crossmatch.items():
         n_regions_sim[k] = len(df)
@@ -88,20 +108,30 @@ def calc_subset_n_regions(dfs_subset_crossmatch):
 
 
 def calc_subset_cmatch_fraction(dfs_subset_crossmatch):
-    alll = []
+    """
+    Calculate the fraction of successfully crossmatched regions.
+
+    Parameters:
+        dfs_subset_crossmatch (dict): A dictionary containing the crossmatch results for each subset.
+
+    Returns:
+        df_subset_cmatch_fraction (pd.DataFrame): A DataFrame containing the fraction of successfully crossmatched regions.
+    """
+    all_res = []
     for k, df in dfs_subset_crossmatch.items():
         res = {}
         for col in df.columns:
             count = (df[col] > -1).sum()
             perc = count / len(df)
             res[col] = perc
-        alll.append(res)
-    dff = pd.DataFrame(alll)
-    dff.index = dfs_subset_crossmatch.keys()
-    return dff
+        all_res.append(res)
+    df_subset_cmatch_fraction = pd.DataFrame(all_res)
+    df_subset_cmatch_fraction.index = dfs_subset_crossmatch.keys()
+    return df_subset_cmatch_fraction
 
 
 def plot_mean_count_histogram(dfs_subsets):
+    """Plot the mean count histograms for each subset."""
     linestyles = {'5_': 'solid',
                   '50_': 'dashed',
                   '200_': 'dotted'}
@@ -138,8 +168,9 @@ def plot_mean_count_histogram(dfs_subsets):
 
 
 def plot_crossmatch_confusion_matrix(df_subset_cmatch_fraction, n_regions_sim):
+    """Plot the confusion matrix for the crossmatch fractions."""
     labels_readable = {'5_0.2_2.0'    : r'$t_{\mathrm{bin}} = 5  ;E=0.2-2.0$',
-                       '5_2.0_12.0'   : r'$t_{\mathrm{bin}} = 5  ;E=0.2-12.0$',
+                       '5_2.0_12.0'   : r'$t_{\mathrm{bin}} = 5  ;E=2.0-12.0$',
                        '5_0.2_12.0'   : r'$t_{\mathrm{bin}} = 5  ;E=0.2-12.0$',
                        '50_0.2_2.0'   : r'$t_{\mathrm{bin}} = 50 ;E=0.2-2.0$',
                        '50_2.0_12.0'  : r'$t_{\mathrm{bin}} = 50 ;E=2.0-12.0$',
@@ -180,19 +211,23 @@ def print_crossmatch_fraction(dfs_subset_crossmatch):
         print('=' * 40)
 
 
-if __name__ == "__main__":
-    region_path               = data_combined / '30_4_2024/df_regions.csv'
-    df_regions                = pd.read_csv(region_path)
-    dfs_subsets               = split_subsets(df_regions=df_regions)
-    dfs_subset_crossmatch     = crossmatch_simulation_subsets(dfs_subsets=dfs_subsets)
-    df_subset_stats           = calc_subset_stats(dfs_subsets=dfs_subsets)
-    df_subset_cmatch_fraction = calc_subset_cmatch_fraction(dfs_subset_crossmatch=dfs_subset_crossmatch)
-    n_regions_sim             = calc_subset_n_regions(dfs_subset_crossmatch=dfs_subset_crossmatch)
+def main():
+    df_region_path = data_combined / '30_4_2024/df_regions.csv'
+    df_regions = pd.read_csv(df_region_path)
 
+    dfs_subsets = split_subsets(df_regions=df_regions)
+
+    df_subset_stats = calc_subset_stats(dfs_subsets=dfs_subsets)
     plot_mean_count_histogram(dfs_subsets=dfs_subsets)
+    dfs_subset_crossmatch = crossmatch_simulation_subsets(dfs_subsets=dfs_subsets)
+
+    df_subset_cmatch_fraction = calc_subset_cmatch_fraction(dfs_subset_crossmatch=dfs_subset_crossmatch)
+    n_regions_sim = calc_subset_n_regions(dfs_subset_crossmatch=dfs_subset_crossmatch)
     plot_crossmatch_confusion_matrix(df_subset_cmatch_fraction=df_subset_cmatch_fraction, n_regions_sim=n_regions_sim)
     print_crossmatch_fraction(dfs_subset_crossmatch=dfs_subset_crossmatch)
-
     print(df_subset_stats)
-    print(df_subset_stats.style.background_gradient(sns.diverging_palette(125, 365, as_cmap=True)))
     print(df_subset_cmatch_fraction)
+
+
+if __name__ == "__main__":
+    main()

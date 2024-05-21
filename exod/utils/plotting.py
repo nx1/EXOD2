@@ -32,7 +32,7 @@ def plot_image(image_arr, title, log=False):
     plt.show()
 
 
-def compare_images(images, titles, log=False, plot=False):
+def compare_images(images, titles, log=False, plot=True):
     if not plot:
         return None
 

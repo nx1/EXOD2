@@ -1,9 +1,6 @@
-from exod.pre_processing.data_loader import DataLoader
-from exod.xmm.event_list import EventList
-from exod.xmm.observation import Observation
-from exod.utils.path import read_observation_ids
 from exod.utils.logger import logger
 from exod.utils.plotting import compare_images
+from exod.xmm.observation import Observation
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -158,7 +155,7 @@ def calc_background_template(image_sub, image_mask_source):
     return image_sub_background_template, count_sub_outside_sources
 
 
-def calc_source_template(image_subset, image_sub_background_template, image_mask_source, data_cube,
+def calc_source_template(image_sub, image_sub_background_template, image_mask_source, data_cube,
                          count_sub_outside_sources, subset_bin_idx):
     """
     Calculate the average contribution from the sources in the field of the observation.
@@ -167,17 +164,17 @@ def calc_source_template(image_subset, image_sub_background_template, image_mask
     This essentially gives the image of the average contribution of the sources in each frame.
 
     Parameters:
-        image_subset (np.ndarray): image of GTI or BTIs obtained by summing the frames.
+        image_sub (np.ndarray): image of GTI or BTIs obtained by summing the frames.
         image_sub_background_template (np.ndarray): The template for the BTI or GTI obtained via calc_background_template.
         image_mask_source (np.ndarray): Mask of the sources.
         data_cube (DataCube): DataCube object.
         count_sub_outside_sources (float): The number of counts outside the sources (total counts in background).
-        subset_bin_idx (np.ndarray): The bins corresponding to the subset (eitehr the GTI or BTIs).
+        subset_bin_idx (np.ndarray): The bins corresponding to the subset (either the GTI or BTIs).
 
     Returns:
         image_source_template (np.ndarray): The average contribution of the sources in each frame.
     """
-    image_sub_source_only1   = image_subset - image_sub_background_template * count_sub_outside_sources
+    image_sub_source_only1   = image_sub - image_sub_background_template * count_sub_outside_sources
     image_sub_source_only2   = np.where(image_mask_source, image_sub_source_only1, 0)           # Replace everything that is not a source with 0
     image_sub_source_only3   = np.where(image_sub_source_only2 > 0, image_sub_source_only2, 0)  # Replace negative values with 0
     effective_exposed_frames = np.sum(data_cube.relative_frame_exposures[subset_bin_idx])       # Analagous to n_gti_bin if relative exposures = 1
@@ -275,6 +272,10 @@ def calc_cube_mu(data_cube, wcs):
 
 if __name__=="__main__":
     from exod.utils.path import data
+    from exod.pre_processing.data_loader import DataLoader
+    from exod.xmm.event_list import EventList
+    from exod.utils.path import read_observation_ids
+
     obsids = read_observation_ids(data / 'observations.txt')
     import random
     random.shuffle(obsids)

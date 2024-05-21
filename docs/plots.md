@@ -1,8 +1,16 @@
 # Plots
 
+## template_creation.png
+
+![template_creation.png](plots/template_creation.png)
+
 ## bayesfactorlimits_3_zoomed.png
 
 ![bayesfactorlimits_3_zoomed.png](plots/bayesfactorlimits_3_zoomed.png)
+
+## crossmatch_seperations.png
+
+![crossmatch_seperations.png](plots/crossmatch_seperations.png)
 
 ## bayes_successrate_timebinning2.png
 
@@ -44,9 +52,17 @@
 
 ![bayesfactorlimits_5_zoomed.png](plots/bayesfactorlimits_5_zoomed.png)
 
+## crossmatch_pie_chart.png
+
+![crossmatch_pie_chart.png](plots/crossmatch_pie_chart.png)
+
 ## bayesfactorlimits_5.png
 
 ![bayesfactorlimits_5.png](plots/bayesfactorlimits_5.png)
+
+## mean_count_histogram.png
+
+![mean_count_histogram.png](plots/mean_count_histogram.png)
 
 ## plot_some_n_bayes.png
 
@@ -59,6 +75,10 @@
 ## accepted_n_values.png
 
 ![accepted_n_values.png](plots/accepted_n_values.png)
+
+## crossmatch_confusion_matrix.png
+
+![crossmatch_confusion_matrix.png](plots/crossmatch_confusion_matrix.png)
 
 ## bayes_successrate_timebinning1.png
 
