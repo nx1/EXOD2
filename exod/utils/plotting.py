@@ -1,9 +1,10 @@
-import matplotlib
-import numpy
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt, pyplot
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm, ListedColormap
+from astropy.coordinates import SkyCoord
+from astropy import units as u
 
 from exod.utils.logger import logger
 
@@ -130,4 +131,20 @@ def plot_cube_statistics(data):
     ax[0, 2].set_title('sum')
     plt.tight_layout()
 
+    plt.show()
+
+
+def plot_aitoff(ra_deg, dec_deg, savepath=None):
+    sky_coords = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg', frame='fk5', equinox='J2000')
+    gal_coords = sky_coords.galactic
+
+    l = -gal_coords.l.wrap_at(180 * u.deg).radian
+    b = gal_coords.b.radian
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(111, projection='aitoff')
+    plt.scatter(l, b, marker='.', s=1, color='grey')
+    plt.tight_layout()
+    if savepath:
+        plt.savefig(savepath)
     plt.show()

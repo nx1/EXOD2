@@ -1,6 +1,8 @@
 """
 This module contains code for crossmatching the regions with various catalogues.
 """
+import time
+
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -96,6 +98,18 @@ def crossmatch_simbad(df_region, radius):
 
     logger.info('Querying Region (This can take a while...)')
     tab_res = simbad.query_region(coordinates=skycoord_reg, radius=radius)
+
+    if not tab_res:
+        logger.info('No Results Found! Just returning error table.')
+        err_idx = np.arange(0, n_reg, 1)
+        err_sep = [9999 * u.arcsec] * len(err_idx)
+        ra_reg  = [skycoord_reg[i].ra for i in err_idx]
+        dec_reg = [skycoord_reg[i].dec for i in err_idx]
+        tab_err = Table({'SCRIPT_NUMBER_ID' : err_idx,
+                         'RA_REGION_DEG'    : ra_reg,
+                         'DEC_REGION_DEG'   : dec_reg,
+                         'SEP_ARCSEC'       : err_sep})
+        return tab_err
     tab_res['SCRIPT_NUMBER_ID'] = tab_res['SCRIPT_NUMBER_ID'] - 1  # Use 0 Indexing
     logger.info(f'Found {len(tab_res)} results')
 
@@ -130,6 +144,27 @@ def crossmatch_simbad(df_region, radius):
     tab_res_closest.sort('SCRIPT_NUMBER_ID')
     return tab_res_closest
 
+def crossmatch_simbad_chunk(df_region, radius=5 * u.arcsec, chunk_size=1000):
+    start_time = time.time()
+    n_rows     = len(df_region)
+    all_tab    = []
+    for i in range(0, n_rows, chunk_size):
+        logger.info(f'{i} / {n_rows}')
+        chunk_start_time = time.time()
+        start = i
+        end   = min(i + chunk_size, n_rows)
+        df_sub = df_region.iloc[start:end]
+        tab = crossmatch_simbad(df_region=df_sub, radius=radius)
+        idxs = np.arange(start, end, 1)
+        tab['SCRIPT_NUMBER_ID'] = idxs
+        all_tab.append(tab)
+        chunk_elapsed_time = time.time() - chunk_start_time
+        total_elapsed_time = time.time() - start_time
+        estimated_total_time = (total_elapsed_time / end) * n_rows
+        estimated_remaining_time = estimated_total_time - total_elapsed_time
+        logger.info(f'Time | elapsed: {chunk_elapsed_time:.2f} remaining: {estimated_remaining_time:.2f} total={total_elapsed_time:.2f}')    
+    tab_res = vstack(all_tab)
+    return tab_res
 
 def crossmatch_vizier(catalog, df_region, radius):
     """

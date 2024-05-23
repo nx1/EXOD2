@@ -22,7 +22,7 @@ from astropy.visualization import ImageNormalize, SqrtStretch
 
 class Pipeline:
     """
-    Pipeline to process XMM-Newton data using Bayesian Inference.
+    Pipeline to process a single XMM-Newton observation and find variable sources.
 
     Attributes:
         runid (str): Unique identifier for the run.
@@ -89,6 +89,7 @@ class Pipeline:
         self.observation.get_files()
         self.observation.get_events_overlapping_subsets()
         self.total_subsets = len(self.observation.events_overlapping_subsets)
+
     def run(self):
         self.pre_process()
         for i_subset, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
