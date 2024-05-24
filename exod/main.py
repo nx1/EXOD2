@@ -21,7 +21,7 @@ def process_params(params):
     return res
 
 if __name__ == "__main__":
-    obsids = read_observation_ids(data / 'observations.txt')
+    obsids = read_observation_ids(data / 'dr14_obsids.txt')
     random.shuffle(obsids)
 
     num_processes = 4

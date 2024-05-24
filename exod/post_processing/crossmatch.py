@@ -145,6 +145,7 @@ def crossmatch_simbad(df_region, radius):
     return tab_res_closest
 
 def crossmatch_simbad_chunk(df_region, radius=5 * u.arcsec, chunk_size=1000):
+    """Query Simbad in chunks to avoid timeouts."""
     start_time = time.time()
     n_rows     = len(df_region)
     all_tab    = []
