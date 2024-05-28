@@ -51,6 +51,16 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     return tab_fits_cmatch
 
 
+def crossmatch_dr14_slim(df_region):
+    """
+    Crossmatch the regions with the 4XMM DR13 slim catalogue.
+    """
+    logger.info('Crossmatching with 4XMM DR14 slim catalogue')
+    fits_path = data_util / '4xmmdr14slim_240411.fits'
+    tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
+    return tab_xmm_cmatch
+
+
 def crossmatch_dr13_slim(df_region):
     """
     Crossmatch the regions with the 4XMM DR13 slim catalogue.
@@ -147,24 +157,28 @@ def crossmatch_simbad(df_region, radius):
 def crossmatch_simbad_chunk(df_region, radius=5 * u.arcsec, chunk_size=1000):
     """Query Simbad in chunks to avoid timeouts."""
     start_time = time.time()
-    n_rows     = len(df_region)
-    all_tab    = []
+    n_rows = len(df_region)
+    all_tabs = []
+
     for i in range(0, n_rows, chunk_size):
         logger.info(f'{i} / {n_rows}')
         chunk_start_time = time.time()
+
         start = i
-        end   = min(i + chunk_size, n_rows)
+        end = min(i + chunk_size, n_rows)
         df_sub = df_region.iloc[start:end]
+
         tab = crossmatch_simbad(df_region=df_sub, radius=radius)
         idxs = np.arange(start, end, 1)
         tab['SCRIPT_NUMBER_ID'] = idxs
-        all_tab.append(tab)
+        all_tabs.append(tab)
+
         chunk_elapsed_time = time.time() - chunk_start_time
         total_elapsed_time = time.time() - start_time
         estimated_total_time = (total_elapsed_time / end) * n_rows
         estimated_remaining_time = estimated_total_time - total_elapsed_time
         logger.info(f'Time | elapsed: {chunk_elapsed_time:.2f} remaining: {estimated_remaining_time:.2f} total={total_elapsed_time:.2f}')    
-    tab_res = vstack(all_tab)
+    tab_res = vstack(all_tabs)
     return tab_res
 
 def crossmatch_vizier(catalog, df_region, radius):

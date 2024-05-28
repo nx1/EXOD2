@@ -450,6 +450,7 @@ def combine_results(obsids):
     df_dl_info.to_csv(savepaths_combined['dl_info'], index=False)
     df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
     df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
+
     logger.info(df_bti)
     logger.info(df_regions)
     logger.info(df_lc)
