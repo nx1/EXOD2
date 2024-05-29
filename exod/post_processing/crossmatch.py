@@ -2,6 +2,7 @@
 This module contains code for crossmatching the regions with various catalogues.
 """
 import time
+import warnings
 
 import numpy as np
 from astropy import units as u
@@ -9,6 +10,7 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table, vstack
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
+from astroquery.simbad.core import BlankResponseWarning
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from tqdm import tqdm
@@ -19,7 +21,7 @@ from exod.utils.plotting import cmap_image
 from exod.utils.simbad_classes import simbad_classifier
 from exod.xmm.observation import Observation
 import exod.post_processing.crossmatch_simulation as crossmatch_simulation
-
+warnings.filterwarnings("ignore", category=BlankResponseWarning)
 
 def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     """
@@ -389,14 +391,18 @@ class CrossMatch:
         self.radius_simbad = 28*u.arcsec
         self.radius_gaia   = 28*u.arcsec
         self.radius_xmm_om = 28*u.arcsec
+        self.radius_self_cmatch = 0.25*u.arcsec # Radius for clustering sources across simulation subsets
         self.max_sep = 15*u.arcsec # Maximum separation for crossmatch
 
     def run(self):
-        self.crossmatch_dr13_slim()
+        self.crossmatch_dr14_slim()
         self.crossmatch_tranin_dr12()
         self.crossmatch_simbad()
         self.crossmatch_gaia()
         self.crossmatch_om()
+        self.crossmatch_unique_regions()
+
+        crossmatch_simulation.get_unique_sources(df_regions=self.df_region, clustering_radius=self.radius_self_cmatch)
         crossmatch_simulation.main()
 
     def split_by_max_seperation(self, tab, colname='SEP_ARCSEC'):
@@ -404,9 +410,9 @@ class CrossMatch:
         tab_cmatch = tab[mask]
         tab_no_cmatch = tab[~mask]
         return tab_cmatch, tab_no_cmatch
-    def crossmatch_dr13_slim(self):
-        self.tab_dr13 = crossmatch_dr13_slim(self.df_region)
-        self.tab_dr13_cmatch, self.tab_dr13_no_cmatch = self.split_by_max_seperation(self.tab_dr13)
+    def crossmatch_dr14_slim(self):
+        self.tab_dr14 = crossmatch_dr14_slim(self.df_region)
+        self.tab_dr14_cmatch, self.tab_dr14_no_cmatch = self.split_by_max_seperation(self.tab_dr14)
 
     def crossmatch_tranin_dr12(self):
         self.tab_dr12 = crossmatch_tranin_dr12(self.df_region)
@@ -423,6 +429,9 @@ class CrossMatch:
     def crossmatch_om(self):
         self.tab_om = crossmatch_xmm_om(self.df_region, radius=self.radius_xmm_om)
         self.tab_om_cmatch, self.tab_om_no_cmatch = self.split_by_max_seperation(self.tab_om)
+
+    def crossmatch_unique_regions(self):
+        self.df_unique_region = crossmatch_simulation.get_unique_sources(df_regions=self.df_region, clustering_radius=self.radius_self_cmatch)
 
     def plot_pie_chart(self):
         fig, ax = plt.subplots(3,2, figsize=(8,8))
@@ -470,10 +479,10 @@ class CrossMatch:
         fig, ax = plt.subplots(2,2, figsize=(8,8))
         bins = np.linspace(start=0, stop=100, num=100)
 
-        ax[0,0].set_title('4XMM DR13')
-        ax[0,0].hist(self.tab_dr13['SEP_ARCSEC'], bins=bins, histtype='step', label='Total', color='black')
-        ax[0,0].hist(self.tab_dr13_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
-        ax[0,0].hist(self.tab_dr12_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
+        ax[0,0].set_title('4XMM DR14')
+        ax[0,0].hist(self.tab_dr14['SEP_ARCSEC'], bins=bins, histtype='step', label='Total', color='black')
+        ax[0,0].hist(self.tab_dr14_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'<{self.max_sep}', color='lime')
+        ax[0,0].hist(self.tab_dr14_no_cmatch['SEP_ARCSEC'], bins=bins, histtype='step', label=f'>={self.max_sep}', color='red')
         ax[0,0].set_xlabel('Seperation (arcsec)')
 
         ax[0,1].set_title('4XMM DR13')
@@ -507,9 +516,10 @@ class CrossMatch:
                 'radius_xmm_om'           : self.radius_xmm_om,
                 'max_sep'                 : self.max_sep,
                 'n_regions'               : len(self.df_region),
-                'n_dr13_slim'             : len(self.tab_dr13),
-                'n_dr13_slim_cmatch'      : len(self.tab_dr13_cmatch),
-                'n_dr13_slim_no_cmatch'   : len(self.tab_dr13_no_cmatch),
+                'n_unique_regions'        : len(self.df_unique_region),
+                'n_dr13_slim'             : len(self.tab_dr14),
+                'n_dr13_slim_cmatch'      : len(self.tab_dr14_cmatch),
+                'n_dr13_slim_no_cmatch'   : len(self.tab_dr14_no_cmatch),
                 'n_tranin_dr12'           : len(self.tab_dr12),
                 'n_tranin_dr12_cmatch'    : len(self.tab_dr12_cmatch),
                 'n_tranin_dr12_no_cmatch' : len(self.tab_dr12_no_cmatch),
@@ -530,7 +540,7 @@ class CrossMatch:
 if __name__ == "__main__":
     from exod.utils.path import data_combined
     import pandas as pd
-    df_region = pd.read_csv(data_combined / '30_4_2024' / 'df_regions.csv')
+    df_region = pd.read_csv(data_combined / 'merged_with_dr14' / 'df_regions.csv')
     df_region = df_region[df_region['runid'].str.contains('50_0.2_12.0')]
     df_region = df_region.iloc[100:200]
     # df_region = df_region.sample(1000)

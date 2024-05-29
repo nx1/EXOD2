@@ -117,7 +117,7 @@ def crossmatch_simulation_subsets(dfs_subsets):
             if k1 == k2:
                 continue
 
-            print(f'Matching {k1} ({len(df1)}) With {k2:<12} ({len(df2)})')
+            logger.info(f'Matching {k1} ({len(df1)}) With {k2:<12} ({len(df2)})')
             sc2 = SkyCoord(ra=df2['ra_deg'], dec=df2['dec_deg'], unit='deg', frame='fk5', equinox='J2000')
             cmatch = sc1.match_to_catalog_sky(sc2)
 
