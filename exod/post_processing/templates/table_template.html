@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+{{content['tab'] | safe}}
+<script>
+    $(document).ready( function () {
+        $('#myTable').DataTable({
+            "pageLength": 500,
+            scrollCollapse: true,
+            scroller: true,
+            scrollY:500
+        });
+    } );
+</script>
+{% endblock %}
+
+
+

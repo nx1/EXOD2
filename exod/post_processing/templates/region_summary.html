@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<body>
+<h2>Unique Region Summary - {{ content['region_id'] }}</h2>
+<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a>
+<div style="text-align: right;">
+<a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
+</div>
+<div class="container">
+<div class="row">
+<div class="col">
+<pre>
+<b>Unique Region Information:</b>
+Unique ID  : {{ content['region_id'] }}
+Region IDs : {{ content['region_idxs']}}
+run ID     : {{ content['reg_info']['runid'] }}
+obsid      : <a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ content['obsid'] }}">{{ content['obsid'] }}</a>
+RA         : {{ content['reg_info']['ra'] }}
+Dec        : {{ content['reg_info']['dec'] }}
+RA (deg)   : {{ content['reg_info']['ra_deg'] }}
+Dec (deg)  : {{ content['reg_info']['dec_deg'] }}
+<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['reg_info']['ra_deg']}}+{{content['reg_info']['dec_deg']}}">coords SIMBAD</a>
+<a href="https://sky.esa.int/esasky/?target={{content['reg_info']['ra_deg']}} {{content['reg_info']['dec_deg']}}&hips=DSS2+color&fov=0.4649968262252353&cooframe=J2000&sci=true&lang=en">coords ESASKY</a>
+mean intensity: {{ content['reg_info']['intensity_mean'] }}
+area: {{ content['reg_info']['area_bbox'] }}
+</pre>
+</div>
+
+<div class="col">
+<pre>
+<b>XMM DR14:</b>
+SRCID: {{content['xmm_info']['SRCID']}}
+IAUNAME: {{content['xmm_info']['IAUNAME']}}
+RA  : {{content['xmm_info']['SC_RA']}}
+DEC : {{content['xmm_info']['SC_DEC']}}
+{% if content['xmm_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% endif %}
+N_DETECTIONS  : {{content['xmm_info']['N_DETECTIONS']}}
+0.2-12.0 Flux : {{content['xmm_info']['SC_EP_8_FLUX']}}
+0.5-4.5 Flux  : {{content['xmm_info']['SC_EP_9_FLUX']}}
+4.5-12.0 Flux : {{content['xmm_info']['SC_EP_5_FLUX']}}
+{% if content['xmm_info']['SC_VAR_FLAG']%}<span style="color:green;">SC_VAR_FLAG   : {{content['xmm_info']['SC_VAR_FLAG']}}</span>{% else %}<span style="color:red;">SC_VAR_FLAG   : {{content['xmm_info']['SC_VAR_FLAG']}}</span>{% endif %}
+<a href="http://xmm-catalog.irap.omp.eu/source/{{content['xmm_info']['SRCID']}}">[XMM CAT]</a>
+</pre>
+</div>
+<div class="col">
+<pre>
+<b>SIMBAD:</b>
+MAIN_ID : {{content['cmatch_info']['MAIN_ID']}}
+RA      : {{content['cmatch_info']['RA']}}
+DEC     : {{content['cmatch_info']['DEC']}}
+{% if content['cmatch_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% endif %}
+OTYPE   : {{content['cmatch_info']['OTYPE']}}
+<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['cmatch_info']['MAIN_ID']}}">[LINK]</a>
+</pre>
+</div>
+<div class="col">
+<pre>
+<b>what do we think?</b>
+<button style="background-color: green; color: white;">Real as real can be</button>
+<button style="background-color: yellow; color: black;">Maybe but I'm not really sure</button>
+<button style="background-color: red; color: white;">Throw them out!</button>
+</pre>
+</div>
+<div class="row">
+    <div class="col">
+        {% for lightcurve in content['lightcurves'] %}
+        <img src="data:image/png;base64,{{lightcurve['data_url']}}">
+        {% endfor %}
+    </div>
+</div>
+</div>
+
+
+<div class="container">
+<div class="row">
+    <div class="col">
+<pre>
+<b>Event List Information:</b>
+Date      : {{ content['evt_info']['date'] }}
+object    : {{ content['evt_info']['object'] }}
+exposure  : {{ content['evt_info']['exposure'] }}
+N_events  : {{ content['evt_info']['N_events'] }}
+mean Rate : {{ content['evt_info']['mean_rate'] }}
+</pre>
+</div>
+<div class="col">
+<pre>
+<b>Lightcurve Information:</b>
+hello b0ssss
+</pre>
+</div>
+</div>
+</div>
+</body>
+{% endblock %}

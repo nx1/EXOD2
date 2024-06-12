@@ -1,5 +1,4 @@
-from exod.post_processing.crossmatch import crossmatch_simbad, get_df_regions_no_crossmatch, \
-    get_df_regions_with_crossmatch
+from exod.post_processing.crossmatch import crossmatch_simbad
 from exod.utils.path import data_results, data_combined
 from exod.utils.logger import logger
 
