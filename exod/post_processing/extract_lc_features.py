@@ -44,6 +44,7 @@ def calc_features(df_lc, idx):
        'n_max'  : df_lc['n'].max(),
        'n_mean' : df_lc['n'].mean(),
        'n_std'  : df_lc['n'].std(),
+       'n_sum'  : df_lc['n'].sum(),
        'n_skew' : skew(df_lc['n']),
        'n_kurt' : kurtosis(df_lc['n']),
        'mu_min'  : df_lc['n'].min(),

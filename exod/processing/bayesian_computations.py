@@ -12,7 +12,6 @@ from exod.utils.logger import logger
 from exod.utils.path import data_plots
 
 
-
 def B_peak(n, mu):
     """Computes the Bayes factors of the presence of a peak, given the data_cube (mu) and observed (n) counts."""
     return gammaincc(n + 1, mu) / poisson.pmf(n, mu)
@@ -41,8 +40,6 @@ def n_peak_large_mu(mu, sigma):
 def n_eclipse_large_mu(mu, sigma):
     """Calculate the observed (n) value required for an eclipse at a specific expecation (mu) and significance (sigma) in the Gaussian regime."""
     return np.floor((2*mu+sigma**2-np.sqrt(8*mu*(sigma**2)+sigma**4))/2)
-
-
 
 
 def precompute_bayes_limits(threshold_sigma):
@@ -114,8 +111,8 @@ def precompute_bayes_limits(threshold_sigma):
     plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='red')
     plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'N with $B_{{peak}} > 10^{{{B_peak_threshold:.2f}}}$', lw=1.0)
     plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'N with $B_{{eclipse}} > 10^{{{B_eclipse_threshold:.2f}}}$', lw=1.0)
-    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='green', label='Detection Region')
-    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='green')
+    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='lime', label='Detection Region')
+    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='lime')
     plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.2, label=fr'Naive $5 \sigma$ Region', color='blue')
     plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$ Region', color='blue')
     plt.yscale('log')
@@ -126,9 +123,10 @@ def precompute_bayes_limits(threshold_sigma):
     plt.xlim(min(range_mu), max(range_mu))
     plt.ylim(min(range_mu), max(range_mu))
     plt.yticks([1, 10, 100, 250], labels=[1, 10, 100, 250])
+    plt.xticks([0.01, 0.1, 1, 10, 100, 250], labels=[0.01, 0.1, 1, 10, 100, 250])
     plt.xlim(0.01, 250)
     plt.ylim(0.01, 250)
-    plt.legend(loc='upper left', fontsize=8, ncol=2)
+    plt.legend(loc='lower left', fontsize=8, ncol=2)
     plt.tight_layout()
     plt.savefig(data_plots / f'bayesfactorlimits_{threshold_sigma}.pdf')
     plt.savefig(data_plots / f'bayesfactorlimits_{threshold_sigma}.png')
@@ -172,7 +170,6 @@ def load_precomputed_bayes_limits(threshold_sigma):
     return range_mu, n_peak_threshold, n_eclipse_threshold
 
 
-
 def get_bayes_thresholds(threshold_sigma):
     """
     The thresholds for B_peak and B_eclipse are calculated here for 3 and 5 sigma.
@@ -194,6 +191,7 @@ def get_bayes_thresholds(threshold_sigma):
     B_peak_threshold    = B_peak_log(n=n_peak_large_mu(mu=1000, sigma=threshold_sigma), mu=1000)
     B_eclipse_threshold = B_eclipse_log(n=n_eclipse_large_mu(mu=1000, sigma=threshold_sigma), mu=1000)
     return B_peak_threshold, B_eclipse_threshold
+
 
 def sigma_equivalent(n, mu):
     """
@@ -226,6 +224,7 @@ def sigma_equivalent(n, mu):
     else:
         return root_scalar(function_to_invert, bracket=(1, 10)).root
 
+
 class PrecomputeBayesLimits:
     def __init__(self, threshold_sigma):
         self.threshold_sigma = threshold_sigma
@@ -255,8 +254,8 @@ class PrecomputeBayesLimits:
 
 
 if __name__ == "__main__":
-    from exod.utils.plotting import set_latex_font
-    set_latex_font()
+    import scienceplots
+    plt.style.use('science')
 
     precompute_bayes_limits(threshold_sigma=3)
     precompute_bayes_limits(threshold_sigma=5)

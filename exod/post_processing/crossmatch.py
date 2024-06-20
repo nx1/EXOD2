@@ -50,6 +50,12 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
 
     tab_fits_cmatch = tab_fits[tab_cmatch['idx']]
     tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
+
+    matched_reg = df_region.iloc[tab_cmatch['idx_orig']]
+    ra_offset   = matched_reg['ra_deg'] - tab_fits_cmatch[ra_col]
+    dec_offset  = matched_reg['dec_deg'] - tab_fits_cmatch[dec_col]
+    tab_fits_cmatch['RA_OFFSET']  = ra_offset
+    tab_fits_cmatch['DEC_OFFSET'] = dec_offset
     return tab_fits_cmatch
 
 
