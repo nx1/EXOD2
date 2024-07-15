@@ -1,4 +1,5 @@
-from exod.utils.path import data_combined
+from exod.utils.path import data_combined, savepaths_combined
+from exod.utils.logger import logger
 
 import numpy as np
 import pandas as pd
@@ -15,8 +16,42 @@ def count_recurring_peaks(data, threshold):
     return num_high_peaks
 
 
-def calc_features(df_lc, idx):
-    parts = idx.strip("()").split(", ")
+def largest_peak_info(df_lc):
+    """
+    Find the largest peak in the light curve and return some information about it.
+
+    Parameters:
+        df_lc (pd.DataFrame): DataFrame containing the light curve data.
+
+    Returns:
+        n_max_idx (int): Index of the largest peak.
+        n_max_last_bin (bool): True if the largest peak is in the last bin.
+        n_max_first_bin (bool): True if the largest peak is in the first bin.
+        n_max_isolated_flare (bool): True if the largest peak is surrounded by zeros.
+    """
+    n_max_last_bin       = False
+    n_max_first_bin      = False
+    n_max_isolated_flare = False
+
+    n = df_lc['n'].values
+    n_max_idx = np.argmax(n)
+    if n_max_idx + 1 == len(n):
+        n_max_last_bin = True
+        return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
+    elif n_max_idx + 1 == -1:
+        n_max_first_bin = True
+        return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
+
+    val_before = n[n_max_idx - 1]
+    val_after = n[n_max_idx + 1]
+    if (val_before == 0) & (val_after == 0):
+        n_max_isolated_flare = True
+        return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
+    return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
+
+
+def calc_features(df_lc, key):
+    parts = key.strip("()").split(", ")
     parts = [part.strip("'") for part in parts]
 
     length = len(df_lc)
@@ -30,43 +65,60 @@ def calc_features(df_lc, idx):
     num_B_peak_above_6_4    = count_recurring_peaks(df_lc['B_peak_log'].values, threshold=6.4)
     num_B_eclipse_above_5_5 = count_recurring_peaks(df_lc['B_eclipse_log'].values, threshold=5.5)
 
-    res = {'key'    : i,
-       'runid'      : parts[0],
-       'label'      : parts[1],
-       'len'        : len(df_lc),
-       'n_bccd'     : df_lc['bccd'].sum(),
-       'n_bti'      : df_lc['bti'].sum(),
-       'ratio_bccd' : ratio_bccd,
-       'ratio_bti'  : ratio_bti,
-       'ks_stat'    : ks.statistic,
-       'ks_pval'    : ks.pvalue,
-       'n_min'  : df_lc['n'].min(),
-       'n_max'  : df_lc['n'].max(),
-       'n_mean' : df_lc['n'].mean(),
-       'n_std'  : df_lc['n'].std(),
-       'n_sum'  : df_lc['n'].sum(),
-       'n_skew' : skew(df_lc['n']),
-       'n_kurt' : kurtosis(df_lc['n']),
-       'mu_min'  : df_lc['n'].min(),
-       'mu_max'  : df_lc['n'].max(),
-       'mu_mean' : df_lc['n'].mean(),
-       'mu_std'  : df_lc['n'].std(),
-       'mu_skew' : skew(df_lc['n']),
-       'mu_kurt' : kurtosis(df_lc['n']),
-       'B_peak_log_max'    : df_lc['B_peak_log'].max(),
-       'B_eclipse_log_max' : df_lc['B_eclipse_log'].max(),
-       'num_B_peak_above_6_4'    : num_B_peak_above_6_4,
-       'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5}
+    n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare = largest_peak_info(df_lc)
+
+    res = {'key'                     : key,
+           'runid'                   : parts[0],
+           'label'                   : parts[1],
+           'len'                     : length,
+           'n_bccd'                  : df_lc['bccd'].sum(),
+           'n_bti'                   : df_lc['bti'].sum(),
+           'ratio_bccd'              : ratio_bccd,
+           'ratio_bti'               : ratio_bti,
+           'ks_stat'                 : ks.statistic,
+           'ks_pval'                 : ks.pvalue,
+           'n_min'                   : df_lc['n'].min(),
+           'n_max'                   : df_lc['n'].max(),
+           'n_mean'                  : df_lc['n'].mean(),
+           'n_std'                   : df_lc['n'].std(),
+           'n_sum'                   : df_lc['n'].sum(),
+           'n_skew'                  : skew(df_lc['n']),
+           'n_kurt'                  : kurtosis(df_lc['n']),
+           'n_max_idx'               : n_max_idx,
+           'n_max_isolated_flare'    : n_max_isolated_flare,
+           'n_max_first_bin'         : n_max_first_bin,
+           'n_max_last_bin'          : n_max_last_bin,
+           'mu_min'                  : df_lc['n'].min(),
+           'mu_max'                  : df_lc['n'].max(),
+           'mu_mean'                 : df_lc['n'].mean(),
+           'mu_std'                  : df_lc['n'].std(),
+           'mu_skew'                 : skew(df_lc['n']),
+           'mu_kurt'                 : kurtosis(df_lc['n']),
+           'B_peak_log_max'          : df_lc['B_peak_log'].max(),
+           'B_eclipse_log_max'       : df_lc['B_eclipse_log'].max(),
+           'num_B_peak_above_6_4'    : num_B_peak_above_6_4,
+           'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5}
     return res
 
 
-if __name__ == "__main__":
-    df_lc_indexs = pd.read_csv(data_combined / 'merged_with_dr14/df_lc_indexs.csv', index_col='Unnamed: 0')
-    all_res = []
-    for i, r in tqdm(df_lc_indexs.iterrows()):
-        df_lc = pd.read_hdf(data_combined / 'merged_with_dr14/df_lc.h5', start=r['start'], stop=r['stop'])
-        res = calc_features(df_lc, idx=i)
-        all_res.append(res)
+def extract_lc_features(clobber=True):
+    if not clobber:
+        if savepaths_combined['lc_features'].exists():
+            logger.info(f'Light curve features already exist at {savepaths_combined["lc_features"]}. Skipping...')
+            df_lc_features = pd.read_csv(savepaths_combined['lc_features'])
+            return df_lc_features
 
+    df_lc_indexs = pd.read_csv(savepaths_combined['lc_idx'], index_col='Unnamed: 0')
+    all_res = []
+    for i, r in tqdm(df_lc_indexs.iterrows(), desc="Extracting Lightcurve Features."):
+        df_lc = pd.read_hdf(savepaths_combined['lc'], start=r['start'], stop=r['stop'])
+        res = calc_features(df_lc, key=i)
+        all_res.append(res)
     df_lc_features = pd.DataFrame(all_res)
-    df_lc_features.to_csv(data_combined / 'merged_with_dr14/df_lc_features.csv', index=False)
+    logger.info(f'Saving light curve features to {savepaths_combined["lc_features"]}')
+    df_lc_features.to_csv(savepaths_combined['lc_features'], index=False)
+    return df_lc_features
+
+
+if __name__ == "__main__":
+    extract_lc_features()

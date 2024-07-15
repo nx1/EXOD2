@@ -272,7 +272,7 @@ def plot_image_with_regions(image, df_regions, cbar_label=None, savepath=None):
     if savepath:
         logger.info(f'Saving Image to: {savepath}')
         plt.savefig(savepath)
-    # plt.show()
+    plt.show()
 
 
 def calc_ks_poission(lc):
@@ -329,7 +329,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
 
     # Create Data Cube
     # dl.data_cube.plot_cube_statistics()
-    # dl.data_cube.video(savedir=None)
+    dl.data_cube.video(savedir=None)
 
     # Detection
     detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
@@ -352,7 +352,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
     save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
 
-    # plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     obs = Observation('0911791101')

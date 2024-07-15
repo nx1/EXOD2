@@ -28,14 +28,22 @@ all_paths = {
     'docs'          : docs
 }
 
-savepaths_combined = {'bti'      : data_combined / 'df_bti.csv',
-                      'regions'  : data_combined / 'df_regions.csv',
-                      'lc'       : data_combined / 'df_lc.csv',
-                      'run_info' : data_combined / 'df_run_info.csv',
-                      'obs_info' : data_combined / 'df_obs_info.csv',
-                      'dl_info'  : data_combined / 'df_dl_info.csv',
-                      'dc_info'  : data_combined / 'df_dc_info.csv',
-                      'evt_info' : data_combined / 'df_evt_info.csv'}
+# TODO Remove merged_with_dr14 from savepaths_combined when finalized!
+savepaths_combined = {'bti'           : data_combined / 'merged_with_dr14' / 'df_bti.csv',
+                      'regions'       : data_combined / 'merged_with_dr14' / 'df_regions.csv',
+                      'regions_unique': data_combined / 'merged_with_dr14' / 'df_regions_unique.csv',
+                      'lc'            : data_combined / 'merged_with_dr14' / 'df_lc.h5',
+                      'lc_idx'        : data_combined / 'merged_with_dr14' / 'df_lc_idx.csv',
+                      'lc_features'   : data_combined / 'merged_with_dr14' / 'df_lc_features.csv',
+                      'run_info'      : data_combined / 'merged_with_dr14' / 'df_run_info.csv',
+                      'obs_info'      : data_combined / 'merged_with_dr14' / 'df_obs_info.csv',
+                      'dl_info'       : data_combined / 'merged_with_dr14' / 'df_dl_info.csv',
+                      'dc_info'       : data_combined / 'merged_with_dr14' / 'df_dc_info.csv',
+                      'evt_info'      : data_combined / 'merged_with_dr14' / 'df_evt_info.csv',
+                      'cmatch_simbad' : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_simbad.csv',
+                      'cmatch_gaia'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gaia.csv',
+                      'cmatch_om'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv'}
+
 def create_all_paths():
     for name, path in all_paths.items():
         logger.info(f'Creating Path: {path}')

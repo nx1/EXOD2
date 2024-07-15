@@ -5,9 +5,15 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm, ListedColormap
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from scipy.stats import gaussian_kde
+import cmasher
 
 from exod.utils.logger import logger
 
+
+def use_scienceplots():
+    import scienceplots
+    plt.style.use('science')
 
 def set_latex_font():
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
@@ -33,7 +39,7 @@ def plot_image(image_arr, title, log=False):
     plt.show()
 
 
-def compare_images(images, titles, log=False, plot=True):
+def compare_images(images, titles, log=False, plot=False):
     if not plot:
         return None
 
@@ -141,10 +147,41 @@ def plot_aitoff(ra_deg, dec_deg, savepath=None):
     l = -gal_coords.l.wrap_at(180 * u.deg).radian
     b = gal_coords.b.radian
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(15, 10))
     plt.subplot(111, projection='aitoff')
     plt.scatter(l, b, marker='.', s=1, color='grey')
     plt.tight_layout()
     if savepath:
+        logger.info(f'Saving Aitoff plot to {savepath}')
         plt.savefig(savepath)
-    plt.show()
+    # plt.show()
+
+
+def plot_aitoff_density(ra_deg, dec_deg, savepath=None):
+    sky_coords = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg', frame='fk5', equinox='J2000')
+    gal_coords = sky_coords.galactic
+
+    l = -gal_coords.l.wrap_at(180 * u.deg).radian
+    b = gal_coords.b.radian
+
+    # Calculate the density of points (this is kinda slow)
+    xy = np.vstack([l, b])
+    z = gaussian_kde(xy)(xy)
+
+    fig = plt.figure(figsize=(5, 2.9))
+
+    plt.subplot(111, projection='aitoff')
+    # plt.grid(linewidth=0.5)
+    # plt.scatter(l, b, marker='.', s=1, color='cyan', rasterized=True)
+    plt.scatter(l, b, marker='.', s=1, c=z, cmap=cmasher.cosmic, rasterized=True)
+    plt.tight_layout()
+
+    xticks = ['210°', '240°', '270°', '300°', '330°', '0°', '30°', '60°', '90°', '120°', '150°']
+    plt.xticks(fig.get_axes()[0].get_xticks(), xticks)
+    # plt.xlabel('Galactic longitude (l)')
+    # plt.ylabel('Galactic latitude (b)')
+    if savepath:
+        logger.info(f'Saving to {savepath}')
+        plt.savefig(savepath, dpi=300)
+
+    # plt.show()

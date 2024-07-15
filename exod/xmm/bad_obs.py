@@ -193,5 +193,9 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      '0653380501', # NGC 5408 X-1 pretty wild stellar flare (keep)
                      # '0653380301', # NGC 5408 X-1 (keep)
                      # '0862730301', # ILTJ133729.25+48182 (keep)
+                     '0722430101', # Nothing intrinsically wrong with this one but something near the edge of the CCD results in a 3 big spikes
+                     '0823432701', # 21P/Giacobini-Zinne Comet
+                     '0748591133', # C2014 Q2 Lovejoy Comet
+                     '0748591134' # C2014 Q2 Lovejoy Comet
                     ]
           

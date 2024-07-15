@@ -119,7 +119,7 @@ class Pipeline:
         dl.run()
 
         cube_n = dl.data_cube
-        # cube_n.video()
+        cube_n.video()
 
         img = self.observation.images[0]
         img.read(wcs_only=True)
@@ -141,16 +141,16 @@ class Pipeline:
         dfs_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
 
         # Plot Lightcurves for each pixel.
-        # x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
-        # x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
-        # unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        # for x, y in unique_xy:
-        #     plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
+        x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
+        x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
+        unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
+        for x, y in unique_xy:
+            plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
 
         # Plot Lightcurves for each region
-        # if dfs_lcs:
-        #     for df_lc in dfs_lcs:
-        #         plot_df_lc(df_lc=df_lc, savedir=savedir)
+        if dfs_lcs:
+            for df_lc in dfs_lcs:
+                plot_df_lc(df_lc=df_lc, savedir=savedir)
 
         # Plot Image
         plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
@@ -174,9 +174,9 @@ class Pipeline:
 
         for k, v in results.items():
             save_result(key=k, value=v, runid=self.runid, savedir=savedir)
-        # plt.show()
-        plt.close('all')
-        plt.clf()
+        plt.show()
+        # plt.close('all')
+        # plt.clf()
 
     def load_results(self):
         """Load results for all observation subsets, returns a list of dictionaries."""
@@ -414,6 +414,27 @@ def parameter_grid(obsids):
         del(params['energy_ranges'])
         yield params
 
+def make_df_lc_idx():
+    """
+    Calculate the start and end indexs of each of the lightcurves.
+    This is done so that a specific runid + label combination can be quickly accessed.
+    """
+    tot = 0
+    combinations = {}
+    logger.info('Calculating start and stop indices for each lightcurve... (can take some time)')
+    for chunk in pd.read_hdf(savepaths_combined['lc'], chunksize=2e7):
+        tot += 2e7
+        logger.info(f'Rows done: {tot}')
+        gb = chunk.groupby(['runid', 'label'])
+        for (label, runid), i in gb.groups.items():
+            if (label, runid) in combinations:
+                combinations[(label, runid)] = (combinations[(label, runid)][0], i[-1])
+            else:
+                combinations[(label, runid)] = (i[0], i[-1])
+
+    df_start_stop = pd.DataFrame.from_dict(combinations, orient='index', columns=['start', 'stop'])
+    df_start_stop = df_start_stop.sort_values('start')
+    df_start_stop.to_csv(savepaths_combined['lc_idx'])
 
 def combine_results(obsids):
     """
@@ -444,12 +465,14 @@ def combine_results(obsids):
     logger.info('Saving DataFrames...')
     df_bti.to_csv(savepaths_combined['bti'], index=False)
     df_regions.to_csv(savepaths_combined['regions'], index=False)
-    df_lc.to_csv(savepaths_combined['lc'], index=False)
+    df_lc.to_hdf(savepaths_combined['lc'], index=False)
     df_run_info.to_csv(savepaths_combined['run_info'], index=False)
     df_obs_info.to_csv(savepaths_combined['obs_info'], index=False)
     df_dl_info.to_csv(savepaths_combined['dl_info'], index=False)
     df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
     df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
+
+    make_df_lc_idx()
 
     logger.info(df_bti)
     logger.info(df_regions)
@@ -460,9 +483,7 @@ def combine_results(obsids):
     logger.info(df_dc_info)
     logger.info(df_evt_info)
 
-
 if __name__=="__main__":
-
     obsids = read_observation_ids(data / 'observations.txt')
     # obsids = read_observation_ids(data / 'all_obsids.txt')
     shuffle(obsids)

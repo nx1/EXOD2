@@ -1,10 +1,8 @@
 """This module is used for various the simulation subsets with each other
 In order to determine the crossmatch fraction and various other metrics."""
 
-from itertools import combinations
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial import KDTree
 import pandas as pd
 import astropy.units as u
 from astropy.table import Table
@@ -14,7 +12,7 @@ from exod.utils.path import data_combined, data_plots
 from exod.utils.logger import logger
 
 
-def get_subset_keys():
+def get_run_subset_keys():
     """Get the keys for the simulation subsets."""
     subsets = ['5_0.2_2.0',
                '5_2.0_12.0',
@@ -28,54 +26,6 @@ def get_subset_keys():
     return subsets
 
 
-def get_unique_sources(df_regions, clustering_radius=0.25 * u.arcsec):
-    """
-    Find unique sources in a DataFrame of regions by clustering sources within a certain radius.
-
-    Parameters:
-        df_regions (pd.DataFrame): DataFrame containing the region information.
-        clustering_radius (astropy.units.Quantity): Clustering radius in arcseconds.
-
-    Returns:
-        df_sources_unique (pd.DataFrame): DataFrame containing the unique sources.
-    """
-    # Convert RA and DEC to points on the unit sphere.
-    ra_deg  = df_regions['ra_deg'].values * u.degree
-    dec_deg = df_regions['dec_deg'].values * u.degree
-    ra_rad  = ra_deg.to(u.rad).value
-    dec_rad = dec_deg.to(u.rad).value
-    x = np.cos(dec_rad) * np.cos(ra_rad)
-    y = np.cos(dec_rad) * np.sin(ra_rad)
-    z = np.sin(dec_rad)
-
-    # See https://en.wikipedia.org/wiki/K-d_tree
-    xyz = np.vstack((x, y, z)).T
-    tree = KDTree(xyz)
-
-    # Find all pairs of points between self and other whose distance is at most r.
-    clusters = tree.query_ball_tree(tree, clustering_radius.to(u.rad).value)
-    assert len(clusters) == len(ra_deg)
-
-    # Count sources in each cluster
-    counts = [len(c) for c in clusters]
-    counts = np.array(counts)
-
-    # Create mask to only keep first value of the cluster
-    mask_unique = np.full(len(ra_deg), True)
-    for cluster in clusters:
-        for i in cluster[1:]:  # Mask False out all associated indexs
-            mask_unique[i] = False
-
-    unique_ra = ra_deg[mask_unique]
-    unique_dec = dec_deg[mask_unique]
-    unique_counts = counts[mask_unique]
-    idxs = [clusters[i] for i in range(len(clusters)) if mask_unique[i]]
-
-    # Create a DataFrame for unique sources with counts
-    df_sources_unique = pd.DataFrame({'ra_deg': unique_ra, 'dec_deg': unique_dec, 'idxs': idxs, 'count': unique_counts})
-    logger.info(f'A total of {len(df_sources_unique)} unique sources were found from {len(ra_deg)} sources within a clustering radius of {clustering_radius}')
-    return df_sources_unique
-
 def split_subsets(df_regions):
     """
     Split the regions into subsets based on the t_bin, E_lo, E_hi values in the runid.
@@ -87,7 +37,7 @@ def split_subsets(df_regions):
         dfs_subsets (dict): A dictionary containing the DataFrames for each subset.
     """
     logger.info('Splitting df_regions into simulations subsets...')
-    subsets = get_subset_keys()
+    subsets = get_run_subset_keys()
     dfs_subsets = {}
     for s in subsets:
         dfs_subsets[s] = df_regions[df_regions['runid'].str.contains(s)]
@@ -122,10 +72,10 @@ def crossmatch_simulation_subsets(dfs_subsets):
             cmatch = sc1.match_to_catalog_sky(sc2)
 
             tab_cmatch = Table(cmatch)
-            tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['idx', 'sep2d', 'dist3d'])
+            tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['key', 'sep2d', 'dist3d'])
             tab_cmatch['sep2d'] = tab_cmatch['sep2d'].to(u.arcsec)
 
-            is_match = np.where(tab_cmatch['sep2d'] < max_sep, tab_cmatch['idx'], no_cmatch_id)  # Replace
+            is_match = np.where(tab_cmatch['sep2d'] < max_sep, tab_cmatch['key'], no_cmatch_id)  # Replace
             res[k2] = is_match
 
         df = pd.DataFrame(res)

@@ -2,10 +2,8 @@ import random
 import multiprocessing
 
 from exod.processing.bayesian_pipeline import parameter_grid, Pipeline, combine_results
-from exod.processing.bayesian_computations import PrecomputeBayesLimits
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import data, data_results, read_observation_ids
-import exod.processing.detector as detector
 import pandas as pd
 
 def process_params(params):
@@ -21,10 +19,10 @@ def process_params(params):
     return res
 
 if __name__ == "__main__":
-    obsids = read_observation_ids(data / 'dr14_obsids.txt')
-    random.shuffle(obsids)
+    obsids = read_observation_ids(data / 'observations.txt')
+    # random.shuffle(obsids)
 
-    num_processes = 4
+    num_processes = 1
     with multiprocessing.Pool(processes=num_processes) as pool:
         all_res = pool.map(process_params, parameter_grid(obsids=obsids))
 
