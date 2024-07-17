@@ -133,6 +133,17 @@ def count_peaks(peaks_or_eclipses):
     nbr_of_variability_events = np.nansum(np.abs(np.diff(peaks_or_eclipses, axis=2)), axis=2) / 2
     return nbr_of_variability_events
 
+def count_distant_peaks(peaks_or_eclipses, bins_min_between_peaks):
+    """Counts the individual number of times the lightcurve went above the threshold for variability, and there was
+    a given number of bins since the last time it was above this threshold last"""
+    indices_peaksoreclipses = np.where(peaks_or_eclipses)[0]
+    number_last_peak_end = np.searchsorted(indices_peaksoreclipses, np.arange(len(peaks_or_eclipses)), side='left')-1
+    indices_last_peak_end = np.take(indices_peaksoreclipses,number_last_peak_end)
+    distance_since_last_peak_end = (np.arange(len(peaks_or_eclipses))-indices_last_peak_end)
+    peaks_distant_enough = np.array(peaks_or_eclipses, dtype=bool)&(distance_since_last_peak_end>bins_min_between_peaks)
+    nbr_of_variability_events = np.nansum(peaks_distant_enough)+1
+    return nbr_of_variability_events
+
 
 def peak_count_estimate(fraction, N, mu):
     """Estimate the upper limit on the count of the peak, given an data_cube and observed counts,
