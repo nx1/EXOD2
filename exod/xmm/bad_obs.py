@@ -84,7 +84,7 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      # '0800030801', # Elias 29 (keep)
                      # '0844210101', # MOO J1142+1527 Cluster (keep) (also Moo!)
                      '0801840201', # Tycho SE knots 
-                     '0674440101', # PSR J0357+32 (end of obs spuricous)
+                     '0674440101', # PSR J0357+32 (end of obs spurious)
                      # '0402430301', # Sgr A* Absolutely crazy (keep)
                      # '0862670201', # XLSSC 105 merging cluster (not great but keep)
                      '0412380201', # Tycho SNR (I swear to god)
@@ -196,6 +196,7 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      '0722430101', # Nothing intrinsically wrong with this one but something near the edge of the CCD results in a 3 big spikes
                      '0823432701', # 21P/Giacobini-Zinne Comet
                      '0748591133', # C2014 Q2 Lovejoy Comet
-                     '0748591134' # C2014 Q2 Lovejoy Comet
+                     '0748591134', # C2014 Q2 Lovejoy Comet
+                     '0882110501' # Jupiter
                     ]
           

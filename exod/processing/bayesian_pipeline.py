@@ -30,7 +30,7 @@ class Pipeline:
         observation (Observation): Observation object.
         subset_number (int): The subset number.
         total_subsets (int): Total number of subsets.
-        size_arcsec (float): Size of the region in arcseconds.
+        size_arcsec (float): Size of the binned pixels in arcseconds.
         time_interval (int): Time interval in seconds.
         gti_only (bool): Use only Good Time Intervals.
         remove_partial_ccd_frames (bool): Remove partial CCD frames.
