@@ -12,7 +12,7 @@ from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
-    B_peak_log, B_eclipse_log, get_bayes_thresholds
+    B_peak_log, B_eclipse_log, get_bayes_thresholds, sigma_equivalent_B_peak, sigma_equivalent_B_eclipse
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_multiple_fake_eclipses
 import cmasher as cmr
@@ -200,7 +200,8 @@ def plot_some_n_bayes():
         bayes_eclipse = [B_eclipse_log(n=n, mu=mu) for mu in range_mu]
         plt.plot(range_mu, bayes_peak, label=n, c=c)
         plt.plot(range_mu, bayes_eclipse, c=c)
-    plt.axhline(y=5, ls='--', lw=3, c="k")
+    plt.axhline(y=5, ls='--', lw=1.0, c="k", label="5")
+    plt.ylim(0.001, 1000)
     plt.legend()
     plt.xlabel("Mu")
     plt.ylabel("P(Peak|Data)/P(No Peak|Data)")
@@ -637,7 +638,7 @@ def plot_B_peak():
     mu_lo, mu_hi = 1e-3, 50
     mus = np.geomspace(mu_lo, mu_hi, 1000)
 
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(3.5, 3.5))
     for n in range(n_lines_to_plot):
         label = None
         if (n == 0) or (n == n_lines_to_plot-1):  # Label first and last line
@@ -673,7 +674,7 @@ def plot_B_eclipse():
     mu_lo, mu_hi = 1e-3, 50
     mus = np.geomspace(mu_lo, mu_hi, 1000)
 
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(3.5, 3.5))
     for n in range(n_lines_to_plot):
         label = None
         if (n == 0) or (n == n_lines_to_plot-1):  # Label first and last line
@@ -722,9 +723,36 @@ def plot_B_values_3d():
     plt.savefig(data_plots / 'B_values_3d.pdf')
     plt.show()
 
+
+def plot_B_factor_vs_sigma():
+    plt.figure(figsize=(3.5, 3.5))
+
+    xmin, xmax = 1.61, 42
+
+    sigmas_peak = []
+    sigmas_eclipse = []
+    Bs = np.linspace(xmin, xmax, 500)
+    for B in Bs:
+        sigmas_peak.append(sigma_equivalent_B_peak(B))
+        sigmas_eclipse.append(sigma_equivalent_B_eclipse(B))
+
+    plt.plot(Bs, sigmas_peak, label=r'$\mathrm{B_{peak}}$')
+    plt.plot(Bs, sigmas_eclipse, label=r'$\mathrm{B_{Eclipse}}$')
+    plt.xlabel(r'Bayes Factor ($\mathrm{log_{10} B})$')
+    plt.ylabel(r'Sigma Equivalent ($\sigma$)')
+    plt.xlim(xmin, xmax)
+    plt.ylim(0, 10)
+    plt.legend()
+    plt.savefig(data_plots / 'B_factor_vs_sigma.png')
+    plt.savefig(data_plots / 'B_factor_vs_sigma.pdf')
+    plt.show()
+
 if __name__ == "__main__":
+    from exod.utils.plotting import use_scienceplots
+    use_scienceplots()
     plot_B_peak()
     plot_B_eclipse()
+    plot_B_factor_vs_sigma()
     plot_B_values_3d()
     check_estimate_success()
     check_eclipse_estimate_success()
