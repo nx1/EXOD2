@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from exod.utils.logger import logger
 
 base            = Path(os.environ['EXOD'])
 data            = base / 'data'
@@ -46,7 +45,7 @@ savepaths_combined = {'bti'           : data_combined / 'merged_with_dr14' / 'df
 
 def create_all_paths():
     for name, path in all_paths.items():
-        logger.info(f'Creating Path: {path}')
+        print(f'Creating Path: {path}')
         os.makedirs(path, exist_ok=True)
 
 
@@ -79,7 +78,7 @@ if __name__ == "__main__":
     create_all_paths()
     for name, path in all_paths.items():
         exists = "exists" if path.exists() else "does not exist"
-        logger.info(f"{name:<15} : {path} : {exists}")
+        print(f"{name:<15} : {path} : {exists}")
 
 
 
