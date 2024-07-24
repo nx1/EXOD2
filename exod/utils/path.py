@@ -45,7 +45,6 @@ savepaths_combined = {'bti'           : data_combined / 'merged_with_dr14' / 'df
 
 def create_all_paths():
     for name, path in all_paths.items():
-        print(f'Creating Path: {path}')
         os.makedirs(path, exist_ok=True)
 
 
