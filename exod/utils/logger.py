@@ -15,7 +15,7 @@ class CustomFormatter(logging.Formatter):
     fmt1 = '%(asctime)s - %(levelname)s - %(filename)s:%(funcName)s - %(message)s'
     fmt2 = '%(levelname)s - %(asctime)s - %(message)s'
     fmt3 = '%(message)s'
-    format = fmt1
+    format = fmt3
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,

@@ -1,3 +1,4 @@
+from exod.post_processing.estimate_variability_properties import count_distant_peaks
 from exod.utils.path import data_combined, savepaths_combined
 from exod.utils.logger import logger
 
@@ -51,8 +52,16 @@ def largest_peak_info(df_lc):
 
 
 def calc_features(df_lc, key):
-    parts = key.strip("()").split(", ")
-    parts = [part.strip("'") for part in parts]
+    parts    = key.strip("()").split(", ")
+    parts    = [part.strip("'") for part in parts]
+    runid    = parts[0]
+    label    = parts[1]
+    runid_sp = runid.split("_")
+    obsid    = runid_sp[0]
+    subset   = int(runid_sp[1])
+    t_bin    = int(runid_sp[2])
+    E_low    = float(runid_sp[3])
+    E_hi     = float(runid_sp[4])
 
     length = len(df_lc)
     n_bccd = df_lc['bccd'].sum()
@@ -62,14 +71,26 @@ def calc_features(df_lc, key):
 
     ks = ks_2samp(df_lc['n'], df_lc['mu'])
 
+
+
+    peaks_or_eclipses = (df_lc['B_peak_log'] > 6.4) | (df_lc['B_eclipse_log'] > 5.5)
+    t_bin_bin_spacing = {5 : 1000, 50 : 100, 200 : 5}
+    bins_min_between_peaks = t_bin_bin_spacing[t_bin]
+    n_peaks = count_distant_peaks(peaks_or_eclipses, bins_min_between_peaks)
+
     num_B_peak_above_6_4    = count_recurring_peaks(df_lc['B_peak_log'].values, threshold=6.4)
     num_B_eclipse_above_5_5 = count_recurring_peaks(df_lc['B_eclipse_log'].values, threshold=5.5)
 
     n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare = largest_peak_info(df_lc)
 
     res = {'key'                     : key,
-           'runid'                   : parts[0],
-           'label'                   : parts[1],
+           'runid'                   : runid,
+           'label'                   : label,
+           'obsid'                   : obsid,
+           'subset'                  : subset,
+           't_bin'                   : t_bin,
+           'E_low'                   : E_low,
+           'E_hi'                    : E_hi,
            'len'                     : length,
            'n_bccd'                  : df_lc['bccd'].sum(),
            'n_bti'                   : df_lc['bti'].sum(),
@@ -97,7 +118,9 @@ def calc_features(df_lc, key):
            'B_peak_log_max'          : df_lc['B_peak_log'].max(),
            'B_eclipse_log_max'       : df_lc['B_eclipse_log'].max(),
            'num_B_peak_above_6_4'    : num_B_peak_above_6_4,
-           'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5}
+           'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5,
+           'bin_min_between_peaks'   : bins_min_between_peaks,
+           'n_peaks'                 : n_peaks}
     return res
 
 

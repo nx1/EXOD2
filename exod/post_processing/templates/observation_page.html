@@ -1,57 +1,25 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Observation Page - {{ obsid }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
-    <style>
-    .image-container {
-      width: 50%; /* Set the width of each container */
-      float: left; /* Float the containers to make them appear side by side */
-      box-sizing: border-box; /* Include padding and border in the width */
-      padding: 10px; /* Add padding for spacing between images */
-    }
-
-    .image-container img {
-      width: 100%; /* Set the width of the images to fill the container */
-      height: auto;
-      display: block;
-    }
-    
-  </style>
-</head>
+{% extends "base.html" %}
+{% block content %}
 <body>
-    <h1>Observation Page - {{ content['obsid'] }}</h1>
-    <hr>
-    <div class="image-container">
-    <h2>Variability Image</h2>
-    <img src={{content['image_var']}}>
-    </div>
-    <div class="image-container">
-    <h2>crossmatch Image</h2>
-    <img src={{content['cmatch_img']}}>
-    </div>
-    <h2>BTI plot</h2>
-    <img src={{content['bti_plot']}}>
-    <h2>Detected Regions</h2>
-    {{content['tab_reg'] | safe}}
-    <h2>BTI Table</h2>
-    {{content['tab_bti'] | safe}}
+<h2>Obsid Summary - <a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ content['obsid'] }}">{{ content['obsid'] }}</h2></a>
+Date: {{content['evt_info']['date']}} |
+Object: {{content['evt_info']['object']}} |
+Exposure: {{content['evt_info']['exposure']}} |
+{% for lightcurve in content['lightcurves'] %}
+<img src="data:image/png;base64,{{lightcurve['data_url']}}">
+{% endfor %}
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-    <script>
-    $(document).ready(function () {
-        // Initialize DataTable
-        $('table').DataTable();
-    });
-    </script>
-
-
+<h2>Detected Regions:</h2>
+{{content['tab_regions_obs'] | safe}}
+<script>
+    $(document).ready( function () {
+        $('#myTable').DataTable({
+            "pageLength": 500,
+            scrollCollapse: true,
+            scroller: true,
+            scrollY:500
+        });
+    } );
+</script>
 </body>
-</html>
-
+{% endblock %}

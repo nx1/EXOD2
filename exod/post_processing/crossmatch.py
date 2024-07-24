@@ -1,11 +1,13 @@
 """
 This module contains code for crossmatching the regions with various catalogues.
 """
+import io
 import time
 import warnings
 from pathlib import Path
 
 import numpy as np
+import requests
 from astropy import units as u
 import pandas as pd
 from astropy.coordinates import SkyCoord
@@ -14,6 +16,7 @@ from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.simbad.core import BlankResponseWarning
 import matplotlib.pyplot as plt
+from astroquery.xmatch import XMatch
 from matplotlib.colors import LogNorm
 from tqdm import tqdm
 
@@ -53,7 +56,7 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
 
     matched_reg = df_region.iloc[tab_cmatch['idx_orig']]
-    ra_offset   = matched_reg['ra_deg'] - tab_fits_cmatch[ra_col]
+    ra_offset   = (matched_reg['ra_deg'] - tab_fits_cmatch[ra_col]) * np.cos(np.radians(matched_reg['dec_deg']))
     dec_offset  = matched_reg['dec_deg'] - tab_fits_cmatch[dec_col]
     tab_fits_cmatch['RA_OFFSET']  = ra_offset
     tab_fits_cmatch['DEC_OFFSET'] = dec_offset
@@ -91,268 +94,108 @@ def crossmatch_tranin_dr12(df_region):
     return tab_xmm_cmatch
 
 
-def crossmatch_simbad(df_region, radius):
-    """
-    Crossmatch with a df_region table containing ['ra'] and ['dec']
-    columns in degrees and 'icrs' coordinates with SIMBAD to get
-    objects within a specified radius.
-
-    This function queries SIMBAD with all the coordinates at once which saves time
-    as you don't need to perform an individual query for each set of coordinates.
-
-    Parameters:
-        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees.
-        radius (astropy.units): Radius to search around the coordinates.
-
-    Returns:
-        tab_res (astropy.Table): Result from SIMBAD query.
-    """
-    n_reg = len(df_region)
-    logger.info(f'Crossmatching df_region n_reg={n_reg} with SIMBAD, radius={radius}')
-    skycoord_reg = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
-
-    simbad = Simbad()
-    simbad.TIMEOUT = 1000
-    # Additional fields can be checked with simbad.list_votable_fields()
-    simbad.add_votable_fields('otype', 'distance')
-
-    logger.info('Querying Region (This can take a while...)')
-    tab_res = simbad.query_region(coordinates=skycoord_reg, radius=radius)
-
-    if not tab_res:
-        logger.info('No Results Found! Just returning error table.')
-        err_idx = np.arange(0, n_reg, 1)
-        err_sep = [9999 * u.arcsec] * len(err_idx)
-        ra_reg  = [skycoord_reg[i].ra for i in err_idx]
-        dec_reg = [skycoord_reg[i].dec for i in err_idx]
-        tab_err = Table({'SCRIPT_NUMBER_ID' : err_idx,
-                         'RA_REGION_DEG'    : ra_reg,
-                         'DEC_REGION_DEG'   : dec_reg,
-                         'SEP_ARCSEC'       : err_sep})
-        return tab_err
-    tab_res['SCRIPT_NUMBER_ID'] = tab_res['SCRIPT_NUMBER_ID'] - 1  # Use 0 Indexing
-    logger.info(f'Found {len(tab_res)} results')
-
-    logger.info('Appending region coordinates to table...')
-    tab_res['RA_REGION_DEG'] = [skycoord_reg[i].ra for i in tab_res['SCRIPT_NUMBER_ID']]
-    tab_res['DEC_REGION_DEG'] = [skycoord_reg[i].dec for i in tab_res['SCRIPT_NUMBER_ID']]
-
-    logger.info('Calculating separations...')
-    sc1 = SkyCoord(ra=tab_res['RA_REGION_DEG'], dec=tab_res['DEC_REGION_DEG'])
-    sc2 = SkyCoord(ra=tab_res['RA'], dec=tab_res['DEC'], unit=(u.hourangle, u.deg))
-    sep = sc1.separation(sc2).to(u.arcsec)
-    tab_res['SEP_ARCSEC'] = sep
-
-    logger.info('Keeping Only closest match for each region')
-    rows = []
-    for tab in tqdm(tab_res.group_by('SCRIPT_NUMBER_ID').groups):
-        min_idx = tab['SEP_ARCSEC'].argmin()
-        row = tab[min_idx]
-        rows.append(row)
-    tab_res_closest = vstack(rows)
-
-    logger.info('Appending regions with no match to table...')
-    err_idx = np.setdiff1d(np.arange(0, n_reg, 1), tab_res_closest['SCRIPT_NUMBER_ID'])
-    err_sep = [9999 * u.arcsec] * len(err_idx)
-    ra_reg  = [skycoord_reg[i].ra for i in err_idx]
-    dec_reg = [skycoord_reg[i].dec for i in err_idx]
-    tab_err = Table({'SCRIPT_NUMBER_ID' : err_idx,
-                     'RA_REGION_DEG'    : ra_reg,
-                     'DEC_REGION_DEG'   : dec_reg,
-                     'SEP_ARCSEC'       : err_sep})
-    tab_res_closest = vstack([tab_res_closest, tab_err])
-    tab_res_closest.sort('SCRIPT_NUMBER_ID')
-    return tab_res_closest
+def crossmatch_cds(df, max_sep_arcsec=20, catalogue='simbad', ra_col='ra_deg', dec_col='dec_deg'):
+    """Crossmatch using CDS X-Match Service."""
+    print(f'Crossmatching {len(df)} rows with {catalogue} using CDS Xmatch max_sep={max_sep_arcsec}"')
+    r = requests.post(
+        url='http://cdsxmatch.u-strasbg.fr/xmatch/api/v1/sync',
+        data={'request': 'xmatch',
+              'distMaxArcsec': max_sep_arcsec,
+              'RESPONSEFORMAT': 'csv',
+              'cat2': catalogue,
+              'colRA1': ra_col,
+              'colDec1': dec_col},
+        files={'cat1': df.to_csv()})
+    df_res = pd.read_csv(io.StringIO(r.text), low_memory=False)
+    print(f'Returned {len(df_res)} rows')
+    return df_res
 
 
-def crossmatch_chunk(query_func, df_region, savepath, radius, chunk_size=100, clobber=False):
-    """
-    Crossmatch in chunks to avoid timeouts.
-
-    Parameters:
-        query_func (function): Function to query the catalogue.
-        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees.
-        radius (astropy.units): Radius to search around the coordinates. eg. 2*u.arcmin.
-        chunk_size (int): Number of regions to query at once.
-        clobber (bool): Overwrite existing files.
-
-    Returns:
-        tab_cmatch (astropy.Table): Result from the query.
-    """
-    savepath = Path(savepath)
-    if not clobber and savepath.exists():
-        logger.info(f'{savepath} exists and clobber=False | loading table...')
-        tab_cmatch = Table.read(savepath, format='csv')
-        return tab_cmatch
-
-    start_time = time.time()
-    n_rows = len(df_region)
-    all_tabs = []
-
-    for i in range(0, n_rows, chunk_size):
-        logger.info(f'{i} / {n_rows}')
-        chunk_start_time = time.time()
-
-        start = i
-        end = min(i + chunk_size, n_rows)
-        df_sub = df_region.iloc[start:end]
-
-        tab = query_func(df_region=df_sub, radius=radius)
-        idxs = np.arange(start, end, 1)
-        tab['SCRIPT_NUMBER_ID'] = idxs
-        all_tabs.append(tab)
-
-        chunk_elapsed_time = time.time() - chunk_start_time
-        total_elapsed_time = time.time() - start_time
-        estimated_total_time = (total_elapsed_time / end) * n_rows
-        estimated_remaining_time = estimated_total_time - total_elapsed_time
-        logger.info(f'Time | elapsed: {chunk_elapsed_time:.2f} remaining: {estimated_remaining_time:.2f} total={total_elapsed_time:.2f}')    
-    tab_cmatch = vstack(all_tabs)
-    tab_cmatch.write(savepath, format='csv', overwrite=True)
-    return tab_cmatch
+def calc_sep(df_res, ra_col1, dec_col1, ra_col2, dec_col2):
+    print('Calculating Seperations...')
+    sc1 = SkyCoord(ra=df_res[ra_col1], dec=df_res[dec_col1], unit='deg')
+    sc2 = SkyCoord(ra=df_res[ra_col2], dec=df_res[dec_col2], unit='deg')
+    sep = sc1.separation(sc2).to('arcsec')
+    sep = [s.value for s in sep]
+    return sep
 
 
-def crossmatch_vizier(catalog, df_region, radius):
-    """
-    Crossmatch with a Vizier catalogue.
-
-    Parameters:
-        catalog (str): Name of the Vizier catalogue to query.
-        df_region (pd.DataFrame): containing the regions to crossmatch. 'ra' and 'dec' in degrees.
-        radius (astropy.units): Radius to search around the coordinates. eg. 2*u.arcmin.
-
-    Returns:
-        tab_res (astropy.Table) result from Vizier query.
-        skycoord_reg (astropy.coordinates.SkyCoord): SkyCoord object of the region coordinates.
-    """
-    logger.info(f'Crossmatching df_region len={len(df_region)} with Vizier, radius={radius} catalog={catalog}')
-    skycoord_reg = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
-    v = Vizier()
-    v.TIMEOUT = 1000
-    tab_list = v.query_region(skycoord_reg, radius=radius, frame='icrs', catalog=catalog)
-    tab_res = tab_list[0]
-    tab_res['_q'] = tab_res['_q'] - 1
-    return tab_res, skycoord_reg
+def xmatch_cds(tab1, catalogue, max_sep, ra_col='ra_deg', dec_col='dec_deg', **kwargs):
+    table = XMatch.query(cat1=tab1, cat2=catalogue, max_distance=max_sep, colRA1=ra_col, colDec1=dec_col, **kwargs)
+    return table
 
 
-def crossmatch_gaia(df_region, radius):
-    """Crossmatch with GAIA DR3 Catalogue."""
-    catalog = 'I/355/gaiadr3'
-    n_reg = len(df_region)
-    tab_res, skycoord_reg = crossmatch_vizier(catalog, df_region, radius)
-
-    # Append Separation To table
-    coords1 = SkyCoord([skycoord_reg[i] for i in tab_res['_q']])
-    coords2 = SkyCoord(ra=tab_res['RA_ICRS'], dec=tab_res['DE_ICRS'], unit='deg', frame='icrs')
-    sep = coords1.separation(coords2).to(u.arcsec)
-    tab_res['SEP_ARCSEC'] = sep
-    tab_res['RA_REGION_DEG'] = [skycoord_reg[i].ra for i in tab_res['_q']]
-    tab_res['DEC_REGION_DEG'] = [skycoord_reg[i].dec for i in tab_res['_q']]
-
-    # Only Keep the closest Match for each _q
-    rows = []
-    for tab in tqdm(tab_res.group_by('_q').groups):
-        min_idx = tab['SEP_ARCSEC'].argmin()
-        row = tab[min_idx]
-        rows.append(row)
-    tab_res_closest = vstack(rows)
-    
-    logger.info('Appending regions with no match to table...')
-    err_idx = np.setdiff1d(np.arange(0, n_reg, 1), tab_res_closest['_q'])
-    err_sep = [9999 * u.arcsec] * len(err_idx)
-    ra_reg  = [skycoord_reg[i].ra for i in err_idx]
-    dec_reg = [skycoord_reg[i].dec for i in err_idx]
-    tab_err = Table({'_q' : err_idx,
-                     'RA_REGION_DEG'    : ra_reg,
-                     'DEC_REGION_DEG'   : dec_reg,
-                     'SEP_ARCSEC'       : err_sep})
-    tab_res_closest = vstack([tab_res_closest, tab_err])
-    tab_res_closest.sort('_q')
-    return tab_res_closest
+def keep_closest_match(df):
+    print('Keeping Closest Match...')
+    print(f'Length pre  = {len(df)}')
+    idx = df.groupby('cluster_label')['SEP_ARCSEC'].idxmin()
+    df = df.loc[idx]
+    print(f'Length post = {len(df)}')
+    return df
 
 
-def crossmatch_xmm_om(df_region, radius):
-    """Crossmatch with XMM Optical Monitor Catalogue v6 (Page+ 2023) (Thanks Matt!)."""
-    catalog = '	II/378/xmmom6s'
-    n_reg = len(df_region)
-    tab_res, skycoord_reg = crossmatch_vizier(catalog, df_region, radius)
-
-    # Append Separation To table
-    coords1 = SkyCoord([skycoord_reg[i] for i in tab_res['_q']])
-    coords2 = SkyCoord(ra=tab_res['RAJ2000'], dec=tab_res['DEJ2000'], unit='deg', frame='fk5', equinox='J2000')
-    sep = coords1.separation(coords2).to(u.arcsec)
-    tab_res['SEP_ARCSEC'] = sep
-    tab_res['RA_REGION_DEG'] = [skycoord_reg[i].ra for i in tab_res['_q']]
-    tab_res['DEC_REGION_DEG'] = [skycoord_reg[i].dec for i in tab_res['_q']]
-
-    # Only Keep the closest Match for each _q
-    rows = []
-    for tab in tqdm(tab_res.group_by('_q').groups):
-        min_idx = tab['SEP_ARCSEC'].argmin()
-        row = tab[min_idx]
-        rows.append(row)
-    tab_res_closest = vstack(rows)
-
-    logger.info('Appending regions with no match to table...')
-    err_idx = np.setdiff1d(np.arange(0, n_reg, 1), tab_res_closest['_q'])
-    err_sep = [9999 * u.arcsec] * len(err_idx)
-    ra_reg  = [skycoord_reg[i].ra for i in err_idx]
-    dec_reg = [skycoord_reg[i].dec for i in err_idx]
-    tab_err = Table({'_q'             : err_idx,
-                     'RA_REGION_DEG'  : ra_reg,
-                     'DEC_REGION_DEG' : dec_reg,
-                     'SEP_ARCSEC'     : err_sep})
-    tab_res_closest = vstack([tab_res_closest, tab_err])
-    tab_res_closest.sort('_q')
-    return tab_res_closest
+def add_no_match_sources(df1, df2):
+    print('Adding in Sources with No Matches...')
+    cluster_labels_no_match = np.setdiff1d(df1['cluster_label'], df2['cluster_label'])
+    df_no_match = df1.set_index('cluster_label').loc[cluster_labels_no_match].reset_index()
+    df_no_match['SEP_ARCSEC'] = 9999
+    df_res = pd.concat([df2, df_no_match], axis=0).sort_values('cluster_label')
+    return df_res
 
 
-def classify_simbad_otype(tab_res):
-    """
-    Sub-classify the SIMBAD sources based on the OTYPE column.
+def xmatch(df, catalogue='simbad', max_sep_arcsec=20, ra_col='ra', dec_col='dec'):
+    df_res = crossmatch_cds(df, max_sep_arcsec=max_sep_arcsec, catalogue=catalogue, ra_col='ra_deg', dec_col='dec_deg')
+    df_res['SEP_ARCSEC'] = calc_sep(df_res, ra_col1='ra_deg', dec_col1='dec_deg', ra_col2=ra_col, dec_col2=dec_col)
+    df_res = keep_closest_match(df_res)
+    df_res = add_no_match_sources(df, df_res)
+    assert len(df_res) == len(df)
+    return df_res
 
-    This was done in the original version of EXOD, however many of the SIMBAD OTYPES
-    appear to be unaccounted for, additionally there seem to be some OTYPES that are
-    not in the simbad_classifier dictionary which causes errors. My Guess is that
-    we will do something more sophisticated than this, however it is a good start.
 
-    Parameters:
-        tab_res (astropy.Table): Table containing the SIMBAD results with an OTYPE column.
+def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True):
+    savepaths_cmatch = {'SIMBAD'  : data_combined / 'cmatch_simbad.csv',
+                        'GAIA DR3': data_combined / 'cmatch_gaia_dr3.csv',
+                        'XMM OM'  : data_combined / 'cmatch_xmm_om.csv'}
+    dfs_cmatch = {}
+    dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique)
 
-    Returns:
-        tab_res (astropy.Table): Table with the CLASSIFICATION column added.
-    """
-    classification = [simbad_classifier[t] for t in tab_res['OTYPE']]
-    tab_res['CLASSIFICATION'] = classification
-    return tab_res
+    if not clobber:
+        if all([savepath.exists() for savepath in savepaths_cmatch.values()]):
+            logger.info('Crossmatch files already exist and clobber=False, loading from files')
+            for k, savepath in savepaths_cmatch.items():
+                logger.info(f'Loading {k} crossmatch from {savepath}')
+                dfs_cmatch[k] = pd.read_csv(savepath)
+            return dfs_cmatch
+        else:
+            logger.info('Some crossmatch files are missing. Recreating...')
 
-def crossmatch_unique_regions():
-    clobber            = False
-    clustering_radius  = 20*u.arcsec # Clustering radius for unique regions
-    cmatch_max_radius  = 30*u.arcsec # Max search radius for external crossmatching
-    cmatch_chunk_size  = 100         # Chunksize for external crossmatching
 
-    df_regions        = pd.read_csv(savepaths_combined['regions'])
-    df_regions_unique = get_unique_regions(df_regions, clustering_radius=clustering_radius)
-    tab_cmatch_xmm    = crossmatch_dr14_slim(df_regions_unique)
+    catalogs = {'SIMBAD'  : 'simbad',
+                'GAIA DR3': 'vizier:I/355/gaiadr3',
+                'XMM OM'  : 'vizier:II/378/xmmom6s'}
+    # 'GLADE'    : 'vizier:VII/291/gladep'}
+    # 'CHIME FRB': 'vizier:J/ApJS/257/59/table2',}
 
-    tab_cmatch_simbad = crossmatch_chunk(query_func=crossmatch_simbad, df_region=df_regions_unique,
-                                         savepath=(savepaths_combined['cmatch_simbad']), radius=cmatch_max_radius,
-                                         chunk_size=cmatch_chunk_size, clobber=clobber)
+    catalogs_coord_cols = {'SIMBAD'   : {'ra': 'ra', 'dec': 'dec'},
+                           'GAIA DR3' : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
+                           'XMM OM'   : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
+                           'GLADE'    : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
+                           'CHIME FRB': {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
 
-    tab_cmatch_gaia = crossmatch_chunk(query_func=crossmatch_gaia, df_region=df_regions_unique,
-                                       savepath=(savepaths_combined['cmatch_gaia']), radius=cmatch_max_radius,
-                                       chunk_size=cmatch_chunk_size, clobber=clobber)
 
-    tab_cmatch_om = crossmatch_chunk(query_func=crossmatch_xmm_om, df_region=df_regions_unique,
-                                     savepath=(savepaths_combined['cmatch_om']), radius=cmatch_max_radius,
-                                     chunk_size=cmatch_chunk_size, clobber=clobber)
+    for k, cat in catalogs.items():
+        dfs_cmatch[k] = xmatch(df_regions_unique, cat, max_sep_arcsec=max_sep_arcsec,
+                               ra_col=catalogs_coord_cols[k]['ra'], dec_col=catalogs_coord_cols[k]['dec'])
 
-    tables = {'tab_cmatch_xmm'    : tab_cmatch_xmm,
-              'tab_cmatch_simbad' : tab_cmatch_simbad,
-              'tab_cmatch_gaia'   : tab_cmatch_gaia,
-              'tab_cmatch_om'     : tab_cmatch_om}
-    return tables
+        print(f'Saving {k} crossmatch to {savepaths_cmatch[k]}')
+        dfs_cmatch[k].to_csv(savepaths_cmatch[k], index=False)
+
+    return dfs_cmatch
+
+
+
+
+
 
 
 

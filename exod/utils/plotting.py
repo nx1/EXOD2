@@ -147,7 +147,7 @@ def plot_aitoff(ra_deg, dec_deg, savepath=None):
     l = -gal_coords.l.wrap_at(180 * u.deg).radian
     b = gal_coords.b.radian
 
-    plt.figure(figsize=(15, 10))
+    plt.figure()
     plt.subplot(111, projection='aitoff')
     plt.scatter(l, b, marker='.', s=1, color='grey')
     plt.tight_layout()

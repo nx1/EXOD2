@@ -101,9 +101,9 @@ def map_region_num_to_clusters(clusters):
     """
     logger.info(f'Mapping Regions to each cluster...')
     region_to_clusters = defaultdict(list)
-    for cluster in clusters:
-        for region in cluster:
-            region_to_clusters[region].append(cluster)
+    for c in clusters:
+        for region_num in c:
+            region_to_clusters[region_num].append(c)
     return region_to_clusters
 
 
@@ -111,7 +111,7 @@ def calc_cluster_xyz_means(clusters, xyz):
     """
     Calculate the mean position of each cluster.
 
-    Args:
+    Parameters:
         clusters (list): List of clusters.
         xyz (np.ndarray): The xyz positions of the points as a (N, 3) array.
 

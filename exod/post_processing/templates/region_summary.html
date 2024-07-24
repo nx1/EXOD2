@@ -20,7 +20,7 @@ Dec        : {{ content['reg_info']['dec'] }}
 RA (deg)   : {{ content['reg_info']['ra_deg'] }}
 Dec (deg)  : {{ content['reg_info']['dec_deg'] }}
 <a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['reg_info']['ra_deg']}}+{{content['reg_info']['dec_deg']}}">coords SIMBAD</a>
-<a href="https://sky.esa.int/esasky/?target={{content['reg_info']['ra_deg']}} {{content['reg_info']['dec_deg']}}&hips=DSS2+color&fov=0.4649968262252353&cooframe=J2000&sci=true&lang=en">coords ESASKY</a>
+<a href="https://sky.esa.int/esasky/?target={{content['reg_info']['ra_deg']}} {{content['reg_info']['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0.4649968262252353&cooframe=J2000&sci=true&lang=en">coords ESASKY</a>
 mean intensity: {{ content['reg_info']['intensity_mean'] }}
 area: {{ content['reg_info']['area_bbox'] }}
 </pre>
@@ -55,10 +55,28 @@ OTYPE   : {{content['cmatch_info']['OTYPE']}}
 </div>
 <div class="col">
 <pre>
+<b>GAIA:</b>
+RA   : {{content['cmatch_gaia_info']['RA_ICRS']}}
+DEC  : {{content['cmatch_gaia_info']['DE_ICRS']}}
+{% if content['cmatch_gaia_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% endif %}
+GAL  : {{content['cmatch_gaia_info']['Gal']}}
+QSO  : {{content['cmatch_gaia_info']['QSO']}}
+DIST : {{content['cmatch_gaia_info']['Dist']}}
+GMAG : {{content['cmatch_gaia_info']['Gmag']}}
+Teff : {{content['cmatch_gaia_info']['Teff']}}
+</pre>
+</div>
+<div class="col">
+<pre>
 <b>what do we think?</b>
-<button style="background-color: green; color: white;">Real as real can be</button>
-<button style="background-color: yellow; color: black;">Maybe but I'm not really sure</button>
-<button style="background-color: red; color: white;">Throw them out!</button>
+Class: {{ content['class_info']['class']}}<form method="POST" action="{{url_for('handle_data')}}"><input type="hidden" name="region_id" value="{{ content['region_id'] }}">
+<button type="submit" name="button" value="star" style="background-color: cyan; color: black;">Star</button><button type="submit" name="button" value="xrb" style="background-color: blue; color: white;">XRB</button>
+<button type="submit" name="button" value="cv" style="background-color: grey; color: black;">CV</button><button type="submit" name="button" value="agn" style="background-color: orange; color: black;">AGN</button><button type="submit" name="button" value="burst" style="background-color: lime; color: black;">burst</button>
+<button type="submit" name="button" value="interesting" style="background-color: gold; color: black;">!!!</button><button type="submit" name="button" value="unsure" style="background-color: white; color: black;">Unsure</button>
+<button type="submit" name="button" value="junk" style="background-color: red; color: black;">Junk</button>
+
+<button type="submit" name="button" value="save_class" style="background-color: black; color: white;">Save Class</button>
+</form>
 </pre>
 </div>
 <div class="row">
@@ -69,8 +87,6 @@ OTYPE   : {{content['cmatch_info']['OTYPE']}}
     </div>
 </div>
 </div>
-
-
 <div class="container">
 <div class="row">
     <div class="col">
@@ -81,15 +97,56 @@ object    : {{ content['evt_info']['object'] }}
 exposure  : {{ content['evt_info']['exposure'] }}
 N_events  : {{ content['evt_info']['N_events'] }}
 mean Rate : {{ content['evt_info']['mean_rate'] }}
+
+<b>Runs and detections for obsid:{{content['obsid']}}:</b>
+{% for i, row in content['run_info'].iterrows() %}
+    {{ row['runid'] }} : {{ row['n_regions'] }}{% endfor %}
 </pre>
 </div>
 <div class="col">
-<pre>
-<b>Lightcurve Information:</b>
-hello b0ssss
-</pre>
+<b>SDSS:</b>
+<div id="aladin-lite-div" style="width:400px;height:400px;"></div>
+<script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
+<script type="text/javascript">
+let aladin;
+A.init.then(() => {
+    aladin = A.aladin('#aladin-lite-div',
+    {survey: "P/DSS2/color",
+    fov:0.1,
+    cooFrame: 'equatorial',
+    target: 'NGC 1313',
+    showCooGridControl: false,
+    showSimbadPointerControl: true,
+    showCooGrid: false,
+    target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
+});
+</script>
+</div>
+<div class="col">
+<b>XMM:</b>
+<div id="aladin-lite-div2" style="width:400px;height:400px;"></div>
+<script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
+<script type="text/javascript">
+let aladin2;
+A.init.then(() => {
+    aladin2 = A.aladin('#aladin-lite-div2',
+    {survey: "P/XMM/PN/color",
+    fov:0.1,
+    cooFrame: 'equatorial',
+    target: 'NGC 1313',
+    showCooGridControl: false,
+    showSimbadPointerControl: true,
+    showCooGrid: false,
+    target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
+
+});
+</script>
 </div>
 </div>
+</div>
+<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a>
+<div style="text-align: right;">
+<a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 </div>
 </body>
 {% endblock %}

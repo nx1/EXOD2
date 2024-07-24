@@ -22,13 +22,15 @@
 
     <a href={{url_for('regions')}}>Detected Regions</a> |
     <a href={{url_for('unique_regions')}}>Unique Detected Regions</a> |
-    <a href={{url_for('lightcurves')}}>Lightcurve Features</a> |
     <a href={{url_for('lightcurve_idx')}}>Lightcurve Indexs</a> ||
 
-    <a href={{url_for('crossmatch_simbad')}}>Crossmatch SIMBAD</a> |
-    <a href={{url_for('crossmatch_xmm')}}>Crossmatch XMM</a> ||
+    <a href={{url_for('crossmatch_simbad')}}>cmatch SIMBAD</a> |
+    <a href={{url_for('crossmatch_xmm')}}>cmatch XMM</a> ||
+    <a href={{url_for('crossmatch_om')}}>cmatch OM</a> ||
+    <a href={{url_for('crossmatch_gaia')}}>cmatch GAIA</a> ||
 
-    <a href={{url_for('region_summary', region_id='0')}}>Unique Region Browser</a>
+    <a href={{url_for('region_summary', region_id='0')}}>Unique Region Browser</a> |
+    <a href={{url_for('observation_page', obsid='0411980401')}}>Obs Browser</a>
 </nav>
     {% block content %}
     {% endblock %}
