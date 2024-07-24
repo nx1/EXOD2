@@ -1,6 +1,8 @@
 """
 This module contains functions to test the Bayesian computations in the exod package.
 """
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,7 +16,7 @@ from exod.processing.background_inference import calc_cube_mu
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
     B_peak_log, B_eclipse_log, get_bayes_thresholds
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
-from exod.utils.synthetic_data import create_fake_burst, create_multiple_fake_eclipses
+from exod.utils.synthetic_data import create_fake_burst, create_fake_onebin_burst, create_multiple_fake_eclipses
 import cmasher as cmr
 
 
@@ -210,7 +212,7 @@ def plot_some_n_bayes():
     plt.show()
 
 
-def test_bayes_on_false_cube(size):
+def bayes_test_on_false_cube(size):
     # minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(3)
     cube = np.random.poisson(1e-1, (size,size,size))
     estimated = np.ones((size,size,size))*1e-1
@@ -220,7 +222,7 @@ def test_bayes_on_false_cube(size):
     return np.sum(peaks), np.sum(eclipse)
 
 
-def test_on_data(cube, expected, threshold):
+def bayes_test_on_data(cube, expected, threshold):
     minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=threshold)
     peaks = cube>minimum_for_peak(np.where(expected>0, expected, np.nan))
     eclipse =  cube<maximum_for_eclipse(np.where(expected>0, expected, np.nan))
@@ -450,113 +452,284 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     plt.xscale('log')
     plt.show()
 
-def bayes_successrate_timebinning(obsid='0886121001'):
+def bayes_successrate_timebinning(tab_obsids=['0886121001']):
+    from tqdm import tqdm
     size_arcsec = 20
-    gti_only = False
-    gti_threshold = 0.5
     min_energy = 0.2
     max_energy = 12.0
 
-    observation = Observation(obsid)
-    observation.get_files()
-
-    event_list = observation.events_processed_pn[0]
-    event_list.read()
-
-    img = observation.images[0]
-    img.read(wcs_only=True)
-
-    n_timebins = 2
-    n_amplitude = 2
+    n_timebins = 3
+    n_amplitude = 15
     n_draws = 5
-    timebins = np.geomspace(10,1000, n_timebins)
+    timebins = (5,50,200)#np.geomspace(10,1000, n_timebins)
     all_timebin_results = []
-    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=5)
-    tab_all_amplitudes = []
-    for timebin in timebins:
-        dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                        min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
-        dl.run()
+    tab_all_amplitudes=[]
+    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
+    range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
+    tab_drawn_gti = np.zeros((len(tab_obsids), n_timebins,n_amplitude))
+    tab_drawn_bti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
+    tab_seen_gti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
+    tab_seen_bti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
 
-        data_cube = dl.data_cube
-        cube = data_cube.data
-        rejected = data_cube.bti_bin_idx
-        print('Creating copy of datacube (takes a second)...')
-        data_cube2 = data_cube.copy()
+    pbar=tqdm(total=len(tab_obsids))
+    for obsidx, obsid in enumerate(tab_obsids):
+        try:
+            observation = Observation(obsid)
+            observation.get_files()
+            observation.get_events_overlapping_subsets()
 
-        tab_result_gti = []
-        tab_result_bti = []
-        tab_amplitude = np.geomspace(1/timebin, 100/timebin, n_amplitude)
-        tab_all_amplitudes.append(tab_amplitude)
-        for amplitude in tab_amplitude:
-            nbr_caught_gti = 0
-            nbr_caught_bti = 0
-            n_draws_bti = 0
-            n_draws_gti = 0
-            for trial in range(n_draws):
-                print(f'amplitude={amplitude} '
-                      f'trial={trial} / {n_draws} '
-                      f'nbr_caught_gti = {nbr_caught_gti}'
-                      f'nbr_caught_bti = {nbr_caught_bti} '
-                      f'n_draws_bti = {n_draws_bti} '
-                      f'n_draws_gti = {n_draws_gti}')
+            event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+            event_list.read()
 
-                x_pos, y_pos = np.random.randint(5,cube.shape[0]-5),np.random.randint(5,cube.shape[1]-5)
-                time_fraction = np.random.random()
-                cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
-                data_cube2.data = data_cube.data + create_fake_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos, time_peak_fraction=time_fraction, width_time=timebin / 2, amplitude=amplitude)
-                cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
-                cube_with_peak = data_cube2.data
-                cube_mu = np.where(cube_mu > 0, cube_mu, np.nan)
-                peaks = cube_with_peak > minimum_for_peak(cube_mu)
-                if int(time_fraction*cube.shape[2]) in rejected:
-                    n_draws_bti+=1
-                    if np.max(peaks[x_pos, y_pos]) > 0:
-                        nbr_caught_bti+=1
-                else:
-                    n_draws_gti+=1
-                    if np.max(peaks[x_pos, y_pos]) > 0:
-                        nbr_caught_gti+=1
-            tab_result_gti.append(nbr_caught_gti/n_draws_gti)
-            if n_draws_bti>0:
-                tab_result_bti.append(nbr_caught_bti/n_draws_bti)
-            else:
-                tab_result_bti.append(np.nan)
-        all_timebin_results.append([tab_result_gti,tab_result_bti])
+            img = observation.images[0]
+            img.read(wcs_only=True)
 
+            for ind_timebin, timebin in enumerate(timebins):
+                dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
+                                min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
+                dl.run()
 
+                data_cube = dl.data_cube
+                cube = data_cube.data
+                rejected = data_cube.bti_bin_idx
+                print('Creating copy of datacube (takes a second)...')
+                data_cube2 = data_cube.copy()
+                tab_amplitude = np.geomspace(.5/ timebin, 100 / timebin, n_amplitude)
+                tab_all_amplitudes.append(tab_amplitude)
+                for ind_ampl, amplitude in enumerate(tab_amplitude):
+                    nbr_caught_gti = 0
+                    nbr_caught_bti = 0
+                    n_draws_bti = 0
+                    n_draws_gti = 0
+                    for trial in range(n_draws):
+                        print(f'amplitude={amplitude} '
+                              f'trial={trial} / {n_draws} '
+                              f'nbr_caught_gti = {nbr_caught_gti} '
+                              f'nbr_caught_bti = {nbr_caught_bti} '
+                              f'n_draws_bti = {n_draws_bti} '
+                              f'n_draws_gti = {n_draws_gti}')
+
+                        x_pos, y_pos = np.random.randint(5,cube.shape[0]-5),np.random.randint(5,cube.shape[1]-5)
+                        time_fraction = np.random.random()
+                        # cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
+                        data_cube2.data = data_cube.data + create_fake_onebin_burst(data_cube=data_cube, x_pos=x_pos,
+                                                                                    y_pos=y_pos,
+                                                                                    time_peak_fraction=time_fraction,
+                                                                                    amplitude=amplitude*timebin)
+                        cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
+                        cube_with_peak = data_cube2.data
+                        cube_mu = np.where(cube_mu > 0, cube_mu, np.nan)
+                        peaks = cube_with_peak > minimum_for_peak(cube_mu)
+                        # peaks_3sig = cube_with_peak>minimum_for_peak_3sig(cube_mu)
+                        if int(time_fraction*cube.shape[2]) in rejected:
+                            n_draws_bti+=1
+                            if np.max(peaks[x_pos, y_pos]) > 0:
+                                nbr_caught_bti+=1
+                        else:
+                            n_draws_gti+=1
+                            if np.max(peaks[x_pos, y_pos]) > 0:
+                                nbr_caught_gti+=1
+                    tab_drawn_bti[obsidx, ind_timebin, ind_ampl]=n_draws_bti
+                    tab_drawn_gti[obsidx, ind_timebin, ind_ampl]=n_draws_gti
+                    tab_seen_bti[obsidx, ind_timebin, ind_ampl]=nbr_caught_bti
+                    tab_seen_gti[obsidx, ind_timebin, ind_ampl]=nbr_caught_gti
+        except:
+            pass
+        pbar.update(1)
+    pbar.close()
+
+    # print(tab_seen_gti[0,0],tab_seen_gti[1,0],tab_seen_gti[2,0])
 
     colors = cmr.take_cmap_colors('cmr.ocean', N=n_timebins, cmap_range=(0,0.7))
-    plt.figure()
-    for (tab_result_gti,tab_result_bti), timebin, tab_amplitude, color in zip(all_timebin_results, timebins, tab_all_amplitudes, colors):
-        plt.plot(tab_amplitude, tab_result_gti, color=color, label=f'{int(timebin)}s')
-        plt.plot(tab_amplitude, tab_result_bti, color=color, ls="--")
+    legend_plots = []
+    legend_labels = []
+    fig, (ax1,ax2) = plt.subplots(2,1, figsize=(5,10))
+    for index, timebin, tab_amplitude, color in zip(range(len(timebins)), timebins, tab_all_amplitudes, colors):
+        gti_ratios =  np.array(tab_seen_gti[:,index,:])/np.array(tab_drawn_gti[:,index,:])
+        bti_ratios =  np.array(tab_seen_bti[:,index,:])/np.array(tab_drawn_bti[:,index,:])
+        # total_ratios = np.sum(np.array(tab_seen_bti[:,index,:])+np.array(tab_seen_gti[:,index,:]), axis=0)/\
+        #                 np.sum(np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:]), axis=0)
+        # err_total_ratios = np.sqrt(np.sum(np.array(tab_seen_bti[:,index,:])+np.array(tab_seen_gti[:,index,:]), axis=0))/\
+        #                 np.sum(np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:]), axis=0)
+        total_ratios = np.nanmean((np.array(tab_seen_bti[:, index, :]) + np.array(tab_seen_gti[:, index, :]))/ \
+                            (np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:])), axis=0)
+        err_total_ratios = np.nanstd((np.array(tab_seen_bti[:, index, :]) + np.array(tab_seen_gti[:, index, :]))/ \
+                            (np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:])), axis=0)
+        print(total_ratios)
+        print(err_total_ratios)
+        gti_percentiles = np.nanpercentile(gti_ratios, (0.16,0.5,0.84), axis=0)
+        bti_percentiles = np.nanpercentile(bti_ratios, (0.16,0.5,0.84), axis=0)
+        total_percentiles = np.nanpercentile(total_ratios, (0.16,0.5,0.84), axis=0)
+
+        # 1.5 comes from an unknown correction factor, after checking the count difference between true cube and
+        # the one with a synthetic peak. Most likely from geometric PSF configuration ?
+        p1 = ax1.plot(tab_amplitude * 1.5,total_ratios, color=color, label=f'{int(timebin)}s')
+        ax1.fill_between(tab_amplitude * 1.5, total_ratios-err_total_ratios, total_ratios+err_total_ratios, color=color, alpha=0.2)
+        p2 = plt.fill(np.NaN, np.NaN, color=color, alpha=0.2)
+        legend_plots.append((p2[0], p1[0]))
+        legend_labels.append(f'{int(timebin)}s')
+
+        # ax1.plot(tab_amplitude * 1.5,np.sum(np.array(tab_seen_gti[:,index,:]), axis=0)/np.sum(np.array(tab_drawn_gti[:,index,:]),axis=0), color=color, label=f'{int(timebin)}s', ls="--")
+        # ax1.plot(tab_amplitude * 1.5,np.sum(np.array(tab_seen_bti[:,index,:]), axis=0)/np.sum(np.array(tab_drawn_bti[:,index,:]),axis=0), color=color, label=f'{int(timebin)}s', ls=":")
+        ax2.plot(tab_amplitude*timebin * 1.5,total_ratios, color=color, label=f'{int(timebin)}s')
+        ax2.fill_between(tab_amplitude*timebin * 1.5, total_ratios-err_total_ratios, total_ratios+err_total_ratios, color=color, alpha=0.2)
+        # ax2.plot(tab_amplitude*timebin * 1.5,
+        #          np.sum(np.array(tab_seen_gti[:, index, :]), axis=0) / np.sum(np.array(tab_drawn_gti[:, index, :]),
+        #                                                                       axis=0), color=color,
+        #          label=f'{int(timebin)}s', ls="--")
+        # ax2.plot(tab_amplitude*timebin * 1.5,
+        #          np.sum(np.array(tab_seen_bti[:, index, :]), axis=0) / np.sum(np.array(tab_drawn_bti[:, index, :]),
+        #                                                                       axis=0), color=color,
+        #          label=f'{int(timebin)}s', ls=":")
+
+        # plt.plot(tab_amplitude, gti_percentiles[1], color=color, label=f'{int(timebin)}s')
+        # plt.fill_between(tab_amplitude, gti_percentiles[0], gti_percentiles[2], color=color, alpha=0.2)
+        # plt.plot(tab_amplitude, bti_percentiles[1], color=color, ls="--")
+        # plt.fill_between(tab_amplitude, bti_percentiles[0], bti_percentiles[2], color=color, alpha=0.2)
+
         # plt.fill_between(tab_amplitude, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
         #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
         #                  facecolor = color, alpha=0.5)
-    plt.legend()
-    plt.xlabel('Peak amplitude')
-    plt.ylabel('Fraction of detected')
-    plt.xscale('log')
+    ax1.legend(legend_plots, legend_labels)
+    ax2.legend(legend_plots, legend_labels)
+    ax1.set_ylim((0,1))
+    ax2.set_ylim((0,1))
+    ax1.set_xlabel(r'Peak amplitude (counts s$^{-1}$)')
+    ax1.set_ylabel('Fraction of detected peaks')
+    ax2.set_xlabel('Peak amplitude (counts)')
+    ax2.set_ylabel('Fraction of detected peaks')
+    ax1.set_xscale('log')
+    ax2.set_xscale('log')
+    plt.tight_layout()
     plt.savefig(data_plots / 'bayes_successrate_timebinning1.png')
     plt.savefig(data_plots / 'bayes_successrate_timebinning1.pdf')
     plt.show()
 
-
     plt.figure()
-    for (tab_result_gti,tab_result_bti), timebin, tab_amplitude, color in zip(all_timebin_results, timebins,tab_all_amplitudes, colors):
-        plt.plot(tab_amplitude*timebin, tab_result_gti, color=color, label=f'{int(timebin)}s')
-        plt.plot(tab_amplitude*timebin, tab_result_bti, color=color, ls="--")
-        # plt.fill_between(tab_amplitude*timebin, np.array(tab_result)-np.sqrt(np.array(tab_result))/np.sqrt(n_draws),
-        #                  np.array(tab_result) + np.sqrt(np.array(tab_result)) / np.sqrt(n_draws),
-        #                  facecolor = color, alpha=0.3)
-    plt.legend()
-    plt.xlabel('Peak count')
-    plt.ylabel('Fraction of detected')
-    plt.xscale('log')
-    plt.savefig(data_plots / 'bayes_successrate_timebinning2.png')
-    plt.savefig(data_plots / 'bayes_successrate_timebinning2.pdf')
-    plt.show()
+    plots = []
+    for index, timebin, tab_amplitude, color in zip(range(len(timebins)), timebins, tab_all_amplitudes, colors):
+        gti_ratios = np.array(tab_seen_gti[:, index, :]) / np.array(tab_drawn_gti[:, index, :])
+        bti_ratios = np.array(tab_seen_bti[:, index, :]) / np.array(tab_drawn_bti[:, index, :])
+        total_ratios = np.nanmean((np.array(tab_seen_bti[:, index, :]) + np.array(tab_seen_gti[:, index, :])) / \
+                                  (np.array(tab_drawn_bti[:, index, :]) + np.array(tab_drawn_gti[:, index, :])), axis=0)
+        err_total_ratios = np.nanstd((np.array(tab_seen_bti[:, index, :]) + np.array(tab_seen_gti[:, index, :])) / \
+                                     (np.array(tab_drawn_bti[:, index, :]) + np.array(tab_drawn_gti[:, index, :])),
+                                     axis=0)
+        # 1.5 comes from an unknown correction factor, after checking the count difference between true cube and
+        # the one with a synthetic peak. Most likely from geometric PSF configuration ?
+
+        a,=plt.plot(tab_amplitude * 1.5,np.sum(np.array(tab_seen_gti[:,index,:])+np.array(tab_seen_bti[:,index,:]), axis=0)/np.sum(np.array(tab_drawn_gti[:,index,:])+np.array(tab_drawn_bti[:,index,:]),axis=0), color=color, label=f'{int(timebin)}s',lw=3)
+        b,=plt.plot(tab_amplitude * 1.5,np.sum(np.array(tab_seen_gti[:,index,:]), axis=0)/np.sum(np.array(tab_drawn_gti[:,index,:]),axis=0), color=color, ls="--",lw=2)
+        c,=plt.plot(tab_amplitude * 1.5,np.sum(np.array(tab_seen_bti[:,index,:]), axis=0)/np.sum(np.array(tab_drawn_bti[:,index,:]),axis=0), color=color, ls=":",lw=2)
+        plots.append(a)
+    plt.xlabel(r'Peak amplitude (counts s$^{-1}$)')
+    from matplotlib.lines import Line2D
+    c=Line2D([], [], linestyle='')
+    d,=plt.plot(np.NaN, np.NaN, color='gray', label='Total',lw=2)
+    e,=plt.plot(np.NaN, np.NaN, color='gray',  ls="--", label='GTI',lw=2)
+    f,=plt.plot(np.NaN, np.NaN, color='gray',  ls=":", label='BTI',lw=2)
+    plots+=[c,d,e,f]
+    plt.xscale("log")
+    plt.legend(plots,  ['5s', '50s', '200s', '', 'Total','GTI','BTI'],
+               labelspacing=.3)
+
+    # plt.figure()
+    # for index, timebin, tab_amplitude, color in zip(range(len(timebins)), timebins, tab_all_amplitudes, colors):
+    #     gti_ratios =  np.array(tab_seen_gti[:,index,:])/np.array(tab_drawn_gti[:,index,:])
+    #     bti_ratios =  np.array(tab_seen_bti[:,index,:])/np.array(tab_drawn_bti[:,index,:])
+    #     total_ratios = np.sum(np.array(tab_seen_bti[:,index,:])+np.array(tab_seen_gti[:,index,:]), axis=0)/\
+    #                     np.sum(np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:]), axis=0)
+    #     err_total_ratios = np.sqrt(np.sum(np.array(tab_seen_bti[:,index,:])+np.array(tab_seen_gti[:,index,:]), axis=0))/\
+    #                     np.sum(np.array(tab_drawn_bti[:,index,:])+np.array(tab_drawn_gti[:,index,:]), axis=0)
+    #     gti_percentiles = np.nanpercentile(gti_ratios, (0.16,0.5,0.84), axis=0)
+    #     bti_percentiles = np.nanpercentile(bti_ratios, (0.16,0.5,0.84), axis=0)
+    #     total_percentiles = np.nanpercentile(total_ratios, (0.16,0.5,0.84), axis=0)
+    #
+    #     # plt.plot(tab_amplitude*timebin, total_percentiles[1], color=color, label=f'{int(timebin)}s')
+    #     # plt.fill_between(tab_amplitude*timebin, total_ratios-err_total_ratios, total_ratios+err_total_ratios, color=color, alpha=0.2)
+    #     plt.plot(tab_amplitude*timebin,total_ratios, color=color, label=f'{int(timebin)}s')
+    #     plt.fill_between(tab_amplitude*timebin, total_ratios-err_total_ratios, total_ratios+err_total_ratios, color=color, alpha=0.2)
+    #     # plt.plot(tab_amplitude*timebin, gti_percentiles[1], color=color, label=f'{int(timebin)}s')
+    #     # plt.fill_between(tab_amplitude*timebin, gti_percentiles[0], gti_percentiles[2], color=color, alpha=0.2)
+    #     # plt.plot(tab_amplitude*timebin, bti_percentiles[1], color=color, ls="--")
+    #     # plt.fill_between(tab_amplitude*timebin, bti_percentiles[0], bti_percentiles[2], color=color, alpha=0.2)
+    #
+    # plt.legend()
+    # plt.ylim((0,1))
+    # plt.xlabel('Peak amplitude (counts)')
+    # plt.ylabel('Fraction of detected')
+    # plt.xscale('log')
+    # plt.savefig(data_plots / 'bayes_successrate_timebinning2.png')
+    # plt.savefig(data_plots / 'bayes_successrate_timebinning2.pdf')
+    # plt.show()
+    return tab_all_amplitudes, tab_seen_bti, tab_seen_gti, tab_drawn_bti , tab_drawn_gti
+
+def bayes_false_positive_rate_timebinning(tab_obsids=['0886121001']):
+    from tqdm import tqdm
+    size_arcsec = 20
+    min_energy = 0.2
+    max_energy = 12.0
+
+    n_timebins = 3
+    n_draws = 500
+    timebins = (5,50,200)#np.geomspace(10,1000, n_timebins)
+    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=5)
+    range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
+    tab_wrong_positives = np.zeros((len(tab_obsids), n_timebins))
+    tab_wrong_positives3sig = np.zeros((len(tab_obsids), n_timebins))
+
+    nbr_pixels = [0,0,0]
+
+    pbar=tqdm(total=len(tab_obsids))
+    for obsidx, obsid in enumerate(tab_obsids):
+        try:
+            observation = Observation(obsid)
+            observation.get_files()
+            observation.get_events_overlapping_subsets()
+
+            event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+            event_list.read()
+
+            img = observation.images[0]
+            img.read(wcs_only=True)
+
+            for ind_timebin, timebin in enumerate(timebins):
+                dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
+                                min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
+                dl.run()
+
+                data_cube = dl.data_cube
+                cube_mu = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)
+                nbr_false_positives = 0
+                nbr_false_positives_3sig = 0
+                # for _ in tqdm(range(n_draws)):
+                for _ in range(int(n_draws/3)):
+                    false_cube = np.random.poisson(np.expand_dims(np.nan_to_num(cube_mu),-1),cube_mu.shape+(3,))
+                    wrong_peaks = np.sum(false_cube > np.expand_dims(minimum_for_peak(cube_mu),-1))
+                    nbr_false_positives+=wrong_peaks
+                    wrong_peaks3sig = np.sum(false_cube > np.expand_dims(minimum_for_peak_3sig(cube_mu),-1))
+                    nbr_false_positives_3sig+=wrong_peaks3sig
+                    nbr_pixels[ind_timebin]+=np.sum(false_cube.shape)
+                tab_wrong_positives[obsidx, ind_timebin] = nbr_false_positives
+                tab_wrong_positives3sig[obsidx, ind_timebin] = nbr_false_positives_3sig
+
+
+        except: #To catch observations with no EPIC files
+            pass
+        print(f'{obsidx+1}/{len(tab_obsids)}')
+        pbar.update(1)
+    pbar.close()
+    for timebinidx, timebin in enumerate(timebins):
+        print(f"5sig false positive count for {timebin}s binning: {np.nanmean(tab_wrong_positives[:,timebinidx])}, \
+        std {np.nanstd(tab_wrong_positives[:,timebinidx])}, for {nbr_pixels[timebinidx]} pixels")
+        print(f'Actual counts: {np.nansum(tab_wrong_positives[:,timebinidx])}')
+        print(f'Per pixel rate: {np.nansum(tab_wrong_positives[:,timebinidx])/nbr_pixels[timebinidx]}')
+        print(f"3sig false positive count for {timebin}s binning: {np.nanmean(tab_wrong_positives3sig[:,timebinidx])}, \
+                std {np.nanstd(tab_wrong_positives3sig[:,timebinidx])}, for {nbr_pixels[timebinidx]} pixels")
+        print(f'Actual counts: {np.nansum(tab_wrong_positives3sig[:,timebinidx])}')
+        print(f'Per pixel rate: {np.nansum(tab_wrong_positives3sig[:,timebinidx])/nbr_pixels[timebinidx]}')
+    return np.nan216sum(tab_wrong_positives, axis=0), np.nanstd(tab_wrong_positives, axis=0),np.nansum(tab_wrong_positives3sig, axis=0), np.nanstd(tab_wrong_positives3sig, axis=0)
+
 
 def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_interval=1000):
     size_arcsec   = 20
@@ -622,7 +795,6 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
     plt.savefig(data_plots / 'bayes_eclipse_successrate_depth.pdf')
     plt.show()
 
-
 def plot_B_peak():
     """
     Plot the peak Bayes factor for different observed (n) counts as a function of expectation (mu).
@@ -658,7 +830,6 @@ def plot_B_peak():
     plt.savefig(data_plots / 'B_peak.pdf')
     plt.show()
 
-
 def plot_B_eclipse():
     """
     Plot the eclipse Bayes factor for different observed (n) counts as a function of expecation (mu).
@@ -693,7 +864,6 @@ def plot_B_eclipse():
     plt.savefig(data_plots / 'B_eclipse.pdf')
     plt.show()
 
-
 def plot_B_values_3d():
     n_ = np.arange(10)
     mu_ = np.geomspace(1e-3, 5, 1000)
@@ -723,15 +893,17 @@ def plot_B_values_3d():
     plt.show()
 
 if __name__ == "__main__":
-    plot_B_peak()
-    plot_B_eclipse()
-    plot_B_values_3d()
-    check_estimate_success()
-    check_eclipse_estimate_success()
-    plot_some_n_bayes()
-    test_bayes_on_false_cube(size=100)
-    accepted_n_values()
-    bayes_rate_estimate()
-    bayes_successrate_spacebinning()
-    bayes_successrate_timebinning()
-    bayes_eclipse_successrate_depth()
+    from exod.utils.path import data_processed
+    # plot_B_peak()
+    # plot_B_eclipse()
+    # plot_B_values_3d()
+    # check_estimate_success()
+    # check_eclipse_estimate_success()
+    # plot_some_n_bayes()
+    # test_bayes_on_false_cube(size=100)
+    # accepted_n_values()
+    # bayes_rate_estimate()
+    # bayes_successrate_spacebinning()
+    # results=bayes_successrate_timebinning(tab_obsids=os.listdir(data_processed)[:15])
+    print(bayes_false_positive_rate_timebinning(tab_obsids=os.listdir(data_processed)[:50]))
+    # bayes_eclipse_successrate_depth()
