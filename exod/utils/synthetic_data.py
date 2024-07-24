@@ -36,7 +36,7 @@ def create_fake_burst(data_cube, x_pos, y_pos, time_peak_fraction, width_time, a
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
             dist_sq    = (x - x_pos)**2 + (y - y_pos)**2 # Distance^2 from burst center
-            psf        = 1 / (2*np.pi*np.sqrt(sigma_2d)) * np.exp(-(dist_sq) / (2*(sigma_2d**2)))
+            psf        = 1 / (2*np.pi*(sigma_2d**2)) * np.exp(-(dist_sq) / (2*(sigma_2d**2)))
             bin_means  = psf * amplitude * data_cube.time_interval * np.exp(-(time-time_peak)**2 / (2*(width_bins**2)))
             bin_values = np.random.poisson(lam=bin_means)
             # print(x, y, dist_sq, psf)
@@ -76,7 +76,7 @@ def create_fake_onebin_burst(data_cube, x_pos, y_pos, time_peak_fraction, amplit
     for x in range(x_lo, x_hi):
         for y in range(y_lo, y_hi):
             dist_sq    = (x - x_pos)**2 + (y - y_pos)**2 # Distance^2 from burst center
-            psf        = 1 / (2*np.pi*np.sqrt(sigma_2d)) * np.exp(-(dist_sq) / (2*(sigma_2d**2)))
+            psf        = (1 / (2*np.pi*(sigma_2d**2))) * np.exp(-(dist_sq) / (2*(sigma_2d**2)))
             bin_means  = psf * amplitude
             bin_values = np.random.poisson(lam=bin_means)
             # print(x, y, dist_sq, psf)
@@ -195,6 +195,43 @@ def create_multiple_fake_eclipses(data_cube, tab_x_pos, tab_y_pos, tab_time_peak
                     eclipse_data[x,y] += bin_values
     #peak_data = convolve(peak_data, np.ones((3,3,1), dtype=np.int64),mode='constant', cval=0.0)
     return eclipse_data
+
+def check_synthetic_peak_counts_diff(obsid):
+    observation = Observation(obsid)
+    observation.get_files()
+    observation.get_events_overlapping_subsets()
+
+    event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+    event_list.read()
+
+    img = observation.images[0]
+    img.read(wcs_only=True)
+
+    tab_amplitude=[0.5,2,5,10]
+    for timebin in tqdm(timebins):
+        dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
+                        min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
+        dl.run()
+
+        data_cube = dl.data_cube
+        cube = data_cube.data
+        rejected = data_cube.bti_bin_idx
+        print('Creating copy of datacube (takes a second)...')
+        data_cube2 = data_cube.copy()
+        for ind_ampl, amplitude in enumerate(tab_amplitude):
+            t=[]
+            for trial in range(50):
+                x_pos, y_pos = np.random.randint(5, cube.shape[0] - 5), np.random.randint(5, cube.shape[1] - 5)
+                time_fraction = np.random.random()
+                # cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
+                data_cube2.data = data_cube.data + create_fake_onebin_burst(data_cube=data_cube, x_pos=x_pos, y_pos=y_pos,
+                                                                     time_peak_fraction=time_fraction, amplitude=amplitude*timebin)
+                t.append(np.sum(data_cube2.data) - np.sum(data_cube.data))
+            plt.figure()
+            plt.title(f"Amplitude {amplitude}, timebin {timebin}")
+            plt.hist(t)
+            plt.axvline(x=amplitude * timebin)
+            plt.axvline(x=amplitude * timebin * 1.5)
 
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
