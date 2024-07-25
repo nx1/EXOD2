@@ -58,6 +58,7 @@ class EventList:
         self.revolution = self.header['REVOLUT']
         self.object     = self.header['OBJECT']
         self.exposure   = self.header['TELAPSE']
+        self.pnt_angle  = self.header['PA_PNT']
         # self.N_events   = self.header['NAXIS2']
         # self.mean_rate  = self.N_events / self.exposure
         self.time_min   = np.min(self.data['TIME'])
@@ -124,6 +125,7 @@ class EventList:
         event_list.time_min      = latest_start
         event_list.time_max      = earliest_stop
         event_list.exposure      = event_list.time_max - event_list.time_min
+        event_list.pnt_angle     = event_lists[0].pnt_angle
         # event_list.N_events      = len(data_stacked)
         # event_list.mean_rate     = event_list.N_events / event_list.exposure
         return event_list
@@ -224,6 +226,7 @@ class EventList:
             'revolution'    : self.revolution,
             'object'        : self.object,
             'exposure'      : self.exposure,
+            'pnt_angle'     : self.pnt_angle,
             'N_events'      : self.N_events,
             'mean_rate'     : self.mean_rate
             }
