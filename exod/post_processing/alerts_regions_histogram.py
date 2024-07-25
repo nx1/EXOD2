@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import csv
 from matplotlib import pyplot as plt
 from astropy.io import ascii, fits
@@ -11,99 +12,84 @@ from matplotlib.colors import LogNorm
 from scipy.interpolate import interp1d
 from pathlib import Path
 
+from exod.utils.path import data_processed, savepaths_combined, data_plots, data_combined, read_observation_ids
+from exod.xmm.observation import Observation
 
-from exod.utils.path import data_processed
 
-def convert_position(transients_X, transients_Y, obsid):
-    """Deprecated, doesn't work as intended"""
-    path_to_obsid_data = data_processed / obsid
-    files = os.listdir(path_to_obsid_data)
-    path_to_eventlists = [path_to_obsid_data/elt for elt in files if 'FILT' in elt]
-    tabx, taby, tabrawx, tabrawy = [],[],[],[]
-    for eventlistpath in path_to_eventlists:
-        event_list = Table(fits.open(eventlistpath)[1].data)['X','Y','RAWX','RAWY']
-        tabx+=list(event_list['X'])
-        taby+=list(event_list['Y'])
-        tabrawx+=list(event_list['RAWX'])
-        tabrawy+=list(event_list['RAWY'])
-    X_to_RAWX = interp1d(tabx, tabrawx)
-    Y_to_RAWY = interp1d(taby, tabrawy)
-    print(obsid)
-    return X_to_RAWX(transients_X), Y_to_RAWY(transients_Y)
+def rotate_position(X, Y, angle, pivotXY=(25725, 25725)):
+    """
+    Rotates the positions following the pointing angle of the observation, so that the coordinates are in an EPIC frame.
 
-def rotate_position(transients_X, transients_Y, obsid, pivotXY=(25725,25725)):
-    """Rotates the positions following the pointing angle of the observation, so that the coordinates are in an EPIC frame"""
-    path_to_obsid_data = data_processed / obsid
-    files = os.listdir(path_to_obsid_data)
-    path_to_image = [path_to_obsid_data/elt for elt in files if 'IMG' in elt][0]
-    angle = -fits.open(path_to_image)[0].header['PA_PNT']
+    Parameters:
+        X (float): The X sky coordinate.
+        Y (float): The Y sky coordinate.
+        angle (float): The pointing angle of the observation (PA_PNT).
+        pivotXY (tuple): The pivot point for the rotation.
+    """
+    X_EPIC = (X - pivotXY[0]) * np.cos(-angle * np.pi / 180) - (Y - pivotXY[1]) * np.sin(-angle * np.pi / 180)
+    Y_EPIC = (X - pivotXY[0]) * np.sin(-angle * np.pi / 180) + (Y - pivotXY[1]) * np.cos(-angle * np.pi / 180)
+    return X_EPIC, Y_EPIC
 
-    newX = (transients_X-pivotXY[0])*np.cos(angle*np.pi/180) - (transients_Y-pivotXY[1])*np.sin(angle*np.pi/180)
-    newY = (transients_X-pivotXY[0])*np.sin(angle*np.pi/180) + (transients_Y-pivotXY[1])*np.cos(angle*np.pi/180)
-    return newX, newY, angle
+def get_pointing_angle(obsid):
+    obs = Observation(obsid)
+    obs.get_event_lists_processed()
+    evt = obs.events_processed[0]
+    evt.read(remove_bad_rows=False, remove_borders=False, remove_MOS_central_ccd=False, remove_hot_pixels=False)
+    angle = evt.pnt_angle
+    return angle
 
-def build_map_transients():
-    """Takes the detected alert regions, picks up the corresponding observation and its pointing angle,
-    rotates it to be in an EPIC frame, and then stack the positions of all transients. Should allow to assess the
-    presence of unexpected spatial structure in the detection, which would be due to instrumental effects"""
+def get_transients(obsid, df_regions):
+    sub = df_regions[df_regions['obsid'] == obsid]
+    return sub
 
-    path_to_alerts = '/home/erwan/Documents/EXOD_stuff/df_regions.csv' #To change of course
-    results = Table(ascii.read(path_to_alerts))
+def calculate_all_new_positions(obsids):
+    df_regions = pd.read_csv(savepaths_combined['regions'])
+    df_regions['obsid'] = df_regions['runid'].str.extract(r'(\d{10})')
+    all_res = []
+    for obsid in tqdm(obsids):
+        try:
+            angle = get_pointing_angle(obsid)
+            df_transients = get_transients(obsid, df_regions)
+        except:
+            print(f'Error with {obsid}')
+            continue
+        for i, row in df_transients.iterrows():
+            X_EPIC, Y_EPIC = rotate_position(row['X'], row['Y'], angle)
+            res = {
+                'obsid': obsid,
+                'runid': row['runid'],
+                'label': row['label'],
+                'angle': angle,
+                'X': row['X'],
+                'Y': row['Y'],
+                'X_EPIC': X_EPIC,
+                'Y_EPIC': Y_EPIC
+            }
+            all_res.append(res)
+    df_res = pd.DataFrame(all_res)
+    print(df_res)
+    df_res.to_csv(data_combined / 'transients_rotated.csv', index=False)
+    # Save all the new positions.
 
-    #Splits the result table in chunks, one for each observation
-    results = results[np.argsort(results['runid'])]
-    observations = np.array([elt[:10] for elt in results['runid']])
-    splitted_by_obs = np.array_split(results, np.where(observations[:-1]!=observations[1:])[0]+1)
+    fig, ax = plt.subplots(figsize=(10,10))
+    ax.hist2d(df_res['X_EPIC'], df_res['Y_EPIC'], bins=(120, 115), norm=LogNorm())
+    ax.set_xlabel("EPIC frame X")
+    ax.set_ylabel("EPIC frame Y")
+    plt.savefig(data_plots / 'transients_hist_rotated.png')
+    plt.savefig(data_plots / 'transients_hist_rotated.pdf')
 
-    tab_all_newx = []
-    tab_all_newy = []
-    tab_all_oldx = []
-    tab_all_oldy = []
-    for obsid, result_observation in zip(observations, splitted_by_obs):
-        if obsid in os.listdir(data_processed):
-            tab_all_oldx += [elt['X'] for elt in result_observation]
-            tab_all_oldy += [elt['Y'] for elt in result_observation]
-            newx, newy, angle=rotate_position(np.array([elt['X'] for elt in result_observation]),
-                                       np.array([elt['Y'] for elt in result_observation]), obsid)
-            tab_all_newx += list(newx)
-            tab_all_newy += list(newy)
-    tab_all_newx, tab_all_newy = np.array(tab_all_newx), np.array(tab_all_newy)
-
-    plt.figure()
-    plt.hist2d(tab_all_newx, tab_all_newy, bins=(120,115))#, norm=LogNorm())
-    plt.xlabel("EPIC frame X'")
-    plt.ylabel("EPIC frame Y'")
-    c=plt.colorbar()
-    c.set_label("Number of variable regions")
+    fig, ax = plt.subplots(figsize=(10,10))
+    plt.scatter(df_res['X_EPIC'], df_res['Y_EPIC'], s=1)
+    ax.set_xlabel("EPIC frame X")
+    ax.set_ylabel("EPIC frame Y")
+    plt.savefig(data_plots / 'transients_scatter_rotated.png')
+    plt.savefig(data_plots / 'transients_scatter_rotated.pdf')
     plt.show()
 
-    plt.figure()
-    plt.hist2d(tab_all_oldx, tab_all_oldy, bins=(120, 115))#, norm=LogNorm())
-    plt.xlabel('Sky frame X')
-    plt.ylabel('Sky frame Y')
-    c = plt.colorbar()
-    c.set_label("Number of variable regions")
-    plt.show()
 
-def test_rotation():
-    for obsid in os.listdir(data_processed)[:3]:
-        path_to_obsid_data = data_processed / obsid
-        list_files = os.listdir(path_to_obsid_data)
-        path_to_evtlists = [path_to_obsid_data / elt for elt in list_files if 'FILT' in elt]
-        tabx, taby= [], []
-        for eventlistpath in path_to_evtlists:
-            event_list = Table(fits.open(eventlistpath)[1].data)['X', 'Y']
-            tabx += list(event_list['X'])
-            taby += list(event_list['Y'])
-        tabx, taby = np.array(tabx), np.array(taby)
-        newX, newY, angle = rotate_position(tabx, taby, obsid)
-        fig, (ax1,ax2) = plt.subplots(2,1, figsize=(5,10))
-        ax1.hist2d(tabx,taby, bins=(120, 115), norm=LogNorm())
-        ax1.set_title("Old coordinates")
-        ax2.hist2d(newX,newY, bins=(120, 115), norm=LogNorm())
-        ax2.set_title("New rotated coordinates")
-        plt.show()
+if __name__ == "__main__":
+    obsids =  ['0722430101', '0112231801', '0109130501', '0302310701']
+    from exod.utils.path import data
+    obsids = read_observation_ids(data / 'observations.txt')
+    calculate_all_new_positions(obsids)
 
-
-# test_rotation()
-build_map_transients()
