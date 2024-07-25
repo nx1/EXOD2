@@ -12,7 +12,8 @@ from matplotlib.colors import LogNorm
 from scipy.interpolate import interp1d
 from pathlib import Path
 
-from exod.utils.path import data_processed, savepaths_combined, data_plots, data_combined, read_observation_ids
+from exod.utils.path import data_processed, savepaths_combined, data_plots, data_combined, read_observation_ids, \
+    data_util
 from exod.xmm.observation import Observation
 
 
@@ -30,25 +31,28 @@ def rotate_position(X, Y, angle, pivotXY=(25725, 25725)):
     Y_EPIC = (X - pivotXY[0]) * np.sin(-angle * np.pi / 180) + (Y - pivotXY[1]) * np.cos(-angle * np.pi / 180)
     return X_EPIC, Y_EPIC
 
-def get_pointing_angle(obsid):
-    obs = Observation(obsid)
-    obs.get_event_lists_processed()
-    evt = obs.events_processed[0]
-    evt.read(remove_bad_rows=False, remove_borders=False, remove_MOS_central_ccd=False, remove_hot_pixels=False)
-    angle = evt.pnt_angle
+def get_pointing_angle(obsid, tab_xmm_obslist):
+    #obs = Observation(obsid)
+    #obs.get_event_lists_processed()
+    #evt = obs.events_processed[0]
+    #evt.read(remove_bad_rows=False, remove_borders=False, remove_MOS_central_ccd=False, remove_hot_pixels=False)
+    #angle = evt.pnt_angle
+    #270.9496
+    angle = tab_xmm_obslist[tab_xmm_obslist['OBS_ID'] == obsid]['PA_PNT'].value[0]
     return angle
 
 def get_transients(obsid, df_regions):
     sub = df_regions[df_regions['obsid'] == obsid]
     return sub
 
-def calculate_all_new_positions(obsids):
+def calculate_all_new_positions():
     df_regions = pd.read_csv(savepaths_combined['regions'])
+    tab_xmm_obslist = Table.read(data_util / '4xmmdr14_obslist.fits')
     df_regions['obsid'] = df_regions['runid'].str.extract(r'(\d{10})')
     all_res = []
-    for obsid in tqdm(obsids):
+    for obsid in tqdm(df_regions['obsid'].unique()):
         try:
-            angle = get_pointing_angle(obsid)
+            angle = get_pointing_angle(obsid, tab_xmm_obslist)
             df_transients = get_transients(obsid, df_regions)
         except:
             print(f'Error with {obsid}')
@@ -88,8 +92,6 @@ def calculate_all_new_positions(obsids):
 
 
 if __name__ == "__main__":
-    obsids =  ['0722430101', '0112231801', '0109130501', '0302310701']
-    from exod.utils.path import data
-    obsids = read_observation_ids(data / 'observations.txt')
-    calculate_all_new_positions(obsids)
+    calculate_all_new_positions()
+
 
