@@ -44,7 +44,7 @@ class EventList:
     def __repr__(self):
         return f'EventList({self.path})'
 
-    def read(self):
+    def read(self, remove_bad_rows=True, remove_borders=True, remove_MOS_central_ccd=True, remove_hot_pixels=True):
         if self.is_read:
             return None
         self.hdul = fits.open(self.path)
@@ -65,10 +65,14 @@ class EventList:
         self.time_max   = np.max(self.data['TIME'])
 
         # self.check_submode()
-        self.remove_bad_rows()
-        self.remove_borders()
-        self.remove_MOS_central_ccd()
-        self.remove_hot_pixels()
+        if remove_bad_rows:
+            self.remove_bad_rows()
+        if remove_borders:
+            self.remove_borders()
+        if remove_MOS_central_ccd:
+            self.remove_MOS_central_ccd()
+        if remove_hot_pixels:
+            self.remove_hot_pixels()
         self.is_read = True
 
     @classmethod
