@@ -11,21 +11,21 @@ setup(
 
     # Define project dependencies
     install_requires=[
-        'numpy==1.26.2',
-        'scipy==1.11.4',
-        'matplotlib==3.8.2',
-        'astropy==6.0.0',
-        'requests==2.31.0',
-        'tqdm==4.66.1',
-        'scikit-image==0.22.0',
-        'pandas==2.1.4',
-        'cmasher==1.6.3',
-        'statsmodels==0.14.0',
-        'opencv-python==4.8.1.78',
-        'photutils==1.10.0',
+        'numpy',
+        'scipy',
+        'matplotlib',
+        'astropy',
+        'requests',
+        'tqdm',
+        'scikit-image',
+        'pandas',
+        'cmasher',
+        'statsmodels',
+        'opencv-python',
+        'photutils',
         'astroquery==0.4.7.dev9008',
-        'pytest==7.4.3',
-        'Flask==3.0.0'
+        'pytest',
+        'Flask'
     ],
 
     # Include additional files like data files, package data, etc.
