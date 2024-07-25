@@ -23,7 +23,7 @@ setup(
         'statsmodels',
         'opencv-python',
         'photutils',
-        'astroquery==0.4.7.dev9008',
+        'astroquery',
         'pytest',
         'Flask'
     ],
