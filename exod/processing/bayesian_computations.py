@@ -230,13 +230,24 @@ def sigma_equivalent(n, mu):
 
 
 def sigma_equivalent_B_peak(B_peak):
-    """Find the equivalent sigma for a given Bayes factor for a peak. B_Peak must be in log!"""
+    """
+    Find the equivalent sigma for a given Bayes factor for a peak. B_Peak must be in log!
+
+    Range: 1.61 < B_peak < 48.976
+           0.00 < sigma  < 9.98
+    """
     f = lambda sigma: B_peak - B_peak_log(n_peak_large_mu(mu=1000, sigma=sigma), mu=1000)
     return root_scalar(f, bracket=(0, 10)).root
 
 
 def sigma_equivalent_B_eclipse(B_eclipse):
-    """Find the equivalent sigma for a given Bayes factor for an eclipse. B_eclipse must be in log!"""
+    """
+    Find the equivalent sigma for a given Bayes factor for an eclipse. B_eclipse must be in log!
+
+    Range: 1.6  < B_eclipse < 42
+           0.00 < sigma     < 9.94
+
+    """
     f = lambda sigma: B_eclipse - B_eclipse_log(n_eclipse_large_mu(mu=1000, sigma=sigma), mu=1000)
     return root_scalar(f, bracket=(0, 10)).root
 

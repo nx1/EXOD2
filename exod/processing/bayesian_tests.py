@@ -729,7 +729,7 @@ def bayes_false_positive_rate_timebinning(tab_obsids=['0886121001']):
                 std {np.nanstd(tab_wrong_positives3sig[:,timebinidx])}, for {nbr_pixels[timebinidx]} pixels")
         print(f'Actual counts: {np.nansum(tab_wrong_positives3sig[:,timebinidx])}')
         print(f'Per pixel rate: {np.nansum(tab_wrong_positives3sig[:,timebinidx])/nbr_pixels[timebinidx]}')
-    return np.nan216sum(tab_wrong_positives, axis=0), np.nanstd(tab_wrong_positives, axis=0),np.nansum(tab_wrong_positives3sig, axis=0), np.nanstd(tab_wrong_positives3sig, axis=0)
+    return np.nansum(tab_wrong_positives, axis=0), np.nanstd(tab_wrong_positives, axis=0), np.nansum(tab_wrong_positives3sig, axis=0), np.nanstd(tab_wrong_positives3sig, axis=0)
 
 
 def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_interval=1000):

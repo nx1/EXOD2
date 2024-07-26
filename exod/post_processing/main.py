@@ -64,11 +64,12 @@ def process_evt_info():
 def process_data_cube_info():
     print('Processing Data Cube Information...')
     df_dc = pd.read_csv(savepaths_combined['dc_info'])
-    print(f'Total Number of Data Cells processed = {df_dc['total_values'].sum():.2e}')
     df_dc['gti_exposure'] = df_dc['n_gti_bin'] * df_dc['time_interval']
     df_dc['bti_exposure'] = df_dc['n_bti_bin'] * df_dc['time_interval']
-    print(f'Total GTI exposure = {df_dc['gti_exposure'].sum():.2e}')
-    print(f'Total BTI exposure = {df_dc['bti_exposure'].sum():.2e}')
+
+    print(f'Total Data Cells    = {df_dc['total_values'].sum():.2e}')
+    print(f'Total GTI exposure  = {df_dc['gti_exposure'].sum():.2e}')
+    print(f'Total BTI exposure  = {df_dc['bti_exposure'].sum():.2e}')
     print(f'Total GTI/BTI ratio = {df_dc['gti_exposure'].sum() / df_dc['bti_exposure'].sum():.2f}')
     print('='*80)
 
@@ -487,6 +488,21 @@ def print_xmm_dr14_cmatch_stats(df_cmatch_xmm_dr14):
     print(f'Number of XMM DR14 Transient Sources within 20" = {len(df_l_20_transient)}/ {len(df)} ({100 * len(df_l_20_transient) / len(df):.2f}%)')
     print(f'Number of sources with no XMM DR14 match = {len(df_g_20)}/ {len(df)} ({100 * len(df_g_20) / len(df):.2f}%)')
 
+def plot_om_ab_magnitudes(df_cmatch_om):
+    cols = ['UVW2mAB', 'UVM2mAB', 'UVW1mAB', 'UmAB', 'BmAB', 'VmAB']
+    labels = ['UVW2', 'UVM2', 'UVW1', 'U', 'B', 'V']
+
+    plt.figure()
+    for i, c in enumerate(cols):
+        sub = df_cmatch_om[~df_cmatch_om[c].isnull()]
+        plt.hist(sub[c], bins=np.linspace(10, 25, 100), label=f'{labels[i]} {(len(sub))}', histtype='step', lw=1.0)
+    plt.legend(markerfirst=False)
+    plt.xlabel('AB Magnitude')
+    plt.ylabel('Number of Regions')
+    plt.savefig(data_plots / 'OM_magnitudes.png')
+    plt.savefig(data_plots / 'OM_magnitudes.pdf')
+    plt.show()
+
 
 def process_regions():
     df_regions = pd.read_csv(savepaths_combined['regions'])
@@ -507,6 +523,7 @@ def process_regions():
     plot_simbad_types_bar(dfs_cmatch['SIMBAD'])
     plot_gaia_hr_diagram(dfs_cmatch['GAIA DR3'])
 
+    plot_om_ab_magnitudes(dfs_cmatch['XMM OM'])
 
 
 def main():

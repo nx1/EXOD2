@@ -140,7 +140,7 @@ def plot_cube_statistics(data):
     plt.show()
 
 
-def plot_aitoff(ra_deg, dec_deg, savepath=None):
+def plot_aitoff(ra_deg, dec_deg, savepath=None, color='grey', title=None):
     sky_coords = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg', frame='fk5', equinox='J2000')
     gal_coords = sky_coords.galactic
 
@@ -148,9 +148,12 @@ def plot_aitoff(ra_deg, dec_deg, savepath=None):
     b = gal_coords.b.radian
 
     plt.figure()
+
     plt.subplot(111, projection='aitoff')
-    plt.scatter(l, b, marker='.', s=1, color='grey')
+    plt.scatter(l, b, marker='.', s=1, color=color)
     plt.tight_layout()
+    if title:
+        plt.title(title)
     if savepath:
         logger.info(f'Saving Aitoff plot to {savepath}')
         plt.savefig(savepath)

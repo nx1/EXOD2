@@ -17,7 +17,7 @@ from exod.utils.path import data_processed, savepaths_combined, data_plots, data
 from exod.xmm.observation import Observation
 
 
-def rotate_position(X, Y, angle, pivotXY=(25725, 25725)):
+def rotate_position(X, Y, angle, pivotXY=(25719, 25719)):
     """
     Rotates the positions following the pointing angle of the observation, so that the coordinates are in an EPIC frame.
 
