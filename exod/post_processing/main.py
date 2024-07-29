@@ -5,6 +5,8 @@ import astropy.units as u
 from astropy.table import Table
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
+from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, \
+    plot_regions_detector_coords
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
@@ -341,7 +343,7 @@ def plot_n_regions_against_n_max_filter(df_lc_feat):
     print(f'Saving to: source_against_n_counts_filter.png')
     plt.savefig(data_plots / 'source_against_n_counts_filter.png')
     plt.savefig(data_plots / 'source_against_n_counts_filter.pdf')
-    plt.show()
+    # plt.show()
 
 
 
@@ -499,9 +501,10 @@ def plot_om_ab_magnitudes(df_cmatch_om):
     plt.legend(markerfirst=False)
     plt.xlabel('AB Magnitude')
     plt.ylabel('Number of Regions')
+    print(f'Saving to: OM_magnitudes.png')
     plt.savefig(data_plots / 'OM_magnitudes.png')
     plt.savefig(data_plots / 'OM_magnitudes.pdf')
-    plt.show()
+    # plt.show()
 
 
 def process_regions():
@@ -524,6 +527,9 @@ def process_regions():
     plot_gaia_hr_diagram(dfs_cmatch['GAIA DR3'])
 
     plot_om_ab_magnitudes(dfs_cmatch['XMM OM'])
+
+    df_reg_rotated = rotate_regions_to_detector_coords(clobber=False)
+    plot_regions_detector_coords(df_reg_rotated)
 
 
 def main():

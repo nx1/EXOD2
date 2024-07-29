@@ -41,11 +41,13 @@ def get_pointing_angle(obsid, tab_xmm_obslist):
     angle = tab_xmm_obslist[tab_xmm_obslist['OBS_ID'] == obsid]['PA_PNT'].value[0]
     return angle
 
-def get_transients(obsid, df_regions):
-    sub = df_regions[df_regions['obsid'] == obsid]
-    return sub
-
-def calculate_all_new_positions():
+def rotate_regions_to_detector_coords(clobber=True):
+    savepath = data_combined / 'transients_rotated.csv'
+    if savepath.exists() and not clobber:
+        print(f'{savepath} already exists.')
+        df_regions_rotated = pd.read_csv(savepath)
+        print(df_regions_rotated)
+        return df_regions_rotated
     df_regions = pd.read_csv(savepaths_combined['regions'])
     tab_xmm_obslist = Table.read(data_util / '4xmmdr14_obslist.fits')
     df_regions['obsid'] = df_regions['runid'].str.extract(r'(\d{10})')
@@ -53,9 +55,9 @@ def calculate_all_new_positions():
     for obsid in tqdm(df_regions['obsid'].unique()):
         try:
             angle = get_pointing_angle(obsid, tab_xmm_obslist)
-            df_transients = get_transients(obsid, df_regions)
-        except:
-            print(f'Error with {obsid}')
+            df_transients = df_regions[df_regions['obsid'] == obsid]
+        except Exception as e:
+            print(f'Error with {obsid} {e} {type(e).__name__}')
             continue
         for i, row in df_transients.iterrows():
             X_EPIC, Y_EPIC = rotate_position(row['X'], row['Y'], angle)
@@ -70,28 +72,39 @@ def calculate_all_new_positions():
                 'Y_EPIC': Y_EPIC
             }
             all_res.append(res)
-    df_res = pd.DataFrame(all_res)
-    print(df_res)
-    df_res.to_csv(data_combined / 'transients_rotated.csv', index=False)
-    # Save all the new positions.
+    df_regions_rotated = pd.DataFrame(all_res)
+    print(df_regions_rotated)
+    df_regions_rotated.to_csv(savepath, index=False)
+    return df_regions_rotated
 
-    fig, ax = plt.subplots(figsize=(10,10))
-    ax.hist2d(df_res['X_EPIC'], df_res['Y_EPIC'], bins=(120, 115), norm=LogNorm())
-    ax.set_xlabel("EPIC frame X")
-    ax.set_ylabel("EPIC frame Y")
-    plt.savefig(data_plots / 'transients_hist_rotated.png')
-    plt.savefig(data_plots / 'transients_hist_rotated.pdf')
 
-    fig, ax = plt.subplots(figsize=(10,10))
-    plt.scatter(df_res['X_EPIC'], df_res['Y_EPIC'], s=1)
-    ax.set_xlabel("EPIC frame X")
-    ax.set_ylabel("EPIC frame Y")
-    plt.savefig(data_plots / 'transients_scatter_rotated.png')
-    plt.savefig(data_plots / 'transients_scatter_rotated.pdf')
+def plot_regions_detector_coords(df_regions_rotated):
+    subs = ['_5_0.2_12.0', '_50_0.2_12.0', '_200_0.2_12.0']
+    labels = [r'$t_{\mathrm{bin}}=5$~s', r'$t_{\mathrm{bin}}=50$~s', r'$t_{\mathrm{bin}}=200$~s']
+
+    width = 9.0
+    fig, ax = plt.subplots(1, 3, figsize=(width, width / 3))
+    for i, s in enumerate(subs):
+        sub = df_regions_rotated[df_regions_rotated['runid'].str.contains(s)]
+        lab = fr'{labels[i]} | $N_{{\mathrm{{reg}}}}$={len(sub)}'
+        ax[i].scatter(sub['X_EPIC'], sub['Y_EPIC'], s=1.0, alpha=0.15, color='black', marker='.', label=lab,
+                      rasterized=True)
+        ax[i].set_xlim(-17500, 17500)
+        ax[i].set_ylim(-17500, 17500)
+        ax[i].set_xticks([])
+        ax[i].set_yticks([])
+        ax[i].legend(loc='lower right')
+    plt.subplots_adjust(wspace=0, hspace=0)
+    print('Saving to: 02_12_spatial_dist.png')
+
+    plt.savefig(data_plots / '02_12_spatial_dist.png', dpi=300)
+    plt.savefig(data_plots / '02_12_spatial_dist.pdf', dpi=300)
     plt.show()
 
 
 if __name__ == "__main__":
-    calculate_all_new_positions()
+    df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)
+    # df_regions_rotated = rotate_regions_to_detector_coords()
+    plot_regions_detector_coords(df_regions_rotated)
 
 
