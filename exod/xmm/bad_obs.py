@@ -198,5 +198,75 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      '0748591133', # C2014 Q2 Lovejoy Comet
                      '0748591134', # C2014 Q2 Lovejoy Comet
                      '0882110501' # Jupiter
-                    ]
-          
+                     '0200080734', # Jupiter
+                     '0200080733', # Jupiter
+                     '0200080732', # Jupiter
+                     '0200080731', # Jupiter
+                     '0200080234', # Jupiter
+                     '0200080233', # Jupiter
+                     '0200080232', # Jupiter
+                     '0200080231', # Jupiter
+                     '0882110601', # Jupiter
+                     '0882110501', # Jupiter
+                     '0882110401', # Jupiter
+                     '0842812001', # Jupiter
+                     '0801931901', # Jupiter
+                     '0413780401', # Jupiter
+                     '0413780301', # Jupiter
+                     '0413780201', # Jupiter
+                     '0413780101', # Jupiter
+                     '0842811501', # Jupiter
+                     '0842811001', # Jupiter
+                     '0801931001', # Jupiter
+                     '0801931801', # Jupiter
+                     '0801931101', # Jupiter
+                     '0801930901', # Jupiter
+                     '0801930801', # Jupiter
+                     '0801930701', # Jupiter
+                     '0781830601', # Jupiter
+                     '0781830301', # Jupiter
+                     '0158761201', # Jupiter
+                     '0158760140', # Jupiter
+                     '0158760139', # Jupiter
+                     '0158760138', # Jupiter
+                     '0158760137', # Jupiter
+                     '0158760135', # Jupiter
+                     '0158760134', # Jupiter
+                     '0158760133', # Jupiter
+                     '0158760132', # Jupiter
+                     '0158760131', # Jupiter
+                     '0728960832', # Jupiter
+                     '0728960831', # Jupiter
+                     '0728960632', # Jupiter
+                     '0728960631', # Jupiter
+                     '0103461135', # Comet C2000 WM1	
+                     '0103461136', # Comet C2000 WM1	
+                     '0164960101', # Comet C2001 Q4 
+                     '0113040701', # Comet C2001/A2 
+                     '0113040801', # Comet C2001/A2 
+                     '0113040901', # Comet C2001/A2 
+                     '0113041301', # Comet C2001_Q4 
+                     '0677981001', # Comet C2009 P1 
+                     '0677981101', # Comet C2009 P1 
+                     '0724790401', # Comet C2011 L4 
+                     '0724790501', # Comet C2011 L4 
+                     '0724790601', # Comet C2011 L4 
+                     '0724790731', # Comet C2011 L4 
+                     '0724790732', # Comet C2011 L4 
+                     '0748590131', # Comet C2013 A1 
+                     '0748590132', # Comet C2013 A1 
+                     '0748590133', # Comet C2013 A1 
+                     '0748590134', # Comet C2013 A1 
+                     '0748590135', # Comet C2013 A1 
+                     '0748590136', # Comet C2013 A1 
+                     '0748590137', # Comet C2013 A1 
+                     '0748590138', # Comet C2013 A1 
+                     '0748590139', # Comet C2013 A1 
+                     '0748591131', # Comet C2014 Q2 Lovejoy	
+                     '0748591132', # Comet C2014 Q2 Lovejoy	
+                     '0748591133', # Comet C2014 Q2 Lovejoy	
+                     '0748591134', # Comet C2014 Q2 Lovejoy	
+                     '0748591135', # Comet C2014 Q2 Lovejoy	
+                     '0748591136', # Comet C2014 Q2 Lovejoy	
+                     '0811213001', # Comet C2016 R2 PANSTARRS	
+                     ]
