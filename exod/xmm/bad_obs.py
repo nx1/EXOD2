@@ -269,4 +269,13 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      '0748591135', # Comet C2014 Q2 Lovejoy	
                      '0748591136', # Comet C2014 Q2 Lovejoy	
                      '0811213001', # Comet C2016 R2 PANSTARRS	
+                     '0701980733', # Comet C 2012 F6 Lemmon	
+                     '0701980732', # Comet C 2012 F6 Lemmon	
+                     '0701980731', # Comet C 2012 F6 Lemmon	
+                     '0672160431', # Comet C/2009 P1 (Garradd)	
+                     '0672160432', # Comet C/2009 P1 (Garradd)	
+                     '0672160631', # Comet C/2009 P1 (Garradd)	
+                     '0672160632', # Comet C/2009 P1 (Garradd)	
+                     '0672160931', # Comet C/2009 P1 (Garradd)	
+                     '0672160932', # Comet C/2009 P1 (Garradd)	
                      ]
