@@ -1,43 +1,18 @@
-import os
-
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import csv
 from matplotlib import pyplot as plt
-from astropy.io import ascii, fits
 from astropy.table import Table
-from matplotlib.colors import LogNorm
-from scipy.interpolate import interp1d
-from pathlib import Path
 
-from exod.utils.path import data_processed, savepaths_combined, data_plots, data_combined, read_observation_ids, \
-    data_util
-from exod.xmm.observation import Observation
+from exod.processing.coordinates import rotate_XY
+from exod.utils.path import savepaths_combined, data_plots, data_combined, data_util
+from exod.xmm.bad_obs import obsids_to_exclude
 
-
-def rotate_position(X, Y, angle, pivotXY=(25719, 25719)):
-    """
-    Rotates the positions following the pointing angle of the observation, so that the coordinates are in an EPIC frame.
-
-    Parameters:
-        X (float): The X sky coordinate.
-        Y (float): The Y sky coordinate.
-        angle (float): The pointing angle of the observation (PA_PNT).
-        pivotXY (tuple): The pivot point for the rotation.
-    """
-    X_EPIC = (X - pivotXY[0]) * np.cos(-angle * np.pi / 180) - (Y - pivotXY[1]) * np.sin(-angle * np.pi / 180)
-    Y_EPIC = (X - pivotXY[0]) * np.sin(-angle * np.pi / 180) + (Y - pivotXY[1]) * np.cos(-angle * np.pi / 180)
-    return X_EPIC, Y_EPIC
 
 def get_pointing_angle(obsid, tab_xmm_obslist):
-    #obs = Observation(obsid)
-    #obs.get_event_lists_processed()
-    #evt = obs.events_processed[0]
-    #evt.read(remove_bad_rows=False, remove_borders=False, remove_MOS_central_ccd=False, remove_hot_pixels=False)
-    #angle = evt.pnt_angle
-    #270.9496
+    """
+    Get the pointing angle for a given observation ID, reads from the xmm_obslist table.
+    http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR14/4xmmdr14_obslist.fits
+    """
     angle = tab_xmm_obslist[tab_xmm_obslist['OBS_ID'] == obsid]['PA_PNT'].value[0]
     return angle
 
@@ -60,7 +35,7 @@ def rotate_regions_to_detector_coords(clobber=True):
             print(f'Error with {obsid} {e} {type(e).__name__}')
             continue
         for i, row in df_transients.iterrows():
-            X_EPIC, Y_EPIC = rotate_position(row['X'], row['Y'], angle)
+            X_EPIC, Y_EPIC = rotate_XY(row['X'], row['Y'], angle)
             res = {
                 'obsid': obsid,
                 'runid': row['runid'],
@@ -79,6 +54,8 @@ def rotate_regions_to_detector_coords(clobber=True):
 
 
 def plot_regions_detector_coords(df_regions_rotated):
+    df_regions_rotated = df_regions_rotated[~df_regions_rotated['obsid'].isin(obsids_to_exclude)]
+
     subs = ['_5_0.2_12.0', '_50_0.2_12.0', '_200_0.2_12.0']
     labels = [r'$t_{\mathrm{bin}}=5$~s', r'$t_{\mathrm{bin}}=50$~s', r'$t_{\mathrm{bin}}=200$~s']
 

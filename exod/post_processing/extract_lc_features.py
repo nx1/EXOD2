@@ -50,6 +50,27 @@ def largest_peak_info(df_lc):
         return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
     return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
 
+def count_significant_bins(df_lc):
+    # The following are obtained from bayesian_computations import get_bayes_thresholds
+    B_peak_3_sig    = 5.94096891658419
+    B_peak_5_sig    = 13.278830271385576
+    B_eclipse_3_sig = 5.708917345972507
+    B_eclipse_5_sig = 12.380488516107011
+
+    res = {'n_3_sig_peak_bins'        : (df_lc['B_peak_log'] > B_peak_3_sig).sum(),
+           'n_3_sig_peak_bins_bti'    : (df_lc[df_lc['bti'] == 1]['B_peak_log'] > B_peak_3_sig).sum(),
+           'n_3_sig_peak_bins_gti'    : (df_lc[df_lc['bti'] == 0]['B_peak_log'] > B_peak_3_sig).sum(),
+           'n_5_sig_peak_bins'        : (df_lc['B_peak_log'] > B_peak_5_sig).sum(),
+           'n_5_sig_peak_bins_bti'    : (df_lc[df_lc['bti'] == 1]['B_peak_log'] > B_peak_5_sig).sum(),
+           'n_5_sig_peak_bins_gti'    : (df_lc[df_lc['bti'] == 0]['B_peak_log'] > B_peak_5_sig).sum(),
+           'n_3_sig_eclipse_bins'     : (df_lc['B_eclipse_log'] > B_eclipse_3_sig).sum(),
+           'n_3_sig_eclipse_bins_bti' : (df_lc[df_lc['bti'] == 1]['B_eclipse_log'] > B_eclipse_3_sig).sum(),
+           'n_3_sig_eclipse_bins_gti' : (df_lc[df_lc['bti'] == 0]['B_eclipse_log'] > B_eclipse_3_sig).sum(),
+           'n_5_sig_eclipse_bins'     : (df_lc['B_eclipse_log'] > B_eclipse_5_sig).sum(),
+           'n_5_sig_eclipse_bins_bti' : (df_lc[df_lc['bti'] == 1]['B_eclipse_log'] > B_eclipse_5_sig).sum(),
+           'n_5_sig_eclipse_bins_gti' : (df_lc[df_lc['bti'] == 0]['B_eclipse_log'] > B_eclipse_5_sig).sum()}
+    return res
+
 
 def calc_features(df_lc, key):
     parts    = key.strip("()").split(", ")
@@ -71,12 +92,11 @@ def calc_features(df_lc, key):
 
     ks = ks_2samp(df_lc['n'], df_lc['mu'])
 
-
-
     peaks_or_eclipses = (df_lc['B_peak_log'] > 6.4) | (df_lc['B_eclipse_log'] > 5.5)
     t_bin_bin_spacing = {5 : 1000, 50 : 100, 200 : 5}
     bins_min_between_peaks = t_bin_bin_spacing[t_bin]
     n_peaks = count_distant_peaks(peaks_or_eclipses, bins_min_between_peaks)
+    sig_bins = count_significant_bins(df_lc)
 
     num_B_peak_above_6_4    = count_recurring_peaks(df_lc['B_peak_log'].values, threshold=6.4)
     num_B_eclipse_above_5_5 = count_recurring_peaks(df_lc['B_eclipse_log'].values, threshold=5.5)
@@ -121,6 +141,9 @@ def calc_features(df_lc, key):
            'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5,
            'bin_min_between_peaks'   : bins_min_between_peaks,
            'n_peaks'                 : n_peaks}
+    for k, v in sig_bins.items():
+        res[k] = v
+
     return res
 
 
