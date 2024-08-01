@@ -193,10 +193,6 @@ def get_bayes_thresholds(threshold_sigma):
     return B_peak_threshold, B_eclipse_threshold
 
 
-
-
-
-
 def sigma_equivalent(n, mu):
     """
     Find the equivalent sigma for a given observed (n) and expectation (mu).

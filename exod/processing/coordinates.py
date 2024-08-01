@@ -75,3 +75,22 @@ def calc_df_regions(image, image_mask):
     df_region = pd.DataFrame(region_dict)
     df_region['label'] = df_region['label'] - 1 # Start labels at 0
     return df_region
+
+
+def rotate_XY(X, Y, angle, pivotXY=(25719, 25719)):
+    """
+    Rotates the positions following the pointing angle of the observation, so that the coordinates are in an EPIC frame.
+
+    Parameters:
+        X (array): The X sky coordinate from event list.
+        Y (array): The Y sky coordinate from event list.
+        angle (float): The pointing angle of the observation (PA_PNT).
+        pivotXY (tuple): The pivot point for the rotation.
+
+    Returns:
+        X_EPIC (array): The X sky coordinate in the EPIC frame.
+        Y_EPIC (array): The Y sky coordinate in the EPIC frame.
+    """
+    X_EPIC = (X - pivotXY[0]) * np.cos(-angle * np.pi / 180) - (Y - pivotXY[1]) * np.sin(-angle * np.pi / 180)
+    Y_EPIC = (X - pivotXY[0]) * np.sin(-angle * np.pi / 180) + (Y - pivotXY[1]) * np.cos(-angle * np.pi / 180)
+    return X_EPIC, Y_EPIC

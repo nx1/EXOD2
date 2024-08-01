@@ -9,6 +9,8 @@ from scipy.stats import ks_2samp
 from scipy.stats import skew, kurtosis
 from scipy.signal import find_peaks
 
+from exod.xmm.bad_obs import obsids_to_exclude
+
 
 def count_recurring_peaks(data, threshold):
     peaks, _ = find_peaks(data)
@@ -166,5 +168,32 @@ def extract_lc_features(clobber=True):
     return df_lc_features
 
 
+def calc_df_lc_feat_filter_flags(df_lc_feat):
+    print('Calculating Light Curve Feature Filter Flags...')
+    # Filter flag for regions that have less than 5 counts maximum in 5 second binning
+    df_lc_feat['filt_tbin_5_n_l_5'] = (df_lc_feat['runid'].str.contains('_5_')) & (df_lc_feat['n_max'] < 5)
+
+    # Filter flag for runids with more than 20 detected regions
+    vc_runid = df_lc_feat['runid'].value_counts()
+    df_lc_feat['filt_g_20_detections'] = df_lc_feat['runid'].isin(vc_runid.index[vc_runid > 20])
+
+    # Filter flag for 5 sigma detections
+    df_lc_feat['filt_5sig'] = (df_lc_feat['B_peak_log_max'] > 13.2) | (df_lc_feat['B_eclipse_log_max'] > 12.38)
+
+    # Filter flag for excluded obsids
+    df_lc_feat['obsid'] = df_lc_feat['runid'].str.extract(r'(\d{10})')
+    df_lc_feat['filt_exclude_obsid'] = df_lc_feat['obsid'].isin(obsids_to_exclude)
+
+
+    # Print the number of each flag
+    flag_cols = ['n_max_isolated_flare', 'n_max_first_bin', 'n_max_last_bin', 'filt_tbin_5_n_l_5', 'filt_5sig', 'filt_exclude_obsid', 'filt_g_20_detections']
+    for col in flag_cols:
+        num = len(df_lc_feat[df_lc_feat[col] == True])
+        print(f'{col:<20} : {num}')
+
+    print(f'n_exluded_obsids     : {len(obsids_to_exclude)}')
+    return df_lc_feat
+
 if __name__ == "__main__":
     extract_lc_features()
+

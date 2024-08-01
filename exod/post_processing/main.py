@@ -5,15 +5,16 @@ import astropy.units as u
 from astropy.table import Table
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
+from exod.post_processing.make_exod_cat import make_exod_catalogue
 from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, \
     plot_regions_detector_coords
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
 from exod.utils.plotting import use_scienceplots, plot_aitoff, plot_aitoff_density
-from exod.post_processing.extract_lc_features import extract_lc_features
+from exod.post_processing.extract_lc_features import extract_lc_features, calc_df_lc_feat_filter_flags
 from exod.post_processing.cluster_regions import cluster_regions, get_unique_regions
-from exod.xmm.bad_obs import obsids_to_exclude
+from exod.utils.simbad_classes import simbad_classifier
 
 
 def print_event_info(df_evt):
@@ -89,33 +90,6 @@ def process_run_info():
     print('='*80)
 
 
-def calc_df_lc_feat_filter_flags(df_lc_feat):
-    print('Calculating Light Curve Feature Filter Flags...')
-    # Filter flag for regions that have less than 5 counts maximum in 5 second binning
-    df_lc_feat['filt_tbin_5_n_l_5'] = (df_lc_feat['runid'].str.contains('_5_')) & (df_lc_feat['n_max'] < 5)
-
-    # Filter flag for runids with more than 20 detected regions
-    vc_runid = df_lc_feat['runid'].value_counts()
-    df_lc_feat['filt_many_detections'] = df_lc_feat['runid'].isin(vc_runid.index[vc_runid > 20])
-
-    # Filter flag for 5 sigma detections
-    df_lc_feat['filt_5sig'] = (df_lc_feat['B_peak_log_max'] > 13.2) | (df_lc_feat['B_eclipse_log_max'] > 12.38)
-
-    # Filter flag for excluded obsids
-    df_lc_feat['obsid'] = df_lc_feat['runid'].str.extract(r'(\d{10})')
-    df_lc_feat['filt_exclude_obsid'] = df_lc_feat['obsid'].isin(obsids_to_exclude)
-
-
-    # Print the number of each flag
-    flag_cols = ['n_max_isolated_flare', 'n_max_first_bin', 'n_max_last_bin', 'filt_tbin_5_n_l_5', 'filt_5sig', 'filt_exclude_obsid']
-    for col in flag_cols:
-        num = len(df_lc_feat[df_lc_feat[col] == True])
-        print(f'{col:<20} : {num}')
-
-    print(f'n_exluded_obsids     : {len(obsids_to_exclude)}')
-    return df_lc_feat
-
-
 def print_number_of_regions_breakdown(df_lc_feat):
     sims = ['_5_0.2_12.0', '_5_0.2_2.0', '_5_2.0_12.0',
             '_50_0.2_12.0', '_50_0.2_2.0', '_50_2.0_12.0',
@@ -143,7 +117,7 @@ def print_number_of_regions_breakdown(df_lc_feat):
     print('right:', np.array(c).reshape(3, 3).sum(axis=1))
     print('tot', np.array(c).reshape(3, 3).sum())
 
-def print_Number_of_lcs_by_peaks(df_lc_features, sigma=3):
+def print_n_lcs_by_peaks(df_lc_features, sigma=3):
     B_peak_threshold, B_eclipse_threshold = get_bayes_thresholds(sigma)
     mask_peak = df_lc_features['B_peak_log_max'] > B_peak_threshold
     mask_eclipse = df_lc_features['B_eclipse_log_max'] > B_eclipse_threshold
@@ -371,8 +345,8 @@ def process_lc_features():
     df_lc_features = extract_lc_features(clobber=False)
     df_lc_features = calc_df_lc_feat_filter_flags(df_lc_features)
     print_number_of_regions_breakdown(df_lc_features)
-    print_Number_of_lcs_by_peaks(df_lc_features, sigma=3)
-    print_Number_of_lcs_by_peaks(df_lc_features, sigma=5)
+    print_n_lcs_by_peaks(df_lc_features, sigma=3)
+    print_n_lcs_by_peaks(df_lc_features, sigma=5)
     print_significant_bins_stats(df_lc_features)
     plot_total_counts_hist_full(df_lc_features)
     plot_total_counts_hist_small_n(df_lc_features)
@@ -460,6 +434,17 @@ def plot_simbad_types_bar(df_cmatch_simbad):
     fig, ax = plt.subplots(figsize=(8, 30))
     vc.sort_values().plot(kind='barh', ax=ax)
     plt.savefig(data_plots / 'simbad_types_bar.pdf')
+
+    df_cmatch_simbad['otype_sub'] = [simbad_classifier.get(otype) for otype in df_cmatch_simbad['main_type']]
+    vc2 = df_cmatch_simbad['otype_sub'].value_counts()
+    print(vc2)
+
+    fig, ax = plt.subplots()
+    vc2.sort_values().plot(kind='barh', ax=ax)
+    plt.savefig(data_plots / 'simbad_types_sub_bar.pdf')
+
+
+
 
 
 def plot_gaia_hr_diagram(tab):
@@ -563,7 +548,7 @@ def main():
     process_run_info()
     process_regions()
     process_lc_features()
-
+    make_exod_catalogue()
     plt.show()
 
 
