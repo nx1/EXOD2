@@ -77,7 +77,7 @@ def plot_regions_detector_coords(df_regions_rotated):
     plt.savefig(data_plots / '02_12_spatial_dist.png', dpi=300)
     plt.savefig(data_plots / '02_12_spatial_dist.pdf', dpi=300)
     plt.show()
-
+    
 
 if __name__ == "__main__":
     df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)

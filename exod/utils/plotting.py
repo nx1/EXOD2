@@ -3,6 +3,7 @@ import matplotlib
 from matplotlib import pyplot as plt, pyplot
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LogNorm, ListedColormap
+from matplotlib.widgets import RectangleSelector
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from scipy.stats import gaussian_kde
@@ -188,3 +189,32 @@ def plot_aitoff_density(ra_deg, dec_deg, savepath=None):
         plt.savefig(savepath, dpi=300)
 
     # plt.show()
+
+
+def interactive_scatter_with_rectangles(x_data, y_data):
+    """
+    Plot x and y data, allowing the user to interactively select rectangles.
+    Prints the (x, y, width, height) of the selected rectangle in the terminal.
+
+    Parameters:
+    - x_data: array-like, the x coordinates of the scatter data.
+    - y_data: array-like, the y coordinates of the scatter data.
+    """
+    fig, ax = plt.subplots()
+    ax.scatter(x_data, y_data, color='black', alpha=0.5, s=1)
+
+
+    def onselect(eclick, erelease):
+        x1, y1 = eclick.xdata, eclick.ydata
+        x2, y2 = erelease.xdata, erelease.ydata
+        width  = abs(x2 - x1)
+        height = abs(y2 - y1)
+
+        print(f"({x1:.2f}, {y1:.2f}, {width:.2f}, {height:.2f}) (x,y,w,h)")
+        rect = plt.Rectangle((min(x1, x2), min(y1, y2)), width, height, linewidth=2, edgecolor='red', facecolor='none')
+        ax.add_patch(rect)
+        last_rect = rect
+        plt.draw()
+
+    rect_selector = RectangleSelector(ax, onselect, useblit=True, button=[1], minspanx=0.1, minspany=0.1, spancoords='data', interactive=True)
+    plt.show()
