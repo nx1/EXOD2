@@ -23,7 +23,7 @@ from tqdm import tqdm
 from exod.utils.logger import logger
 from exod.utils.path import data_util, data_results, data_plots, data_combined, savepaths_combined
 from exod.utils.simbad_classes import simbad_classifier
-from exod.post_processing.cluster_regions import get_unique_regions
+from exod.post_processing.cluster_regions import get_unique_regions, cluster_regions
 
 warnings.filterwarnings("ignore", category=BlankResponseWarning)
 
@@ -153,11 +153,15 @@ def xmatch(df, catalogue='simbad', max_sep_arcsec=20, ra_col='ra', dec_col='dec'
 
 
 def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True):
-    savepaths_cmatch = {'SIMBAD'  : data_combined / 'cmatch_simbad.csv',
-                        'GAIA DR3': data_combined / 'cmatch_gaia_dr3.csv',
-                        'XMM OM'  : data_combined / 'cmatch_xmm_om.csv'}
+    savepaths_cmatch = {'SIMBAD'  : savepaths_combined['cmatch_simbad'],
+                        'GAIA DR3': savepaths_combined['cmatch_gaia'],
+                        'XMM OM'  : savepaths_combined['cmatch_om'],
+                        'XMM DR14': savepaths_combined['cmatch_dr14']}
     dfs_cmatch = {}
     dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique)
+    print(f'Saving XMM DR14 crossmatch to {savepaths_cmatch["XMM DR14"]}')
+    dfs_cmatch['XMM DR14'].write(savepaths_cmatch['XMM DR14'], format='csv', overwrite=True)
+
 
     if not clobber:
         if all([savepath.exists() for savepath in savepaths_cmatch.values()]):
@@ -182,7 +186,6 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
                            'GLADE'    : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
                            'CHIME FRB': {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
 
-
     for k, cat in catalogs.items():
         dfs_cmatch[k] = xmatch(df_regions_unique, cat, max_sep_arcsec=max_sep_arcsec,
                                ra_col=catalogs_coord_cols[k]['ra'], dec_col=catalogs_coord_cols[k]['dec'])
@@ -193,22 +196,8 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
     return dfs_cmatch
 
 
-
-
-
-
-
-
 if __name__ == "__main__":
-    crossmatch_unique_regions()
-
-    # df_region = pd.read_csv(data_combined / 'merged_with_dr14' / 'df_regions.csv')
-    # df_region = df_region[df_region['runid'].str.contains('50_0.2_12.0')]
-    # df_region = df_region.iloc[100:200]
-    # # df_region = df_region.sample(1000)
-    # crossmatch = CrossMatch(df_region)
-    # crossmatch.run()
-    # cmatch_info = crossmatch.info
-    # crossmatch.plot_pie_chart()
-    # crossmatch.plot_seperations()
-    # plt.show()
+    df_regions = pd.read_csv(savepaths_combined['regions'])
+    df_regions['cluster_label'] = cluster_regions(df_regions)
+    df_regions_unique = get_unique_regions(df_regions)
+    crossmatch_unique_regions(df_regions_unique=df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)

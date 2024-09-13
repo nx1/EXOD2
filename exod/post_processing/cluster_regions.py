@@ -230,3 +230,5 @@ def get_unique_regions(df_regions, clustering_radius=20 * u.arcsec):
     tab_regions_unique = Table.from_pandas(df_regions_unique[['ra_deg', 'dec_deg']])
     tab_regions_unique.write(savepaths_combined['regions_unique'], overwrite=True)
     return df_regions_unique
+
+

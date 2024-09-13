@@ -7,7 +7,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
 from exod.post_processing.make_exod_cat import make_exod_catalogue
 from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, \
-    plot_regions_detector_coords
+    plot_regions_detector_coords, hot_regions, plot_hot_regions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
@@ -341,8 +341,8 @@ def print_significant_bins_stats(df_lc_feat):
     print(f'Total Number of 5 sigma eclipse bins = {df_lc_feat['n_5_sig_eclipse_bins'].sum()} / {df_lc_feat['len'].sum()} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum()} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum()} ({perc_5_sig_eclipse_bti:.2f}%))')
 
 
-def process_lc_features():
-    df_lc_features = extract_lc_features(clobber=False)
+def process_lc_features(clobber=True):
+    df_lc_features = extract_lc_features(clobber=clobber)
     df_lc_features = calc_df_lc_feat_filter_flags(df_lc_features)
     print_number_of_regions_breakdown(df_lc_features)
     print_n_lcs_by_peaks(df_lc_features, sigma=3)
@@ -444,9 +444,6 @@ def plot_simbad_types_bar(df_cmatch_simbad):
     plt.savefig(data_plots / 'simbad_types_sub_bar.pdf')
 
 
-
-
-
 def plot_gaia_hr_diagram(tab):
     sub = tab[~np.isnan(tab['BP-RP'])]
     # sub = sub[sub['SEP_ARCSEC'] < 10]
@@ -513,7 +510,7 @@ def plot_om_ab_magnitudes(df_cmatch_om):
     # plt.show()
 
 
-def process_regions():
+def process_regions(clobber=True):
     df_regions = pd.read_csv(savepaths_combined['regions'])
     df_regions['cluster_label'] = cluster_regions(df_regions, clustering_radius=20 * u.arcsec)
     df_regions_unique = get_unique_regions(df_regions, clustering_radius=20 * u.arcsec)
@@ -521,7 +518,7 @@ def process_regions():
     plot_aitoff(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], savepath=data_plots / 'unique_regions_aitoff.pdf')
     plot_aitoff_density(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], savepath=data_plots / 'unique_regions_aitoff_density.pdf')
 
-    dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=False)
+    dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=clobber)
 
     print_cmatch_numbers(dfs_cmatch)
     print_xmm_dr14_cmatch_stats(dfs_cmatch['XMM DR14'])
@@ -534,11 +531,12 @@ def process_regions():
 
     plot_om_ab_magnitudes(dfs_cmatch['XMM OM'])
 
-    df_reg_rotated = rotate_regions_to_detector_coords(clobber=False)
+    df_reg_rotated = rotate_regions_to_detector_coords(clobber=clobber)
     plot_regions_detector_coords(df_reg_rotated)
+    plot_hot_regions(df_reg_rotated, hot_regions)
 
 
-def main():
+def main(clobber=True):
     use_scienceplots()
     for k,v in savepaths_combined.items():
         print(f'{k:<15} {v.exists()}')
@@ -554,4 +552,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(clobber=False)

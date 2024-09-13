@@ -25,14 +25,23 @@ mean intensity: {{ content['reg_info']['intensity_mean'] }}
 area: {{ content['reg_info']['area_bbox'] }}
 </pre>
 </div>
+<div class="col">
+<pre>
+<b>Event List Information:</b>
+Date      : {{ content['evt_info']['date'] }}
+object    : {{ content['evt_info']['object'] }}
+exposure  : {{ content['evt_info']['exposure'] }}
+N_events  : {{ content['evt_info']['N_events'] }}
+mean Rate : {{ content['evt_info']['mean_rate'] }}
+</div>
 
 <div class="col">
 <pre>
 <b>XMM DR14:</b>
-SRCID: {{content['xmm_info']['SRCID']}}
-IAUNAME: {{content['xmm_info']['IAUNAME']}}
-RA  : {{content['xmm_info']['SC_RA']}}
-DEC : {{content['xmm_info']['SC_DEC']}}
+SRCID   : {{content['xmm_info']['SRCID']}}
+IAUNAME : {{content['xmm_info']['IAUNAME']}}
+RA      : {{content['xmm_info']['SC_RA']}}
+DEC     : {{content['xmm_info']['SC_DEC']}}
 {% if content['xmm_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% endif %}
 N_DETECTIONS  : {{content['xmm_info']['N_DETECTIONS']}}
 0.2-12.0 Flux : {{content['xmm_info']['SC_EP_8_FLUX']}}
@@ -45,40 +54,32 @@ N_DETECTIONS  : {{content['xmm_info']['N_DETECTIONS']}}
 <div class="col">
 <pre>
 <b>SIMBAD:</b>
-MAIN_ID : {{content['cmatch_info']['MAIN_ID']}}
-RA      : {{content['cmatch_info']['RA']}}
-DEC     : {{content['cmatch_info']['DEC']}}
+MAIN_ID : {{content['cmatch_info']['main_id']}}
+RA      : {{content['cmatch_info']['ra_deg']}}
+DEC     : {{content['cmatch_info']['dec_deg']}}
 {% if content['cmatch_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% endif %}
-OTYPE   : {{content['cmatch_info']['OTYPE']}}
-<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['cmatch_info']['MAIN_ID']}}">[LINK]</a>
+main_type   : {{content['cmatch_info']['main_type']}}
+other_types : {{content['cmatch_info']['other_types']}}
+nbref       : {{content['cmatch_info']['nbref']}}
+<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['cmatch_info']['main_id']}}">[LINK]</a>
 </pre>
 </div>
+
 <div class="col">
 <pre>
 <b>GAIA:</b>
-RA   : {{content['cmatch_gaia_info']['RA_ICRS']}}
-DEC  : {{content['cmatch_gaia_info']['DE_ICRS']}}
+DR3Name: {{content['cmatch_gaia_info']['DR3Name']}}
+RA     : {{content['cmatch_gaia_info']['RAdeg']}}
+DEC    : {{content['cmatch_gaia_info']['DEdeg']}}
 {% if content['cmatch_gaia_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% endif %}
-GAL  : {{content['cmatch_gaia_info']['Gal']}}
-QSO  : {{content['cmatch_gaia_info']['QSO']}}
-DIST : {{content['cmatch_gaia_info']['Dist']}}
-GMAG : {{content['cmatch_gaia_info']['Gmag']}}
-Teff : {{content['cmatch_gaia_info']['Teff']}}
+Gmag   : {{content['cmatch_gaia_info']['Gmag']}} +- {{content['cmatch_gaia_info']['e_Gmag']}}
+Teff   : {{content['cmatch_gaia_info']['Teff']}}
+PGAL   : {{content['cmatch_gaia_info']['PGal']}}
+PQSO   : {{content['cmatch_gaia_info']['PQSO']}}
+DIST   : {{content['cmatch_gaia_info']['Dist']}}
 </pre>
 </div>
-<div class="col">
-<pre>
-<b>what do we think?</b>
-Class: {{ content['class_info']['class']}}<form method="POST" action="{{url_for('handle_data')}}"><input type="hidden" name="region_id" value="{{ content['region_id'] }}">
-<button type="submit" name="button" value="star" style="background-color: cyan; color: black;">Star</button><button type="submit" name="button" value="xrb" style="background-color: blue; color: white;">XRB</button>
-<button type="submit" name="button" value="cv" style="background-color: grey; color: black;">CV</button><button type="submit" name="button" value="agn" style="background-color: orange; color: black;">AGN</button><button type="submit" name="button" value="burst" style="background-color: lime; color: black;">burst</button>
-<button type="submit" name="button" value="interesting" style="background-color: gold; color: black;">!!!</button><button type="submit" name="button" value="unsure" style="background-color: white; color: black;">Unsure</button>
-<button type="submit" name="button" value="junk" style="background-color: red; color: black;">Junk</button>
 
-<button type="submit" name="button" value="save_class" style="background-color: black; color: white;">Save Class</button>
-</form>
-</pre>
-</div>
 <div class="row">
     <div class="col">
         {% for lightcurve in content['lightcurves'] %}
@@ -89,15 +90,8 @@ Class: {{ content['class_info']['class']}}<form method="POST" action="{{url_for(
 </div>
 <div class="container">
 <div class="row">
-    <div class="col">
+<div class="col">
 <pre>
-<b>Event List Information:</b>
-Date      : {{ content['evt_info']['date'] }}
-object    : {{ content['evt_info']['object'] }}
-exposure  : {{ content['evt_info']['exposure'] }}
-N_events  : {{ content['evt_info']['N_events'] }}
-mean Rate : {{ content['evt_info']['mean_rate'] }}
-
 <b>Runs and detections for obsid:{{content['obsid']}}:</b>
 {% for i, row in content['run_info'].iterrows() %}
     {{ row['runid'] }} : {{ row['n_regions'] }}{% endfor %}

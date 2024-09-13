@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<body>
+    <h2> Lightcurves for otype: {{ content['otype'] }}</h2>
+    <div class="container">
+       <div class="row">
+           <div class="col-auto" style="width: 10%;">
+           {% for i, row in content['df_otype_stats'].iterrows() %}
+           <a href="http://127.0.0.1:5000/plot_lcs/{{row['otype']}}">{{ row['otype'] }} {{row['object_count']}}</a></br>
+           {% endfor %}
+            </div>
+            <div class="col-auto" style="width: 90%;">
+            <h2> Unique Regions with SIMBAD Crossmatch</h2>
+            {% for i, row in content['df_cmatch_simbad_otype'].iterrows() %}
+            SEP_ARCSEC={{'%0.2f'| format(row['SEP_ARCSEC']|float)}} ra_deg={{'%0.2f'| format(row['ra_deg']|float)}} dec_deg={{'%0.2f'| format(row['dec_deg']|float)}} main_id={{row['main_id']}} main_type={{row['main_type']}} <a href="https://sky.esa.int/esasky/?target={{row['ra_deg']}} {{row['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0&cooframe=J2000&sci=true&lang=en">ESASKY</a> | <a href="/region/{{i}}">Region</a></br>
+            {% endfor %}
+            <h2> Lightcurves </h2>
+            {% for lightcurve in content['lightcurves'] %}
+            <img src="data:image/png;base64,{{lightcurve['data_url']}}">
+            {% endfor %}
+            <pre>
+            </pre>
+            </div>
+       </div>
+    </div>
+
+</body>
+{% endblock %}

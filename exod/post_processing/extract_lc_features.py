@@ -10,6 +10,7 @@ from scipy.stats import skew, kurtosis
 from scipy.signal import find_peaks
 
 from exod.xmm.bad_obs import obsids_to_exclude
+from exod.processing.bayesian_computations import sigma_equivalent_B_eclipse, sigma_equivalent_B_peak
 
 
 def count_recurring_peaks(data, threshold):
@@ -72,7 +73,6 @@ def count_significant_bins(df_lc):
            'n_5_sig_eclipse_bins_bti' : (df_lc[df_lc['bti'] == 1]['B_eclipse_log'] > B_eclipse_5_sig).sum(),
            'n_5_sig_eclipse_bins_gti' : (df_lc[df_lc['bti'] == 0]['B_eclipse_log'] > B_eclipse_5_sig).sum()}
     return res
-
 
 def calc_features(df_lc, key):
     parts    = key.strip("()").split(", ")
@@ -139,6 +139,8 @@ def calc_features(df_lc, key):
            'mu_kurt'                 : kurtosis(df_lc['n']),
            'B_peak_log_max'          : df_lc['B_peak_log'].max(),
            'B_eclipse_log_max'       : df_lc['B_eclipse_log'].max(),
+           'sigma_max_B_peak'        : sigma_equivalent_B_peak(df_lc['B_peak_log'].max()),
+           'sigma_max_B_eclipse'     : sigma_equivalent_B_eclipse(df_lc['B_eclipse_log'].max()),
            'num_B_peak_above_6_4'    : num_B_peak_above_6_4,
            'num_B_eclipse_above_5_5' : num_B_eclipse_above_5_5,
            'bin_min_between_peaks'   : bins_min_between_peaks,

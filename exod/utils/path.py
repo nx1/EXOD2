@@ -1,30 +1,33 @@
 import os
 from pathlib import Path
 
-base            = Path(os.environ['EXOD'])
-data            = base / 'data'
-utils           = base / 'exod' / 'utils'
-data_raw        = data / 'raw'
-data_processed  = data / 'processed'
-data_results    = data / 'results'
-data_combined   = data / 'results_combined'
-data_util       = data / 'util'
-data_plots      = data / 'plots'
-logs            = base / 'logs'
-docs            = base / 'docs'
+base              = Path(os.environ['EXOD'])
+data              = base / 'data'
+utils             = base / 'exod' / 'utils'
+data_raw          = data / 'raw'
+data_processed    = data / 'processed'
+data_results      = data / 'results'
+data_combined     = data / 'results_combined'
+data_catalogue    = data_combined / 'exod_catalogue'
+data_simbad_stats = data_combined / 'simbad_stats'
+data_util         = data / 'util'
+data_plots        = data / 'plots'
+logs              = base / 'logs'
+docs              = base / 'docs'
 
 all_paths = {
-    'base'          : base,
-    'data'          : data,
-    'utils'         : utils,
-    'data_raw'      : data_raw,
-    'data_processed': data_processed,
-    'data_results'  : data_results,
-    'data_combined' : data_combined,
-    'data_util'     : data_util,
-    'data_plots'    : data_plots,
-    'logs'          : logs,
-    'docs'          : docs
+    'base'           : base,
+    'data'           : data,
+    'utils'          : utils,
+    'data_raw'       : data_raw,
+    'data_processed' : data_processed,
+    'data_results'   : data_results,
+    'data_combined'  : data_combined,
+    'data_catalogue' : data_catalogue,
+    'data_util'      : data_util,
+    'data_plots'     : data_plots,
+    'logs'           : logs,
+    'docs'           : docs
 }
 
 # TODO Remove merged_with_dr14 from savepaths_combined when finalized!
@@ -41,7 +44,8 @@ savepaths_combined = {'bti'           : data_combined / 'merged_with_dr14' / 'df
                       'evt_info'      : data_combined / 'merged_with_dr14' / 'df_evt_info.csv',
                       'cmatch_simbad' : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_simbad.csv',
                       'cmatch_gaia'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gaia.csv',
-                      'cmatch_om'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv'}
+                      'cmatch_om'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv',
+                      'cmatch_dr14'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_dr14.csv'}
 
 def create_all_paths():
     for name, path in all_paths.items():

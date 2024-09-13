@@ -6,7 +6,8 @@ from astropy.table import Table, hstack
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-from exod.utils.path import savepaths_combined
+from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, hot_regions
+from exod.utils.path import savepaths_combined, data_combined
 from exod.post_processing.cluster_regions import get_unique_regions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
@@ -14,7 +15,7 @@ from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flag
 from pathlib import Path
 
 def create_exod_srcids(ra_deg, dec_deg):
-    """Create Source Identifiers from coordiantes."""
+    """Create Source Identifiers from coordinates."""
     sc = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg')
     exod_srcids = []
     for s in sc:
@@ -26,15 +27,18 @@ def create_exod_srcids(ra_deg, dec_deg):
 
 
 def make_exod_catalogue():
+    cat_savepath = data_combined / 'exod_catalogue'
     df_lc_feat = pd.read_csv(savepaths_combined['lc_features'])
     df_regions = pd.read_csv(savepaths_combined['regions'])
+
+    df_regions['EXOD_DETID'] = df_regions['runid'] + '_' + df_regions['label'].astype(str)
 
     df_lc_feat = calc_df_lc_feat_filter_flags(df_lc_feat)
     df_regions_unique = get_unique_regions(df_regions)
     dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=False)
 
-    df_regions_unique['EXOD_SRCID'] = create_exod_srcids(ra_deg=df_regions_unique['ra_deg'],
-                                                         dec_deg=df_regions_unique['dec_deg'])
+    df_regions_unique['region_num'] = np.arange(len(df_regions_unique))
+    df_regions_unique['EXOD_SRCID'] = create_exod_srcids(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'])
 
     assert len(df_regions_unique['EXOD_SRCID'].unique()) == len(df_regions_unique)
 
@@ -52,22 +56,38 @@ def make_exod_catalogue():
     df_regions['mean_pixel_intensity'] = df_regions['intensity_mean'] / df_regions['area_bbox']
 
     # Append lc columns
-    lc_cols = ['n_min', 'n_max', 'n_mean', 'n_std', 'n_sum', 'n_skew', 'n_kurt', 'bin_min_between_peaks', 'n_peaks',
-               'ratio_bti', 'ks_pval']
-
+    lc_cols = ['n_min', 'n_max', 'n_mean', 'n_std', 'n_sum', 'n_skew', 'n_kurt', 'sigma_max_B_peak', 'sigma_max_B_eclipse', 'bin_min_between_peaks', 'n_peaks', 'ratio_bti', 'ks_pval']
     for col in lc_cols:
         df_regions[f'lc_{col}'] = df_lc_feat[col]
 
-    df_regions['lc_ratio_bti'] = df_lc_feat['ratio_bti']
-    df_regions['filt_tbin_5_n_l_5'] = df_lc_feat['filt_tbin_5_n_l_5']
-    df_regions['filt_exclude_obsid'] = df_lc_feat['filt_exclude_obsid']
-    df_regions['filt_5sig'] = df_lc_feat['filt_5sig']
+    df_regions['filt_tbin_5_n_l_5']    = df_lc_feat['filt_tbin_5_n_l_5']
+    df_regions['filt_exclude_obsid']   = df_lc_feat['filt_exclude_obsid']
+    df_regions['filt_5sig']            = df_lc_feat['filt_5sig']
     df_regions['filt_g_20_detections'] = df_lc_feat['filt_g_20_detections']
 
-    cat_savepath = Path('/home/nkhan/EXOD2/data/results_combined/exod_catalogue')
-    savepath_exod_cat = cat_savepath / 'EXOD_DR1_cat.fits'  # Full Catalogue with all columns.
-    savepath_exod_cat_unique = cat_savepath / 'EXOD_DR1_cat_unique.fits'  # Unique Detections Only.
-    df_regions['EXOD_DETID'] = df_regions['runid'] + '_' + df_regions['label'].astype(str)
+    def calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions):
+        all_masks = []
+        for k, v in hot_regions.items():
+            mask_t_bin = df_regions_rotated['runid'].str.contains(k)
+    
+            for i, (x,y,w,h) in enumerate(v):
+                mask = ((df_regions_rotated['X_EPIC'] < x+w)
+                      & (df_regions_rotated['X_EPIC'] > x)
+                      & (df_regions_rotated['Y_EPIC'] < y+h)
+                      & (df_regions_rotated['Y_EPIC'] > y)
+                      & mask_t_bin)
+    
+                all_masks.append(mask)
+        mask_hot_pixels = np.logical_or.reduce(all_masks)
+        filt_hot_pixel = np.isin(df_regions['EXOD_DETID'], df_regions_rotated[mask_hot_pixels]['EXOD_DETID'])
+        return filt_hot_pixel
+
+    df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)
+    filt_hot_pixel = calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions)
+
+    df_regions['filt_hot_pixel'] = filt_hot_pixel
+    print(f'Number of hot pixel regions: {len(df_regions[df_regions["filt_hot_pixel"]])} / {len(df_regions)} ({len(df_regions[df_regions["filt_hot_pixel"]]) / len(df_regions) * 100:.2f}%)')
+
 
     cols = {
         'EXOD_DETID'              : ['Unique detection ID', None],
@@ -85,14 +105,17 @@ def make_exod_catalogue():
         'lc_n_std'                : ['std counts in LC', 'count'],
         'lc_n_skew'               : ['LC skew', 'count'],
         'lc_n_kurt'               : ['LC kurtosis', 'count'],
+        'lc_sigma_max_B_peak'     : ['Maximum sigma equivalent of peak in LC', None],
+        'lc_sigma_max_B_eclipse'  : ['Maximum Sigma equivalent of eclipse in LC', None],
         'lc_ratio_bti'            : ['Percent of LC that is a bad time interval', None],
         'lc_bin_min_between_peaks': ['Minimum distance used for peak finding', None],
         'lc_n_peaks'              : ['Number of peaks found in LC', None],
-        'lc_ks_pval'              : ['kolmogorov smirnov test calculated against BG', None],
+        'lc_ks_pval'              : ['Kolmogorov Smirnov test calculated against BG', None],
         'filt_tbin_5_n_l_5'       : ['Flag for lcs with < 5 counts in a bin', None],
         'filt_exclude_obsid'      : ['Flag for exluded observation IDs', None],
         'filt_5sig'               : ['Flag for 5 sigma detection', None],
-        'filt_g_20_detections'    : ['Flag for many detections in 1 obsid', None]
+        'filt_g_20_detections'    : ['Flag for many detections in 1 obsid', None],
+        'filt_hot_pixel'          : ['Flag for hot pixel regions', None]
     }
 
     # Create Table
@@ -143,13 +166,13 @@ def make_exod_catalogue():
     df_regions_unique['gaia_SEP_ARCSEC'] = df_regions_unique['gaia_SEP_ARCSEC'].replace(9999, np.nan)
 
     # Add OM Columns
-    cols_om = ['XMMOM', 'ID', 'RAJ2000', 'DEJ2000', 'SEP_ARCSEC', 'Nobs', 'UVW2mAB', 'UVM2mAB', 'UVW1mAB', 'UmAB',
-               'BmAB', 'VmAB']
+    cols_om = ['XMMOM', 'ID', 'RAJ2000', 'DEJ2000', 'SEP_ARCSEC', 'Nobs', 'UVW2mAB', 'UVM2mAB', 'UVW1mAB', 'UmAB', 'BmAB', 'VmAB']
     for col in cols_om:
         df_regions_unique[f'SUSS6_{col}'] = dfs_cmatch['XMM OM'][col].values
     df_regions_unique['SUSS6_SEP_ARCSEC'] = df_regions_unique['SUSS6_SEP_ARCSEC'].replace(9999, np.nan)
 
     cols = {
+        'region_num'        : ['Unique Region Number.', None],
         'EXOD_SRCID'        : ['Identifier for grouped detections within 20".', None],
         'ra_deg'            : ['RA of the detection in degrees (J2000)', 'deg'],
         'dec_deg'           : ['DEC of the detection in degrees (J2000)', 'deg'],
@@ -184,9 +207,24 @@ def make_exod_catalogue():
     }
     # Create Table
     tab_exod_cat_unique = Table.from_pandas(df_regions_unique[cols.keys()])
+
     # Add DR14 Columns
-    cols_xmm_dr14 = ['SRCID', 'IAUNAME', 'SC_RA', 'SC_DEC', 'SC_EP_8_FLUX', 'SEP_ARCSEC', 'SC_VAR_FLAG']
-    tab_exod_cat_unique = hstack([tab_exod_cat_unique, dfs_cmatch['XMM DR14'][cols_xmm_dr14]])
+    cols_xmm_dr14 = ['IAUNAME', 'SRCID', 'SC_RA', 'SC_DEC', 'SC_POSERR', 'SC_EP_8_FLUX', 'SEP_ARCSEC', 'SC_VAR_FLAG']
+    tab_xmm_dr14 = Table.from_pandas(dfs_cmatch['XMM DR14'][cols_xmm_dr14])
+
+    # set entire astropy row that have SEP_ARCSEC > 20" to nan.
+    mask = tab_xmm_dr14['SEP_ARCSEC'] > 20
+    for col in cols_xmm_dr14:
+        if col == 'SC_VAR_FLAG':
+            tab_xmm_dr14[col][mask] = False
+        elif col == 'SRCID':
+            tab_xmm_dr14[col][mask] = 0
+        else:
+            tab_xmm_dr14[col][mask] = np.nan
+
+    tab_exod_cat_unique = hstack([tab_exod_cat_unique, tab_xmm_dr14])
+    
+
     new_column_names = [f"DR14_{col}" for col in cols_xmm_dr14]
     for old_name, new_name in zip(cols_xmm_dr14, new_column_names):
         tab_exod_cat_unique.rename_column(old_name, new_name)
@@ -215,6 +253,7 @@ def make_exod_catalogue():
         print(repr(hdr))
     tab_exod_cat_unique = Table.read(savepath)
     tab_exod_cat_unique.pprint(max_width=-1)
+    return tab_exod_cat, tab_exod_cat_unique
 
 if __name__ == "__main__":
     make_exod_catalogue()

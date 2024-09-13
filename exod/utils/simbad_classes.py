@@ -357,82 +357,20 @@ simbad_classifier = {'' : '',
                      'alf2CVnV*_Candidate' : 'Star',
                      'BlackHole' : 'CompactObject',
                      'RSCVnV*_Candidate' : 'Star',
-                     'BYDraV*_Candidate' : 'Star'}
-
-
-astronomical_classifications = {
-    "Stars": {
-        "General": ["Star", "BlueSG*", "RedSG*", "YellowSG*"],
-        "Variable": ["V*", "Irregular_V*", "EllipVar", "Cepheid", "Mira", "RotV*", "PulsV*", "PulsV*RVTau", "PulsV*WVir", "PulsV*bCep", "PulsV*delSct", "pulsV*SX"],
-        "Binary": ["**", "EB*", "BYDra", "RSCVn"],
-        "Eruptive": ["Eruptive*", "Erupt*RCrB", "OrionV*", "Orion_V*"],
-        "Symbiotic": ["Symbiotic*", "Symb*"],
-        "Young Stellar Objects": ["YSO", "TTau*", "TTauri*"],
-        "Evolved": ["AGB*", "post-AGB*", "C*", "S*", "RGB*", "HB*"],
-        "Wolf-Rayet": ["WR*"],
-        "Brown Dwarfs": ["brownD*", "gammaDor"],
-        "Degenerate": ["WD*", "Neutron*", "NS"]
-    },
-    "Star Candidates": {
-        "General": ["Candidate_*", "Candidate_**", "Candidate_YSO", "Candidate_TTau*", "Candidate_brownD*"],
-        "Variable": ["Candidate_V*", "Candidate_EB*", "Candidate_Cepheid", "Candidate_HB*", "Candidate_LP*", "Candidate_Mi*", "Candidate_PulsV*WVir", "Candidate_RGB*", "Candidate_RRLyr", "Candidate_SG*"],
-        "Binary": ["EB*_Candidate", "Candidate_EB*", "Candidate_XB*"],
-        "Eruptive": ["Candidate_Symb*"],
-        "Young Stellar Objects": ["Candidate_YSO", "Candidate_TTau*", "TTauri*"],
-        "Evolved": ["Candidate_AGB*", "Candidate_post-AGB*", "Candidate_C*", "Candidate_S*"],
-        "Wolf-Rayet": ["Candidate_WR*"],
-        "Brown Dwarfs": ["Candidate_brownD*"],
-        "Degenerate": ["Candidate_WD*", "Candidate_NS", "Candidate_Nova"]
-    },
-    "Galaxies": {
-        "General": ["Galaxy", "StarburstG"],
-        "Active": ["AGN", "BLLac", "Seyfert", "Seyfert1", "Seyfert2", "Blazar", "LINER"],
-        "Radio": ["RadioG"],
-        "Infrared": ["IR", "MIR", "NIR"],
-        "Ultra-luminous X-ray sources": ["ULX"],
-        "Lens": ["LensedG", "GravLens", "GravLensSystem"]
-    },
-    "Galactic Structures": {
-        "Clusters": ["ClG", "BClG", "SuperClG", "Possible_ClG", "Possible_GrG"],
-        "Groups": ["GroupG", "GinGroup", "GinCl"],
-        "Associations": ["Assoc*"],
-        "Pairs": ["PairG", "GinPair"]
-    },
-    "Nebulae": {
-        "General": ["Neb", "EmNeb", "RfNeb"],
-        "Planetary": ["PN", "PN?", "PN?_Candidate"],
-        "H II Regions": ["HII", "HII_G"],
-        "Dark": ["DkNeb", "Globule"],
-        "Reflection": ["RfNeb"],
-        "Supernova Remnants": ["SNR", "SNR?", "SNR?_Candidate"]
-    },
-    "Variable Stars": {
-        "General": ["V*", "Irregular_V*", "PulsV*"],
-        "Eruptive": ["Eruptive*", "Erupt*RCrB"],
-        "Cataclysmic": ["CataclyV*", "Nova", "Pulsar"],
-        "Pulsating": ["PulsV*RVTau", "PulsV*WVir", "PulsV*bCep", "PulsV*delSct", "pulsV*SX"]
-    },
-    "Exotic Objects": {
-        "Black Holes": ["BH", "Candidate_BH"],
-        "Neutron Stars": ["NS", "Candidate_NS"],
-        "Quasars": ["QSO", "QSO_Candidate"]
-    },
-    "Miscellaneous": {
-        "Clusters": ["Cl*", "GlCl"],
-        "Clouds": ["Cloud", "MolCld", "HVCld"],
-        "Globules": ["Globule"],
-        "Associations": ["Assoc*", "GiC"],
-        "Unknown": ["Inexistent", "Unknown_Candidate"],
-        "Infrared": ["IR", "MIR"],
-        "Radio": ["Radio", "Radio(cm)", "Radio(mm)", "Radio(sub-mm)"]
-    }
-}
-
-
-def get_reversed_classifications():
-    astronomical_classifications_rev = {}
-    for k1, d1 in astronomical_classifications.items():
-        for k2, simbad_classes in d1.items():
-            for s in simbad_classes:
-                astronomical_classifications_rev[s] = [k1,k2]
-    return astronomical_classifications_rev
+                     'BYDraV*_Candidate' : 'Star',
+                     'Infrared': 'Unidentified',
+                     'RRLyr_Candidate': 'Star',
+                     'CV*_Candidate': 'CompactObject',
+                     'PulsV*WVir_Candidate': 'Star',
+                     'NS_Candidate': 'CompactObject',
+                     'GrG_Candidate': 'Galaxy',
+                     'Mi*_Candidate': 'Star',
+                     'lensImage_Candidate': 'Unidentified',
+                     'LensSystem_Candidate': 'Unidentified',
+                     'TTau*_Candidate': 'Star',
+                     'outflow?_Candidate': 'Unidentified',
+                     'YSG*_Candidate': 'Star',
+                     'BH_Candidate': 'CompactObject',
+                     'BSS_Candidate': 'Star',
+                     'El*_Candidate': 'Star',
+                     'WR*_Candidate': 'Star'}

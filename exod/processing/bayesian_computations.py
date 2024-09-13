@@ -232,6 +232,10 @@ def sigma_equivalent_B_peak(B_peak):
     Range: 1.61 < B_peak < 48.976
            0.00 < sigma  < 9.98
     """
+    if B_peak< 1.61:
+        return 0
+    elif B_peak > 48.976:
+        return 10
     f = lambda sigma: B_peak - B_peak_log(n_peak_large_mu(mu=1000, sigma=sigma), mu=1000)
     return root_scalar(f, bracket=(0, 10)).root
 
@@ -242,8 +246,11 @@ def sigma_equivalent_B_eclipse(B_eclipse):
 
     Range: 1.6  < B_eclipse < 42
            0.00 < sigma     < 9.94
-
     """
+    if B_eclipse < 1.6:
+        return 0
+    elif B_eclipse > 42:
+        return 10
     f = lambda sigma: B_eclipse - B_eclipse_log(n_eclipse_large_mu(mu=1000, sigma=sigma), mu=1000)
     return root_scalar(f, bracket=(0, 10)).root
 
