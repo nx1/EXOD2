@@ -42,7 +42,7 @@ class FilterBase(ABC):
     def __repr__(self):
         return f'{self.name} filter'
 
-# Region Filters
+
 class FilterRegMultipleDetections(FilterBase):
     def __init__(self, name, n_obs):
         super().__init__(name)
@@ -55,6 +55,39 @@ class FilterRegMultipleDetections(FilterBase):
         self.df = df_regions
         self.df_filtered = self.df.groupby('obsid').filter(lambda x: len(x) < 10)
         self.df_removed = self.df.groupby('obsid').filter(lambda x: len(x) >= 10)
+        return self.df_filtered
+
+
+class FilterRegTimeBin(FilterBase):
+    def __init__(self, name, t_bin):
+        super().__init__(name)
+        self.t_bin = t_bin
+ 
+    def get_parameters(self):
+        return {'t_bin': self.t_bin}
+
+    def apply(self, df_regions):
+        self.df = df_regions
+        mask = self.df['runid'].str.contains(f'_{self.t_bin}_')
+        self.df_filtered = self.df[mask]
+        self.df_removed = self.df[~mask]
+        return self.df_filtered
+
+
+class FilterRegEnergyRange(FilterBase):
+    def __init__(self, name, min_energy, max_energy):
+        super().__init__(name)
+        self.min_energy = min_energy
+        self.max_energy = max_energy
+
+    def get_parameters(self):
+        return {'min_energy': self.min_energy, 'max_energy': self.max_energy}
+
+    def apply(self, df_regions):
+        self.df = df_regions
+        mask = self.df['runid'].str.contains(f'{self.min_energy}_{self.max_energy}')
+        self.df_filtered = self.df[mask]
+        self.df_removed = self.df[~mask]
         return self.df_filtered
 
 
@@ -120,6 +153,8 @@ class FilterLcMaxCounts(FilterBase):
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
         return self.df_filtered
+
+
 class FilterLcBccdRatio(FilterBase):
     def __init__(self, name, ratio_bccd_max):
         super().__init__(name)
@@ -153,14 +188,21 @@ class FilterLcLength(FilterBase):
 
 
 if __name__ == "__main__":
-    f1 = FilterRegMultipleDetections('multiple_detections', n_obs=10)
+    #f1 = FilterRegMultipleDetections('multiple_detections', n_obs=10)
     f2 = FilterRegBright('max_intensity', max_intensity_mean=5000)
     f3 = FilterRegArea('max_bbox', max_area_bbox=16)
+    f4 = FilterRegTimeBin('time_bin', t_bin=1)
+    f5 = FilterRegEnergyRange('energy_range', min_energy=0.2, max_energy=12.0)
 
-    filters = [f1, f2, f3]
+    filters = [f2, f3, f4, f5]
 
-    filtered_df = df_regions.copy()
+    from exod.utils.path import savepaths_combined
+    import pandas as pd
+
+    df_regions = pd.read_csv(savepaths_combined['regions'])
+
     print('Filtering:')
     for f in filters:
-        filtered_df = f.apply(filtered_df)
+        df = df_regions.copy()
+        df = f.apply(df)
         print(f.info())
