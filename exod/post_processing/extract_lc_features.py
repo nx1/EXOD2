@@ -197,5 +197,5 @@ def calc_df_lc_feat_filter_flags(df_lc_feat):
     return df_lc_feat
 
 if __name__ == "__main__":
-    extract_lc_features()
+    extract_lc_features(clobber=True)
 

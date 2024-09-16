@@ -9,6 +9,7 @@ from exod.post_processing.make_exod_cat import make_exod_catalogue
 from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, \
     plot_regions_detector_coords, hot_regions, plot_hot_regions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
+import exod.post_processing.simbad_stats as simbad_stats
 from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
 from exod.utils.plotting import use_scienceplots, plot_aitoff, plot_aitoff_density
@@ -544,9 +545,10 @@ def main(clobber=True):
     process_evt_info()
     process_data_cube_info()
     process_run_info()
-    process_regions()
-    process_lc_features()
+    process_regions(clobber=clobber)
+    process_lc_features(clobber=clobber)
     make_exod_catalogue()
+    simbad_stats.main()
     plt.show()
 
 

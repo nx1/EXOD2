@@ -163,7 +163,7 @@ def plot_hot_regions(df_regions_rotated, hot_regions):
         plt.savefig(data_plots / f'hot_regions{k}s.png')
         plt.savefig(data_plots / f'hot_regions{k}s.pdf')
         print(f'Saving to: hot_regions{k}s.png')
-        plt.show()
+        # plt.show()
 
 
 if __name__ == "__main__":

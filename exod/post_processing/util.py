@@ -1,7 +1,6 @@
 from exod.utils.path import savepaths_combined
 import pandas as pd
 
-
 def get_lc(key, df_lc_idx):
     """ key : ('0761070101_0_5_0.2_12.0', '0')"""
     key = str(key)

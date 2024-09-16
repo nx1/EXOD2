@@ -4,6 +4,7 @@ import pandas as pd
 from exod.utils.path import savepaths_combined
 
 def check_results_shape():
+    """Check if the length of the results are consistent."""
     shapes = {}
     for name, path in savepaths_combined.items():
         if name == 'lc':
