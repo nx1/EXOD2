@@ -93,18 +93,20 @@ class ClusterRegions:
         cluster_num_to_cluster (dict): Maps the cluster number to the cluster.
         cluster_to_cluster_num (dict): Maps the cluster to the cluster number. (reverse of cluster_num_to_cluster)
         df_regions_unique (pd.DataFrame): DataFrame containing the unique regions.
+        n_clusters (int): Number of unique regions.
     """
     def __init__(self, df_regions, clustering_radius=20 * u.arcsec):
         self.df_regions = df_regions
         self.clustering_radius = clustering_radius
 
-        self.xyz = None                     # Cartesian coordinates of the regions
-        self.clusters = None                # List of lists containing the regions in each cluster
-        self.cluster_xyz_means = None       # Maps the cluster number to the mean cartesian position of the cluster on the unit sphere
-        self.region_to_clusters = None      # Maps the region number to the containing the regions associated with each cluster
-        self.cluster_num_to_cluster = None  # Maps the cluster number to the cluster
-        self.cluster_to_cluster_num = None  # Maps the cluster to the cluster number (reverse of cluster_num_to_cluster)
-        self.df_regions_unique = None       # DataFrame containing the unique regions
+        self.xyz = []                           # Cartesian coordinates of the regions
+        self.clusters = []                      # List of lists containing the regions in each cluster
+        self.cluster_xyz_means = []             # Maps the cluster number to the mean cartesian position of the cluster on the unit sphere
+        self.region_to_clusters = {}            # Maps the region number to the containing the regions associated with each cluster
+        self.cluster_num_to_cluster = {}        # Maps the cluster number to the cluster
+        self.cluster_to_cluster_num = {}        # Maps the cluster to the cluster number (reverse of cluster_num_to_cluster)
+        self.df_regions_unique = pd.DataFrame() # DataFrame containing the unique regions
+        self.n_clusters = 0                     # Number of unique regions
 
         self.run()
 
@@ -171,8 +173,6 @@ class ClusterRegions:
         self.n_clusters = len(set(self.cluster_labels))
         logger.info(f'Final number of unique regions = {self.n_clusters}')
 
-
-
     def calc_unique_regions_table(self):
         df_regions_unique = self.df_regions.groupby(['cluster_label'])[['ra_deg', 'dec_deg']].agg('mean')
         df_regions_unique['idxs'] = [list(self.cluster_num_to_cluster[c_num]) for c_num in df_regions_unique.index]
@@ -181,11 +181,14 @@ class ClusterRegions:
     def renumber_clusters(self):
         logger.info('Renumbering clusters...')
         old2new = {old:new for new, old in zip(range(self.n_clusters), self.df_regions_unique.index)}
+        new2old = {new:old for old, new in old2new.items()}
+
         self.df_regions_unique.reset_index(drop=True, inplace=True)
         self.df_regions_unique.index.name = 'cluster_label'
         self.df_regions['cluster_label'] = self.df_regions['cluster_label'].map(old2new)
         self.cluster_labels = self.df_regions['cluster_label'].values
-        logger.warn(f'WARNING: The cluster_to_cluster_num and cluster_num_to_cluster mappings are now invalid! (not used anymore)')
+        self.cluster_num_to_cluster = {c_num : self.cluster_num_to_cluster[new2old[c_num]] for c_num in range(self.n_clusters)}
+        self.cluster_to_cluster_num = {v:k for k,v in self.cluster_num_to_cluster.items()}
 
     def save_unique_regions_table(self):
         logger.info(f'Saving unique regions table to {savepaths_combined["regions_unique"]}')

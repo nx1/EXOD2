@@ -192,5 +192,4 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
 if __name__ == "__main__":
     df_regions = pd.read_csv(savepaths_combined['regions'])
     cr = ClusterRegions(df_regions)
-    cr.run()
     crossmatch_unique_regions(df_regions_unique=cr.df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)

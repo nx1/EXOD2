@@ -36,7 +36,6 @@ df_otype_stats   = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/simbad_s
 
 # Cluster regions
 cr = ClusterRegions(df_regions)
-cr.run()
 df_sources_unique = cr.df_regions_unique
 assert len(df_cmatch_simbad) == len(df_sources_unique)
 print(df_lc_features.columns)

@@ -582,7 +582,6 @@ def plot_om_ab_magnitudes(df_cmatch_om):
 def process_regions(clobber=True):
     df_regions = pd.read_csv(savepaths_combined['regions'])
     cr = ClusterRegions(df_regions)
-    cr.run()
     df_regions_unique = cr.df_regions_unique
 
     plot_aitoff(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], savepath=data_plots / 'unique_regions_aitoff.pdf')

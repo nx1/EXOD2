@@ -13,7 +13,6 @@ from exod.utils.path import savepaths_combined
 
 df_regions = (pd.read_csv(savepaths_combined['regions']))
 cr = ClusterRegions(df_regions)
-cr.run()
 df_regions_unique = cr.df_regions_unique
 df_cmatch_simbad = pd.read_csv(savepaths_combined['cmatch_simbad'])
 df_cmatch_gaia = pd.read_csv(savepaths_combined['cmatch_gaia'])

@@ -7,7 +7,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, hot_regions
-from exod.utils.path import savepaths_combined, data_combined
+from exod.utils.path import savepaths_combined, data_combined, data_catalogue
 from exod.post_processing.cluster_regions import ClusterRegions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
@@ -25,13 +25,29 @@ def create_exod_srcids(ra_deg, dec_deg):
         exod_srcids.append(name)
     return exod_srcids
 
+def calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions):
+    all_masks = []
+    for k, v in hot_regions.items():
+        mask_t_bin = df_regions_rotated['runid'].str.contains(k)
+
+        for i, (x,y,w,h) in enumerate(v):
+            mask = ((df_regions_rotated['X_EPIC'] < x+w)
+                  & (df_regions_rotated['X_EPIC'] > x)
+                  & (df_regions_rotated['Y_EPIC'] < y+h)
+                  & (df_regions_rotated['Y_EPIC'] > y)
+                  & mask_t_bin)
+
+            all_masks.append(mask)
+    mask_hot_pixels = np.logical_or.reduce(all_masks)
+    filt_hot_pixel = np.isin(df_regions['EXOD_DETID'], df_regions_rotated[mask_hot_pixels]['EXOD_DETID'])
+    return filt_hot_pixel
 
 def make_exod_catalogue():
-    cat_savepath = data_combined / 'exod_catalogue'
-    df_lc_feat = pd.read_csv(savepaths_combined['lc_features'])
-    df_regions = pd.read_csv(savepaths_combined['regions'])
+    cat_savepath = data_catalogue
+    df_lc_feat   = pd.read_csv(savepaths_combined['lc_features'])
+    df_regions   = pd.read_csv(savepaths_combined['regions'])
+
     cr = ClusterRegions(df_regions)
-    cr.run()
     df_regions_unique = cr.df_regions_unique
 
     df_regions['EXOD_DETID'] = df_regions['runid'] + '_' + df_regions['label'].astype(str)
@@ -40,7 +56,7 @@ def make_exod_catalogue():
 
     dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=False)
 
-    df_regions_unique['region_num'] = np.arange(len(df_regions_unique))
+    df_regions_unique['region_num'] = df_regions_unique.index.values
     df_regions_unique['EXOD_SRCID'] = create_exod_srcids(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'])
 
     assert len(df_regions_unique['EXOD_SRCID'].unique()) == len(df_regions_unique)
@@ -51,6 +67,7 @@ def make_exod_catalogue():
 
     dict_exod_id = df_regions_unique['EXOD_SRCID'].to_dict()
 
+    df_regions['unique_reg_id']        = df_regions['cluster_label']
     df_regions['EXOD_SRCID']           = [dict_exod_id[c] for c in df_regions['cluster_label']]
     df_regions['obsid']                = df_regions['runid'].str.extract(r'(\d{10})')
     df_regions['subset']               = df_regions['runid'].str.extract(r'_(\d+)_')[0]
@@ -68,23 +85,6 @@ def make_exod_catalogue():
     df_regions['filt_5sig']            = df_lc_feat['filt_5sig']
     df_regions['filt_g_20_detections'] = df_lc_feat['filt_g_20_detections']
 
-    def calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions):
-        all_masks = []
-        for k, v in hot_regions.items():
-            mask_t_bin = df_regions_rotated['runid'].str.contains(k)
-    
-            for i, (x,y,w,h) in enumerate(v):
-                mask = ((df_regions_rotated['X_EPIC'] < x+w)
-                      & (df_regions_rotated['X_EPIC'] > x)
-                      & (df_regions_rotated['Y_EPIC'] < y+h)
-                      & (df_regions_rotated['Y_EPIC'] > y)
-                      & mask_t_bin)
-    
-                all_masks.append(mask)
-        mask_hot_pixels = np.logical_or.reduce(all_masks)
-        filt_hot_pixel = np.isin(df_regions['EXOD_DETID'], df_regions_rotated[mask_hot_pixels]['EXOD_DETID'])
-        return filt_hot_pixel
-
     df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)
     filt_hot_pixel = calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions)
 
@@ -95,6 +95,7 @@ def make_exod_catalogue():
     cols = {
         'EXOD_DETID'              : ['Unique detection ID', None],
         'EXOD_SRCID'              : ['Identifier for grouped detections within 20".', None],
+        'unique_reg_id'           : ['ID for Unique region in table 2', None],
         'ra_deg'                  : ['RA of the detection in degrees (J2000)', 'deg'],
         'dec_deg'                 : ['DEC of the detection in degrees (J2000)', 'deg'],
         'X'                       : ['X in projected sky coordinates', None],
@@ -257,6 +258,10 @@ def make_exod_catalogue():
     tab_exod_cat_unique = Table.read(savepath)
     tab_exod_cat_unique.pprint(max_width=-1)
     return tab_exod_cat, tab_exod_cat_unique
+
+
+
+
 
 if __name__ == "__main__":
     make_exod_catalogue()
