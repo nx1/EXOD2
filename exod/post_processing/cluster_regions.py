@@ -106,6 +106,8 @@ class ClusterRegions:
         self.cluster_to_cluster_num = None  # Maps the cluster to the cluster number (reverse of cluster_num_to_cluster)
         self.df_regions_unique = None       # DataFrame containing the unique regions
 
+        self.run()
+
     def number_clusters(self):
         """Create dictionary that maps each unique cluster to its unique cluster number."""
         cluster_to_cluster_num = OrderedDict()
@@ -117,9 +119,26 @@ class ClusterRegions:
                 i += 1
         logger.info(f'Initially found {len(cluster_to_cluster_num)} unique region clusters...')
         self.cluster_to_cluster_num = cluster_to_cluster_num
-
         # Create reverse mapping (cluster number to cluster)
         self.cluster_num_to_cluster = dict((v, k) for k, v in self.cluster_to_cluster_num.items())
+
+    def map_region_num_to_clusters(self):
+        """Create dictionary that maps the region number to the cluster."""
+        self.region_to_clusters = defaultdict(list)
+        for c in self.clusters:
+            for region_num in c:
+                self.region_to_clusters[region_num].append(c)
+
+    def calc_cluster_xyz_means(self):
+        """ Calculate the mean cartesian positions of each cluster."""
+        self.cluster_xyz_means = {tuple(cluster): np.mean([self.xyz[region] for region in cluster], axis=0) for cluster in self.clusters}
+
+    def cluster_regions(self):
+        """Find unique regions by clustering sources within a certain radius using a K-D tree."""
+        self.xyz = ra_dec_to_xyz(self.df_regions['ra_deg'].values * u.deg, self.df_regions['dec_deg'].values * u.deg)
+        kd_tree = KDTree(data=self.xyz, leafsize=10, compact_nodes=True, copy_data=False, balanced_tree=True, boxsize=None)
+        clustering_radius_rad = self.clustering_radius.to('rad').value
+        self.clusters = kd_tree.query_ball_tree(other=kd_tree, r=clustering_radius_rad, p=2.0, eps=0)
 
     def label_region_num_to_cluster_num(self):
         """Loop over all regions and label them to the closest cluster."""
@@ -149,30 +168,24 @@ class ClusterRegions:
 
         self.cluster_labels = cluster_labels
         self.df_regions['cluster_label'] = cluster_labels
-        logger.info(f'Final number of unique regions = {len(set(self.cluster_labels))}')
+        self.n_clusters = len(set(self.cluster_labels))
+        logger.info(f'Final number of unique regions = {self.n_clusters}')
 
-    def map_region_num_to_clusters(self):
-        """Create dictionary that maps the region number to the cluster."""
-        self.region_to_clusters = defaultdict(list)
-        for c in self.clusters:
-            for region_num in c:
-                self.region_to_clusters[region_num].append(c)
 
-    def calc_cluster_xyz_means(self):
-        """ Calculate the mean cartesian positions of each cluster."""
-        self.cluster_xyz_means = {tuple(cluster): np.mean([self.xyz[region] for region in cluster], axis=0) for cluster in self.clusters}
-
-    def cluster_regions(self):
-        """Find unique regions by clustering sources within a certain radius using a K-D tree."""
-        self.xyz = ra_dec_to_xyz(self.df_regions['ra_deg'].values * u.deg, self.df_regions['dec_deg'].values * u.deg)
-        kd_tree = KDTree(data=self.xyz, leafsize=10, compact_nodes=True, copy_data=False, balanced_tree=True, boxsize=None)
-        clustering_radius_rad = self.clustering_radius.to('rad').value
-        self.clusters = kd_tree.query_ball_tree(other=kd_tree, r=clustering_radius_rad, p=2.0, eps=0)
 
     def calc_unique_regions_table(self):
         df_regions_unique = self.df_regions.groupby(['cluster_label'])[['ra_deg', 'dec_deg']].agg('mean')
         df_regions_unique['idxs'] = [list(self.cluster_num_to_cluster[c_num]) for c_num in df_regions_unique.index]
         self.df_regions_unique = df_regions_unique
+
+    def renumber_clusters(self):
+        logger.info('Renumbering clusters...')
+        old2new = {old:new for new, old in zip(range(self.n_clusters), self.df_regions_unique.index)}
+        self.df_regions_unique.reset_index(drop=True, inplace=True)
+        self.df_regions_unique.index.name = 'cluster_label'
+        self.df_regions['cluster_label'] = self.df_regions['cluster_label'].map(old2new)
+        self.cluster_labels = self.df_regions['cluster_label'].values
+        logger.warn(f'WARNING: The cluster_to_cluster_num and cluster_num_to_cluster mappings are now invalid! (not used anymore)')
 
     def save_unique_regions_table(self):
         logger.info(f'Saving unique regions table to {savepaths_combined["regions_unique"]}')
@@ -186,15 +199,15 @@ class ClusterRegions:
         self.calc_cluster_xyz_means()
         self.label_region_num_to_cluster_num()
         self.calc_unique_regions_table()
+        self.renumber_clusters()
         self.save_unique_regions_table()
-
 
 if __name__ == "__main__":
     df_regions = pd.read_csv(savepaths_combined['regions'], index_col=0)
-    cluster_regions = ClusterRegions(df_regions, clustering_radius=20 * u.arcsec)
-    cluster_regions.run()
-    # print(cluster_regions.cluster_xyz_means)
-    print(cluster_regions.region_to_clusters)
-    print(cluster_regions.cluster_num_to_cluster)
-    print(cluster_regions.cluster_to_cluster_num)
-    print(cluster_regions.df_regions_unique)
+    cluster_regions = ClusterRegions(df_regions)
+    #print(cluster_regions.region_to_clusters)
+    #print(cluster_regions.cluster_num_to_cluster)
+    #print(cluster_regions.cluster_to_cluster_num)
+
+    print(cluster_regions.df_regions.tail())
+    print(cluster_regions.df_regions_unique.tail())
