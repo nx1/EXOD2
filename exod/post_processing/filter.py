@@ -40,7 +40,7 @@ class FilterBase(ABC):
         return info
 
     def __repr__(self):
-        return f'{self.name} filter'
+        return f'Filter(name="{self.name}")'
 
 
 class FilterRegMultipleDetections(FilterBase):
@@ -123,6 +123,37 @@ class FilterRegArea(FilterBase):
         return self.df_filtered
 
 
+class FilterLcSigmaPeak(FilterBase):
+    def __init__(self, name, min_sigma):
+        super().__init__(name)
+        self.min_sigma = min_sigma 
+
+    def get_parameters(self):
+        return {'min_sigma': self.min_sigma}
+
+    def apply(self, df_lc_stats):
+        self.df = df_lc_stats
+        mask = self.df['sigma_max_B_peak'] > self.min_sigma
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
+
+class FilterLcSigmaEclipse(FilterBase):
+    def __init__(self, name, min_sigma):
+        super().__init__(name)
+        self.min_sigma = min_sigma 
+
+    def get_parameters(self):
+        return {'min_sigma': self.min_sigma}
+
+    def apply(self, df_lc_stats):
+        self.df = df_lc_stats
+        mask = self.df['sigma_max_B_eclipse'] > self.min_sigma
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
 class FilterLcMinCounts(FilterBase):
     def __init__(self, name, min_counts):
         super().__init__(name)
@@ -182,6 +213,22 @@ class FilterLcLength(FilterBase):
     def apply(self, df_lc_stats):
         self.df = df_lc_stats
         mask = self.df['len'] > self.min_length
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
+class FilterCmatchSeperation(FilterBase):
+    def __init__(self, name, max_sep, sep_col='SEP_ARCSEC'):
+        super().__init__(name)
+        self.max_sep = max_sep 
+        self.sep_col = sep_col
+
+    def get_parameters(self):
+        return {'max_sep': self.max_sep}
+
+    def apply(self, df_cmatch):
+        self.df = df_cmatch
+        mask = self.df[self.sep_col] < self.max_sep
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
         return self.df_filtered

@@ -12,9 +12,9 @@ import warnings
 from pathlib import Path
 warnings.filterwarnings("ignore")
 
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.expand_frame_repr', False)
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.expand_frame_repr', False)
 
 NULL20SPACES = '                    ' # 20 spaces because of byte encoding
 

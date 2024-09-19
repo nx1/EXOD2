@@ -2,7 +2,6 @@
 This module contains code for crossmatching the regions with various catalogues.
 """
 import io
-import time
 import warnings
 from pathlib import Path
 
@@ -11,19 +10,14 @@ import requests
 from astropy import units as u
 import pandas as pd
 from astropy.coordinates import SkyCoord
-from astropy.table import Table, vstack
-from astroquery.simbad import Simbad
-from astroquery.vizier import Vizier
+from astropy.table import Table
 from astroquery.simbad.core import BlankResponseWarning
-import matplotlib.pyplot as plt
 from astroquery.xmatch import XMatch
-from matplotlib.colors import LogNorm
-from tqdm import tqdm
 
+from exod.processing.coordinates import calc_ra_offset, calc_dec_offset
 from exod.utils.logger import logger
-from exod.utils.path import data_util, data_results, data_plots, data_combined, savepaths_combined
-from exod.utils.simbad_classes import simbad_classifier
-from exod.post_processing.cluster_regions import get_unique_regions, cluster_regions
+from exod.utils.path import data_util, savepaths_combined
+from exod.post_processing.cluster_regions import ClusterRegions
 
 warnings.filterwarnings("ignore", category=BlankResponseWarning)
 
@@ -56,10 +50,9 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
 
     matched_reg = df_region.iloc[tab_cmatch['idx_orig']]
-    ra_offset   = (matched_reg['ra_deg'] - tab_fits_cmatch[ra_col]) * np.cos(np.radians(matched_reg['dec_deg']))
-    dec_offset  = matched_reg['dec_deg'] - tab_fits_cmatch[dec_col]
-    tab_fits_cmatch['RA_OFFSET']  = ra_offset
-    tab_fits_cmatch['DEC_OFFSET'] = dec_offset
+
+    tab_fits_cmatch['RA_OFFSET'] = calc_ra_offset(ra_deg1=matched_reg['ra_deg'], ra_deg2=tab_fits_cmatch[ra_col], dec_deg1=matched_reg['dec_deg'])
+    tab_fits_cmatch['DEC_OFFSET'] = calc_dec_offset(dec_deg1=matched_reg['dec_deg'], dec_deg2=tab_fits_cmatch[dec_col])
     tab_fits_cmatch['IDX_ORIGINAL'] = tab_cmatch['idx_orig']
     return tab_fits_cmatch
 
@@ -198,6 +191,6 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
 
 if __name__ == "__main__":
     df_regions = pd.read_csv(savepaths_combined['regions'])
-    df_regions['cluster_label'] = cluster_regions(df_regions)
-    df_regions_unique = get_unique_regions(df_regions)
-    crossmatch_unique_regions(df_regions_unique=df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)
+    cr = ClusterRegions(df_regions)
+    cr.run()
+    crossmatch_unique_regions(df_regions_unique=cr.df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)

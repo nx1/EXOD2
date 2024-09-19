@@ -172,6 +172,7 @@ def extract_lc_features(clobber=True):
 
 def calc_df_lc_feat_filter_flags(df_lc_feat):
     print('Calculating Light Curve Feature Filter Flags...')
+    print('-----------------------------------------------')
     # Filter flag for regions that have less than 5 counts maximum in 5 second binning
     df_lc_feat['filt_tbin_5_n_l_5'] = (df_lc_feat['runid'].str.contains('_5_')) & (df_lc_feat['n_max'] < 5)
 
@@ -186,14 +187,18 @@ def calc_df_lc_feat_filter_flags(df_lc_feat):
     df_lc_feat['obsid'] = df_lc_feat['runid'].str.extract(r'(\d{10})')
     df_lc_feat['filt_exclude_obsid'] = df_lc_feat['obsid'].isin(obsids_to_exclude)
 
-
     # Print the number of each flag
     flag_cols = ['n_max_isolated_flare', 'n_max_first_bin', 'n_max_last_bin', 'filt_tbin_5_n_l_5', 'filt_5sig', 'filt_exclude_obsid', 'filt_g_20_detections']
+
+    df_lc_feat_5_sig = df_lc_feat[df_lc_feat['filt_5sig']]
+
+    N = len(df_lc_feat)
     for col in flag_cols:
         num = len(df_lc_feat[df_lc_feat[col] == True])
-        print(f'{col:<20} : {num}')
+        print(f'{col:<20} : {num} / {N:,} ({num/N*100:.2f}%) | 5sig: {len(df_lc_feat_5_sig[df_lc_feat_5_sig[col] == True])} / {len(df_lc_feat_5_sig):,} ({len(df_lc_feat_5_sig[df_lc_feat_5_sig[col] == True]) / len(df_lc_feat_5_sig) * 100:.2f}%)')
 
-    print(f'n_exluded_obsids     : {len(obsids_to_exclude)}')
+    print(f'n_exluded_obsids     : {len(obsids_to_exclude):,}')
+    print('-----------------------------------------------')
     return df_lc_feat
 
 if __name__ == "__main__":

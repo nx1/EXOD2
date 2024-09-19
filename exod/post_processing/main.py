@@ -14,27 +14,58 @@ from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
 from exod.utils.plotting import use_scienceplots, plot_aitoff, plot_aitoff_density
 from exod.post_processing.extract_lc_features import extract_lc_features, calc_df_lc_feat_filter_flags
-from exod.post_processing.cluster_regions import cluster_regions, get_unique_regions
+from exod.post_processing.cluster_regions import ClusterRegions
 from exod.utils.simbad_classes import simbad_classifier
+
+def check_results_shape():
+    """Check if the length of the results are consistent."""
+    print('Checking results shape...')
+    print('-------------------------')
+    shapes = {}
+    for name, path in savepaths_combined.items():
+        if name == 'lc':
+            continue
+        df = pd.read_csv(path)
+        shape = df.shape
+        shapes[name] = shape
+        print(f'{name:<15}: {shape}')
+
+    assert shapes['regions_unique'][0] == shapes['cmatch_simbad'][0]
+    assert shapes['regions_unique'][0] == shapes['cmatch_gaia'][0]
+    assert shapes['regions_unique'][0] == shapes['cmatch_om'][0]
+    assert shapes['regions_unique'][0] == shapes['cmatch_dr14'][0]
+    print('-------------------------\n\n')
 
 
 def print_event_info(df_evt):
+    print(f'Total exposure processed    = {df_evt['exposure'].sum():,.0f} s')
+    print(f'Total events processed      = {df_evt['N_events'].sum():,.0f}')
+    print(f'Mean events per observation = {df_evt['N_events'].mean():,.0f} - {df_evt['N_events'].quantile(0.16):,} + {df_evt['N_events'].quantile(0.84):,} (16th/84th Percentiles)')
+    print(f'Mean observation count rate = {df_evt['mean_rate'].mean():.2f} - {df_evt['mean_rate'].quantile(0.16):.2f} + {df_evt['mean_rate'].quantile(0.84):.2f} ct/s')
+    print(f'Mean Exposure Time          = {df_evt['exposure'].mean():,.0f} - {df_evt['exposure'].quantile(0.16):,.0f} + {df_evt['exposure'].quantile(0.84):,.0f} s')
+    print('\n')
+
+    print('Instrument Distribution:')
     print(df_evt['instrument'].value_counts(normalize=True) * 100)
+    print('\n')
+    print('Submode Distribution:')
     print(df_evt['submode'].value_counts(normalize=True) * 100)
+    print('\n')
+
+    print('Number of Event Lists Distribution:')
     print(df_evt['N_event_lists'].value_counts(normalize=True) * 100)
-    print(f'Total Exposure processed = {df_evt['exposure'].sum():.2e} s')
-    print(f'Total Events processed = {df_evt['N_events'].sum():.2e}')
-    print(f'Mean Events Per observation = {df_evt['N_events'].mean():.2e}+-{df_evt['N_events'].std():.2e}')
+    print('\n')
 
 
 def plot_event_info_mean_rate(df_evt):
     plt.figure()
-    plt.hist(df_evt['mean_rate'], bins=np.linspace(0,200,100), density=True)
+    plt.hist(df_evt['mean_rate'], bins=np.linspace(0, 200, 100), density=True)
     plt.xlabel('Mean Observation Count Rate (ct/s)')
     plt.ylabel('Normalized Fraction')
     savepath = data_plots / 'mean_rate_hist.pdf'
     print(f'Saving to: {savepath}')
     plt.savefig(savepath)
+
 
 def plot_mean_events_per_time_frame(df_evt):
     df_dc = pd.read_csv(savepaths_combined['dc_info'])
@@ -46,7 +77,7 @@ def plot_mean_events_per_time_frame(df_evt):
         sub1 = df_dc[mask]
         sub2 = df_evt[mask]
         evts_per_time_bin = sub2['N_events'] / sub1['n_t_bins']
-        print(f'Time Binning={b} Events per time frame={evts_per_time_bin.mean():.0f}+-{evts_per_time_bin.std():.0f}')
+        print(f'Time Binning={b:<5} Events per time frame = {evts_per_time_bin.mean():,.0f} - {evts_per_time_bin.quantile(0.16):,.0f} + {evts_per_time_bin.quantile(0.84):,.0f} (16th/84th Percentiles)')
         plt.hist(np.log10(evts_per_time_bin), bins=np.linspace(0,6.5,100), label=fr'{labs[i]}', histtype='step')
     plt.xlabel(r'$\mathrm{log_{10}}$(Events per time frame)')
     plt.ylabel('Number of Runs')
@@ -58,38 +89,46 @@ def plot_mean_events_per_time_frame(df_evt):
 
 
 def process_evt_info():
-    print('Processing Event Information...')
+    print('Processing EventList Information...')
+    print('-----------------------------------')
     df_evt = pd.read_csv(savepaths_combined['evt_info'])
     print_event_info(df_evt)
     plot_event_info_mean_rate(df_evt)
     plot_mean_events_per_time_frame(df_evt)
-    print('='*80)
+    print('-----------------------------------\n\n')
+
 
 def process_data_cube_info():
     print('Processing Data Cube Information...')
+    print('-----------------------------------')
     df_dc = pd.read_csv(savepaths_combined['dc_info'])
     df_dc['gti_exposure'] = df_dc['n_gti_bin'] * df_dc['time_interval']
     df_dc['bti_exposure'] = df_dc['n_bti_bin'] * df_dc['time_interval']
 
-    print(f'Total Data Cells    = {df_dc['total_values'].sum():.2e}')
-    print(f'Total GTI exposure  = {df_dc['gti_exposure'].sum():.2e}')
-    print(f'Total BTI exposure  = {df_dc['bti_exposure'].sum():.2e}')
+    print(f'Total Data Cells    = {df_dc['total_values'].sum():,}')
+    print(f'Total GTI Bins      = {df_dc['n_gti_bin'].sum():,}')
+    print(f'Total BTI Bins      = {df_dc['n_bti_bin'].sum():,}')
+    print(f'Total GTI exposure  = {df_dc['gti_exposure'].sum():,}')
+    print(f'Total BTI exposure  = {df_dc['bti_exposure'].sum():,}')
     print(f'Total GTI/BTI ratio = {df_dc['gti_exposure'].sum() / df_dc['bti_exposure'].sum():.2f}')
-    print('='*80)
+    print('-----------------------------------\n\n')
+
 
 def process_run_info():
     print('Processing Run Information...')
+    print('-----------------------------')
     df_run_info = pd.read_csv(savepaths_combined['run_info'], dtype={'obsid':'str'})
     vc = df_run_info['n_regions'].value_counts(normalize=True) * 100
 
-    print(f'Total Runs: {len(df_run_info['obsid'])}')
-    print(f'Total Observations: {df_run_info['obsid'].nunique()}')
+    print(f'Total Runs         = {len(df_run_info['obsid']):,}')
+    print(f'Total Observations = {df_run_info['obsid'].nunique():,}\n')
     print('Number of Regions per Run:')
     print(vc[vc.index < 11])
+    print('\n')
     print('Number of subsets per observation:')
     print(df_run_info['total_subsets'].value_counts(normalize=True))
-    print('='*80)
-
+    print('\n')
+    print('-----------------------------\n\n')
 
 def print_number_of_regions_breakdown(df_lc_feat):
     sims = ['_5_0.2_12.0', '_5_0.2_2.0', '_5_2.0_12.0',
@@ -118,6 +157,7 @@ def print_number_of_regions_breakdown(df_lc_feat):
     print('right:', np.array(c).reshape(3, 3).sum(axis=1))
     print('tot', np.array(c).reshape(3, 3).sum())
 
+
 def print_n_lcs_by_peaks(df_lc_features, sigma=3):
     B_peak_threshold, B_eclipse_threshold = get_bayes_thresholds(sigma)
     mask_peak = df_lc_features['B_peak_log_max'] > B_peak_threshold
@@ -133,13 +173,15 @@ def print_n_lcs_by_peaks(df_lc_features, sigma=3):
     n_peak_and_eclipses = len(df_lc_eclipses_and_peak)
     n_neither           = len(df_neither)
     print(f'Calculating breakdown of Lightcurves using sigma={sigma}')
-    print(f'Number of Lightcurves with only peaks    = {n_peaks_only} ({100*n_peaks_only/len(df_lc_features):.2f}%)')
-    print(f'Number of Lightcurves with only Eclipses = {n_eclipse_only} ({100*n_eclipse_only/len(df_lc_features):.2f}%)')
-    print(f'Number of Lightcurves with both          = {n_peak_and_eclipses} ({100*n_peak_and_eclipses/len(df_lc_features):.2f}%)')
-    print(f'Number of Lightcurves with neither       = {n_neither} ({100*n_neither/len(df_lc_features):.2f}%)')
+    print('---------------------------------------------------')
+    print(f'Number of Lightcurves with only peaks    = {n_peaks_only:,} / {len(df_lc_features):,} ({100*n_peaks_only/len(df_lc_features):.2f}%)')
+    print(f'Number of Lightcurves with only Eclipses = {n_eclipse_only:,} / {len(df_lc_features):,} ({100*n_eclipse_only/len(df_lc_features):.2f}%)')
+    print(f'Number of Lightcurves with both          = {n_peak_and_eclipses:,} / {len(df_lc_features):,} ({100*n_peak_and_eclipses/len(df_lc_features):.2f}%)')
+    print(f'Number of Lightcurves with neither       = {n_neither:,} / {len(df_lc_features):,} ({100*n_neither/len(df_lc_features):.2f}%)')
     print('The reason for some lightcurves having neither is because the threshold value was calculated over each pixel of the data cube, however this B values were then re-calculated for the extracted lightcurves')
-
+    print('---------------------------------------------------\n')
     assert n_peaks_only + n_eclipse_only + n_peak_and_eclipses + n_neither == len(df_lc_features)
+
 
 def plot_total_counts_hist_full(df_lc_feat):
     plt.figure()
@@ -201,6 +243,7 @@ def plot_B_eclipse_histogram(df_lc_feat):
     plt.savefig(data_plots / 'B_eclipse_histogram.png')
     plt.savefig(data_plots / 'B_eclipse_histogram.pdf')
 
+
 def plot_B_values_all_regions(df_lc_feat):
     plt.figure()
     plt.hist(df_lc_feat[df_lc_feat['B_peak_log_max']<np.inf]['B_peak_log_max'], bins=np.linspace(0,40,100), histtype='step', label=r'$B_{peak}$', color='green', lw=1.0)
@@ -214,6 +257,7 @@ def plot_B_values_all_regions(df_lc_feat):
     plt.savefig(data_plots / 'B_values_distribution_all_regions.png')
     plt.savefig(data_plots / 'B_values_distribution_all_regions.pdf')
     #plt.show()
+
 
 def plot_total_counts_hist_small_n(df_lc_feat):
     plt.figure()
@@ -260,6 +304,7 @@ def plot_N_isolated_flares_vs_N_max(df_lc_feat):
     plt.savefig(data_plots / 'number_of_isolated_flares.pdf')
     #plt.show()
 
+
 def plot_B_peak_threshold_vs_N_reg(df_lc_feat):
     Bs = np.linspace(-5, 100,1000)
     count1 = []
@@ -284,6 +329,7 @@ def plot_B_peak_threshold_vs_N_reg(df_lc_feat):
     print('Saving to: B_peak_threshold_vs_N_reg.png')
     plt.savefig(data_plots / 'B_peak_threshold_vs_N_reg.png')
     plt.savefig(data_plots / 'B_peak_threshold_vs_N_reg.pdf')
+
 
 def plot_n_regions_against_n_max_filter(df_lc_feat):
 
@@ -319,6 +365,7 @@ def plot_n_regions_against_n_max_filter(df_lc_feat):
     plt.savefig(data_plots / 'source_against_n_counts_filter.png')
     plt.savefig(data_plots / 'source_against_n_counts_filter.pdf')
     # plt.show()
+
 
 def print_significant_bins_stats(df_lc_feat):
     perc_3_sig_peak    = (df_lc_feat['n_3_sig_peak_bins'].sum()    / df_lc_feat['len'].sum())*100
@@ -377,6 +424,7 @@ def plot_xmm_dr14_flux_comparison(tab_xmm_cmatch):
     plt.savefig(data_plots / 'Flux_comparison.pdf')
     plt.savefig(data_plots / 'Flux_comparison.png')
 
+
 def plot_cmatch_seperations(dfs_cmatch):
     plt.figure()
     for k, tab in dfs_cmatch.items():
@@ -392,6 +440,7 @@ def plot_cmatch_seperations(dfs_cmatch):
     print(f'Saving to: crossmatch_sep.pdf')
     plt.savefig(data_plots / 'crossmatch_sep.pdf')
     plt.savefig(data_plots / 'crossmatch_sep.png')
+
 
 def plot_cmatch_offset_scatter(tab_cmatch_xmm):
     ra = tab_cmatch_xmm['RA_OFFSET'] * 3600
@@ -428,17 +477,22 @@ def plot_cmatch_offset_scatter(tab_cmatch_xmm):
     plt.savefig(data_plots / 'dr14_offsets.pdf')
     plt.savefig(data_plots / 'dr14_offsets.png', dpi=150)
 
+
 def plot_simbad_types_bar(df_cmatch_simbad):
     vc = df_cmatch_simbad['main_type'].value_counts()
-    print('Simbad Types:')
+    print('Distribution of Simbad Types:')
     print(vc)
+    print('\n')
     fig, ax = plt.subplots(figsize=(8, 30))
     vc.sort_values().plot(kind='barh', ax=ax)
     plt.savefig(data_plots / 'simbad_types_bar.pdf')
 
     df_cmatch_simbad['otype_sub'] = [simbad_classifier.get(otype) for otype in df_cmatch_simbad['main_type']]
     vc2 = df_cmatch_simbad['otype_sub'].value_counts()
+    print('Distribution of Simbad Types (Subtypes):')
     print(vc2)
+    print(df_cmatch_simbad['otype_sub'].value_counts(normalize=True))
+    print('\n')
 
     fig, ax = plt.subplots()
     vc2.sort_values().plot(kind='barh', ax=ax)
@@ -462,18 +516,28 @@ def plot_gaia_hr_diagram(tab):
 
 
 def print_cmatch_numbers(dfs_cmatch):
+    print('Number of sources by seperation for each crossmatch:')
+    print('=====================================================')
     for k, v in dfs_cmatch.items():
         n = len(v)
         n_match_20 = len(v[v["SEP_ARCSEC"] < 20])
         n_match_10 = len(v[v["SEP_ARCSEC"] < 10])
+        print(f'{k:<9} : Seperation<20" = {n_match_20:<6} ({100 * (n_match_20 / n):.2f}%) Seperation<10" = {n_match_10:<6} ({100 * (n_match_10 / n):.2f}%)  (Total Rows = {n:,})')
+    print('=====================================================')
+    print('\n\n')
 
-        print(f'{k:<10} Total Rows = {n} Seperation<20" = {n_match_20:<6} ({100 * (n_match_20 / n):.2f}%) Seperation<10" = {n_match_10:<6} ({100 * (n_match_10 / n):.2f}%)')
+
 
 def print_xmm_dr14_cmatch_stats(df_cmatch_xmm_dr14):
+    print('XMM DR14 Crossmatch Statistics:')
+    print('===============================')
+
     df = df_cmatch_xmm_dr14
     mask = df['SEP_ARCSEC'] < 20
     df_l_20 = df[mask]
     df_g_20 = df[~mask]
+
+    df_l_20_transient = df_l_20[df_l_20['SC_VAR_FLAG'] == True]
 
     sep_mean = df_l_20['SEP_ARCSEC'].mean()
     sep_std = df_l_20['SEP_ARCSEC'].std()
@@ -489,10 +553,14 @@ def print_xmm_dr14_cmatch_stats(df_cmatch_xmm_dr14):
     print(f'RA Offset  = {ra_offset_mean:.2f} +- {ra_offset_std:.2f} arcseconds')
     print(f'DEC Offset = {dec_offset_mean:.2f} +- {dec_offset_std:.2f} arcseconds')
 
-    print(f'Number of XMM DR14 sources within 20" = {len(df_l_20)}/ {len(df)} ({100 * len(df_l_20) / len(df):.2f}%)')
-    df_l_20_transient = df_l_20[df_l_20['SC_VAR_FLAG'] == True]
-    print(f'Number of XMM DR14 Transient Sources within 20" = {len(df_l_20_transient)}/ {len(df)} ({100 * len(df_l_20_transient) / len(df):.2f}%)')
-    print(f'Number of sources with no XMM DR14 match = {len(df_g_20)}/ {len(df)} ({100 * len(df_g_20) / len(df):.2f}%)')
+
+
+    print(f'Number of XMM DR14 sources within 20"            = {len(df_l_20):,} / {len(df):,} ({100 * len(df_l_20) / len(df):.2f}%)')
+    print(f'Number of XMM DR14 sources outside 20"           = {len(df_g_20):,} / {len(df):,} ({100 * len(df_g_20) / len(df):.2f}%)')
+    print(f'Number of XMM DR14 Transient Sources within 20"  = {len(df_l_20_transient):,} / {len(df):,} ({100 * len(df_l_20_transient) / len(df):.2f}%)')
+    print(f'Number of XMM DR14 Transient Sources outside 20" = {len(df_g_20[df_g_20["SC_VAR_FLAG"] == True]):,} / {len(df_g_20):,} ({100 * len(df_g_20[df_g_20["SC_VAR_FLAG"] == True]) / len(df_g_20):.2f}%)')
+    print('===============================\n\n')
+
 
 def plot_om_ab_magnitudes(df_cmatch_om):
     cols = ['UVW2mAB', 'UVM2mAB', 'UVW1mAB', 'UmAB', 'BmAB', 'VmAB']
@@ -513,8 +581,9 @@ def plot_om_ab_magnitudes(df_cmatch_om):
 
 def process_regions(clobber=True):
     df_regions = pd.read_csv(savepaths_combined['regions'])
-    df_regions['cluster_label'] = cluster_regions(df_regions, clustering_radius=20 * u.arcsec)
-    df_regions_unique = get_unique_regions(df_regions, clustering_radius=20 * u.arcsec)
+    cr = ClusterRegions(df_regions)
+    cr.run()
+    df_regions_unique = cr.df_regions_unique
 
     plot_aitoff(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], savepath=data_plots / 'unique_regions_aitoff.pdf')
     plot_aitoff_density(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], savepath=data_plots / 'unique_regions_aitoff_density.pdf')
@@ -529,7 +598,6 @@ def process_regions(clobber=True):
     plot_cmatch_offset_scatter(dfs_cmatch['XMM DR14'])
     plot_simbad_types_bar(dfs_cmatch['SIMBAD'])
     plot_gaia_hr_diagram(dfs_cmatch['GAIA DR3'])
-
     plot_om_ab_magnitudes(dfs_cmatch['XMM OM'])
 
     df_reg_rotated = rotate_regions_to_detector_coords(clobber=clobber)
@@ -538,10 +606,10 @@ def process_regions(clobber=True):
 
 
 def main(clobber=True):
+    print('EXOD POST PROCESSING')
+    print('====================')
     use_scienceplots()
-    for k,v in savepaths_combined.items():
-        print(f'{k:<15} {v.exists()}')
-
+    check_results_shape()
     process_evt_info()
     process_data_cube_info()
     process_run_info()
@@ -550,7 +618,6 @@ def main(clobber=True):
     make_exod_catalogue()
     simbad_stats.main()
     plt.show()
-
 
 
 if __name__ == "__main__":

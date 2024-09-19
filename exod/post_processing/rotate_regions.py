@@ -76,9 +76,8 @@ def rotate_regions_to_detector_coords(clobber=True):
     print('Rotating regions to detector coordinates...')
     savepath = data_combined / 'transients_rotated.csv'
     if savepath.exists() and not clobber:
-        print(f'{savepath} already exists.')
-        df_regions_rotated = pd.read_csv(savepath)
-        print(df_regions_rotated)
+        print(f'{savepath} already exists and clobber is False. Reading from file...')
+        df_regions_rotated = pd.read_csv(savepath, dtype={'obsid':str})
         return df_regions_rotated
     df_regions = pd.read_csv(savepaths_combined['regions'])
     tab_xmm_obslist = Table.read(data_util / '4xmmdr14_obslist.fits')

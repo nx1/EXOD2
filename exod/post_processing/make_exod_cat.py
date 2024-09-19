@@ -8,7 +8,7 @@ from astropy import units as u
 
 from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, hot_regions
 from exod.utils.path import savepaths_combined, data_combined
-from exod.post_processing.cluster_regions import get_unique_regions
+from exod.post_processing.cluster_regions import ClusterRegions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
 
@@ -30,11 +30,14 @@ def make_exod_catalogue():
     cat_savepath = data_combined / 'exod_catalogue'
     df_lc_feat = pd.read_csv(savepaths_combined['lc_features'])
     df_regions = pd.read_csv(savepaths_combined['regions'])
+    cr = ClusterRegions(df_regions)
+    cr.run()
+    df_regions_unique = cr.df_regions_unique
 
     df_regions['EXOD_DETID'] = df_regions['runid'] + '_' + df_regions['label'].astype(str)
 
     df_lc_feat = calc_df_lc_feat_filter_flags(df_lc_feat)
-    df_regions_unique = get_unique_regions(df_regions)
+
     dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=False)
 
     df_regions_unique['region_num'] = np.arange(len(df_regions_unique))

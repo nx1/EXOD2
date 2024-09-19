@@ -1,5 +1,5 @@
 from exod.post_processing.crossmatch import crossmatch_dr14_slim
-from exod.post_processing.cluster_regions import cluster_regions, get_unique_regions
+from exod.post_processing.cluster_regions import ClusterRegions
 from exod.utils.path import data, data_results, savepaths_combined
 
 from tqdm import tqdm
@@ -34,7 +34,10 @@ df_regions       = pd.read_csv(savepaths_combined['regions'], **csv_kwargs)
 df_otype_stats   = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/simbad_stats/EXOD FULL_otype_stats.csv')
 #df_lc            = pd.read_csv(savepaths_combined['lc'], **csv_kwargs)
 
-df_sources_unique = get_unique_regions(df_regions, 20 * u.arcsec)
+# Cluster regions
+cr = ClusterRegions(df_regions)
+cr.run()
+df_sources_unique = cr.df_regions_unique
 assert len(df_cmatch_simbad) == len(df_sources_unique)
 print(df_lc_features.columns)
 
@@ -241,8 +244,6 @@ def plot_lcs(otype):
 
 @app.route('/obs/<obsid>')
 def observation_page(obsid):
-
-    # Get Event Information
     evt_info = df_evt.loc[obsid].iloc[0]
     run_info = df_run.loc[obsid]
 
