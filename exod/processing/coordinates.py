@@ -1,6 +1,8 @@
+import numpy
 import numpy as np
 import astropy.units as u
 import pandas as pd
+from astropy import units as u
 from scipy.interpolate import interp1d
 from skimage.measure import regionprops_table, label
 
@@ -94,3 +96,31 @@ def rotate_XY(X, Y, angle, pivotXY=(25719, 25719)):
     X_EPIC = (X - pivotXY[0]) * np.cos(-angle * np.pi / 180) - (Y - pivotXY[1]) * np.sin(-angle * np.pi / 180)
     Y_EPIC = (X - pivotXY[0]) * np.sin(-angle * np.pi / 180) + (Y - pivotXY[1]) * np.cos(-angle * np.pi / 180)
     return X_EPIC, Y_EPIC
+
+
+def calc_ra_offset(ra_deg1, ra_deg2, dec_deg1):
+    return (ra_deg1 - ra_deg2) * np.cos(np.radians(dec_deg1))
+
+
+def calc_dec_offset(dec_deg1, dec_deg2):
+    return dec_deg1 - dec_deg2
+
+def ra_dec_to_xyz(ra_deg, dec_deg):
+    """
+    Convert RA and DEC to points on the unit sphere.
+
+    Parameters:
+        dec_deg (astropy.units.Quantity): Declination in degrees.
+        ra_deg (astropy.units.Quantity): Right Ascension in degrees.
+
+    Returns:
+        xyz (np.ndarray): The xyz positions of the points as a (N, 3) array.
+    """
+    ra_rad  = ra_deg.to(u.rad).value
+    dec_rad = dec_deg.to(u.rad).value
+
+    x = np.cos(dec_rad) * np.cos(ra_rad)
+    y = np.cos(dec_rad) * np.sin(ra_rad)
+    z = np.sin(dec_rad)
+    xyz = np.vstack((x, y, z)).T
+    return xyz
