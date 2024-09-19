@@ -218,17 +218,25 @@ class FilterLcLength(FilterBase):
         return self.df_filtered
 
 class FilterCmatchSeperation(FilterBase):
-    def __init__(self, name, max_sep, sep_col='SEP_ARCSEC'):
+    def __init__(self, name, max_sep, direction='lower', sep_col='SEP_ARCSEC'):
         super().__init__(name)
-        self.max_sep = max_sep 
-        self.sep_col = sep_col
+        self.max_sep   = max_sep 
+        self.direction = direction
+        self.sep_col   = sep_col
 
     def get_parameters(self):
-        return {'max_sep': self.max_sep}
+        return {'max_sep'   : self.max_sep,
+                'direction' : self.direction}
 
     def apply(self, df_cmatch):
         self.df = df_cmatch
-        mask = self.df[self.sep_col] < self.max_sep
+        if self.direction == 'lower':
+            mask = self.df[self.sep_col] < self.max_sep
+        elif self.direction == 'greater':
+            mask = self.df[self.sep_col] > self.max_sep
+        else:
+            raise ValueError(f"Direction {self.direction} not recognized. Use 'lower' or 'greater'.")
+        
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
         return self.df_filtered

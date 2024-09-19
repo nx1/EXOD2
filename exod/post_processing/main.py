@@ -368,25 +368,36 @@ def plot_n_regions_against_n_max_filter(df_lc_feat):
 
 
 def print_significant_bins_stats(df_lc_feat):
-    perc_3_sig_peak    = (df_lc_feat['n_3_sig_peak_bins'].sum()    / df_lc_feat['len'].sum())*100
-    perc_3_sig_eclipse = (df_lc_feat['n_3_sig_eclipse_bins'].sum() / df_lc_feat['len'].sum())*100
-    perc_5_sig_peak    = (df_lc_feat['n_5_sig_peak_bins'].sum()    / df_lc_feat['len'].sum())*100
-    perc_5_sig_eclipse = (df_lc_feat['n_5_sig_eclipse_bins'].sum() / df_lc_feat['len'].sum())*100
 
-    perc_3_sig_peak_gti    = (df_lc_feat['n_3_sig_peak_bins_gti'].sum()    / df_lc_feat['n_3_sig_peak_bins'].sum())*100
-    perc_3_sig_peak_bti    = (df_lc_feat['n_3_sig_peak_bins_bti'].sum()    / df_lc_feat['n_3_sig_peak_bins'].sum())*100
-    perc_3_sig_eclipse_gti = (df_lc_feat['n_3_sig_eclipse_bins_gti'].sum() / df_lc_feat['n_3_sig_eclipse_bins'].sum())*100
-    perc_3_sig_eclipse_bti = (df_lc_feat['n_3_sig_eclipse_bins_bti'].sum() / df_lc_feat['n_3_sig_eclipse_bins'].sum())*100
+    len_tot            = df_lc_feat['len'].sum()
+    n_peak_3sig_tot    = df_lc_feat['n_3_sig_peak_bins'].sum()
+    n_eclipse_3sig_tot = df_lc_feat['n_3_sig_eclipse_bins'].sum()
+    n_peak_5sig_tot    = df_lc_feat['n_5_sig_peak_bins'].sum()
+    n_eclipse_5sig_tot = df_lc_feat['n_5_sig_eclipse_bins'].sum()
 
-    perc_5_sig_peak_gti    = (df_lc_feat['n_5_sig_peak_bins_gti'].sum()    / df_lc_feat['n_5_sig_peak_bins'].sum())*100
-    perc_5_sig_peak_bti    = (df_lc_feat['n_5_sig_peak_bins_bti'].sum()    / df_lc_feat['n_5_sig_peak_bins'].sum())*100
-    perc_5_sig_eclipse_gti = (df_lc_feat['n_5_sig_eclipse_bins_gti'].sum() / df_lc_feat['n_5_sig_eclipse_bins'].sum())*100
-    perc_5_sig_eclipse_bti = (df_lc_feat['n_5_sig_eclipse_bins_bti'].sum() / df_lc_feat['n_5_sig_eclipse_bins'].sum())*100
+    perc_3_sig_peak    = (n_peak_3sig_tot / len_tot) * 100
+    perc_3_sig_eclipse = (n_eclipse_3sig_tot / len_tot) * 100
+    perc_5_sig_peak    = (n_peak_5sig_tot / len_tot) * 100
+    perc_5_sig_eclipse = (n_eclipse_5sig_tot / len_tot) * 100
 
-    print(f'Total Number of 3 sigma peak bins    = {df_lc_feat['n_3_sig_peak_bins'].sum()} / {df_lc_feat['len'].sum()} ({perc_3_sig_peak:.2f}%) (gti = {df_lc_feat['n_3_sig_peak_bins_gti'].sum()} ({perc_3_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_peak_bins_bti'].sum()} ({perc_3_sig_peak_bti:.2f}%))')
-    print(f'Total Number of 3 sigma eclipse bins = {df_lc_feat['n_3_sig_eclipse_bins'].sum()} / {df_lc_feat['len'].sum()} ({perc_3_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_3_sig_eclipse_bins_gti'].sum()} ({perc_3_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_eclipse_bins_bti'].sum()} ({perc_3_sig_eclipse_bti:.2f}%))')
-    print(f'Total Number of 5 sigma peak bins    = {df_lc_feat['n_5_sig_peak_bins'].sum()} / {df_lc_feat['len'].sum()} ({perc_5_sig_peak:.2f}%) (gti = {df_lc_feat['n_5_sig_peak_bins_gti'].sum()} ({perc_5_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_peak_bins_bti'].sum()} ({perc_5_sig_peak_bti:.2f}%))')
-    print(f'Total Number of 5 sigma eclipse bins = {df_lc_feat['n_5_sig_eclipse_bins'].sum()} / {df_lc_feat['len'].sum()} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum()} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum()} ({perc_5_sig_eclipse_bti:.2f}%))')
+    perc_3_sig_peak_gti    = (df_lc_feat['n_3_sig_peak_bins_gti'].sum() / n_peak_3sig_tot) * 100
+    perc_3_sig_peak_bti    = (df_lc_feat['n_3_sig_peak_bins_bti'].sum() / n_peak_3sig_tot) * 100
+    perc_3_sig_eclipse_gti = (df_lc_feat['n_3_sig_eclipse_bins_gti'].sum() / n_eclipse_3sig_tot) * 100
+    perc_3_sig_eclipse_bti = (df_lc_feat['n_3_sig_eclipse_bins_bti'].sum() / n_eclipse_3sig_tot) * 100
+
+    perc_5_sig_peak_gti    = (df_lc_feat['n_5_sig_peak_bins_gti'].sum() / n_peak_5sig_tot) * 100
+    perc_5_sig_peak_bti    = (df_lc_feat['n_5_sig_peak_bins_bti'].sum() / n_peak_5sig_tot) * 100
+    perc_5_sig_eclipse_gti = (df_lc_feat['n_5_sig_eclipse_bins_gti'].sum() / n_eclipse_5sig_tot) * 100
+    perc_5_sig_eclipse_bti = (df_lc_feat['n_5_sig_eclipse_bins_bti'].sum() / n_eclipse_5sig_tot) * 100
+
+    print('Significant Bins Statistics:')
+    print('----------------------------')
+    print(f'Total Number of 3 sigma peak bins    = {n_peak_3sig_tot :,} / {len_tot :,} ({perc_3_sig_peak:.2f}%) (gti = {df_lc_feat['n_3_sig_peak_bins_gti'].sum():,} ({perc_3_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_peak_bins_bti'].sum():,} ({perc_3_sig_peak_bti:.2f}%))')
+    print(f'Total Number of 3 sigma eclipse bins = {n_eclipse_3sig_tot:,} / {len_tot:,} ({perc_3_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_3_sig_eclipse_bins_gti'].sum():,} ({perc_3_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_eclipse_bins_bti'].sum():,} ({perc_3_sig_eclipse_bti:.2f}%))')
+    print(f'Total Number of 5 sigma peak bins    = {n_peak_5sig_tot:,} / {len_tot:,} ({perc_5_sig_peak:.2f}%) (gti = {df_lc_feat['n_5_sig_peak_bins_gti'].sum():,} ({perc_5_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_peak_bins_bti'].sum():,} ({perc_5_sig_peak_bti:.2f}%))')
+    print(f'Total Number of 5 sigma eclipse bins = {n_eclipse_5sig_tot:,} / {len_tot:,} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum():,} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum():,} ({perc_5_sig_eclipse_bti:.2f}%))')
+    print('----------------------------\n\n')
+
 
 
 def process_lc_features(clobber=True):

@@ -14,6 +14,7 @@ from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flag
 
 from pathlib import Path
 
+
 def create_exod_srcids(ra_deg, dec_deg):
     """Create Source Identifiers from coordinates."""
     sc = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg')
@@ -24,6 +25,7 @@ def create_exod_srcids(ra_deg, dec_deg):
         name = f"EXOD J{ra}{dec}"
         exod_srcids.append(name)
     return exod_srcids
+
 
 def calc_hot_pixel_flags(df_regions, df_regions_rotated, hot_regions):
     all_masks = []
@@ -258,9 +260,6 @@ def make_exod_catalogue():
     tab_exod_cat_unique = Table.read(savepath)
     tab_exod_cat_unique.pprint(max_width=-1)
     return tab_exod_cat, tab_exod_cat_unique
-
-
-
 
 
 if __name__ == "__main__":
