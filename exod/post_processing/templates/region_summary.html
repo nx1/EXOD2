@@ -2,11 +2,11 @@
 {% block content %}
 <body>
 <h2>Unique Region Summary - {{ content['region_id'] }}</h2>
-<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a>
 <div style="text-align: right;">
-<a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 </div>
-<div class="container">
+
+<div class="container-fluid">
+<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 <div class="row">
 <div class="col">
 <pre>
@@ -34,7 +34,6 @@ exposure  : {{ content['evt_info']['exposure'] }}
 N_events  : {{ content['evt_info']['N_events'] }}
 mean Rate : {{ content['evt_info']['mean_rate'] }}
 </div>
-
 <div class="col">
 <pre>
 <b>XMM DR14:</b>
@@ -64,7 +63,6 @@ nbref       : {{content['cmatch_info']['nbref']}}
 <a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['cmatch_info']['main_id']}}">[LINK]</a>
 </pre>
 </div>
-
 <div class="col">
 <pre>
 <b>GAIA:</b>
@@ -80,6 +78,8 @@ DIST   : {{content['cmatch_gaia_info']['Dist']}}
 </pre>
 </div>
 
+
+
 <div class="row">
     <div class="col">
         {% for lightcurve in content['lightcurves'] %}
@@ -87,60 +87,60 @@ DIST   : {{content['cmatch_gaia_info']['Dist']}}
         {% endfor %}
     </div>
 </div>
-</div>
-<div class="container">
-<div class="row">
+
 <div class="col">
 <pre>
 <b>Runs and detections for obsid:{{content['obsid']}}:</b>
+<a href="{{ url_for('observation_page', obsid=content['obsid']) }}">View all Lightcurves for this observation</a>
 {% for i, row in content['run_info'].iterrows() %}
     {{ row['runid'] }} : {{ row['n_regions'] }}{% endfor %}
 </pre>
 </div>
 <div class="col">
-<b>SDSS:</b>
-<div id="aladin-lite-div" style="width:400px;height:400px;"></div>
+<b>DSS2:</b>
+<div id="aladin-lite-div" style="width:600px;height:400px;"></div>
 <script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
 <script type="text/javascript">
-let aladin;
-A.init.then(() => {
-    aladin = A.aladin('#aladin-lite-div',
-    {survey: "P/DSS2/color",
-    fov:0.1,
-    cooFrame: 'equatorial',
-    target: 'NGC 1313',
-    showCooGridControl: false,
-    showSimbadPointerControl: true,
-    showCooGrid: false,
-    target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
-});
+    let aladin;
+    A.init.then(() => {
+        aladin = A.aladin('#aladin-lite-div',
+        {survey: "P/DSS2/color",
+        fov:0.1,
+        cooFrame: 'equatorial',
+        target: 'NGC 1313',
+        showCooGridControl: false,
+        showSimbadPointerControl: true,
+        showCooGrid: false,
+        target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
+    });
 </script>
 </div>
 <div class="col">
 <b>XMM:</b>
-<div id="aladin-lite-div2" style="width:400px;height:400px;"></div>
+<div id="aladin-lite-div2" style="width:600px;height:400px;"></div>
 <script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
 <script type="text/javascript">
-let aladin2;
-A.init.then(() => {
-    aladin2 = A.aladin('#aladin-lite-div2',
-    {survey: "P/XMM/PN/color",
-    fov:0.1,
-    cooFrame: 'equatorial',
-    target: 'NGC 1313',
-    showCooGridControl: false,
-    showSimbadPointerControl: true,
-    showCooGrid: false,
-    target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
+    let aladin2;
+    A.init.then(() => {
+        aladin2 = A.aladin('#aladin-lite-div2',
+        {survey: "P/XMM/PN/color",
+        fov:0.1,
+        cooFrame: 'equatorial',
+        target: 'NGC 1313',
+        showCooGridControl: false,
+        showSimbadPointerControl: true,
+        showCooGrid: false,
+        target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
 
-});
+    });
 </script>
 </div>
-</div>
-</div>
+
+
 <a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a>
 <div style="text-align: right;">
 <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 </div>
 </body>
 {% endblock %}
+</div>

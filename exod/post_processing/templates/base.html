@@ -13,6 +13,7 @@
 <body>
 <h1>EXOD Results Browser</h1>
 <nav>
+    <a href={{url_for('main_page')}}>Home</a> |
     <a href={{url_for('simlist')}}>Simulation Info</a> |
     <a href={{url_for('run_info')}}>Run Info</a> |
     <a href={{url_for('obs_info')}}>Observation Info</a> |
@@ -23,17 +24,19 @@
     <a href={{url_for('regions')}}>Detected Regions</a> |
     <a href={{url_for('unique_regions')}}>Unique Detected Regions</a> |
     <a href={{url_for('lightcurve_idx')}}>Lightcurve Indexs</a> ||
+    </br>
 
     <a href={{url_for('crossmatch_simbad')}}>cmatch SIMBAD</a> |
-    <a href={{url_for('crossmatch_xmm')}}>cmatch XMM</a> ||
-    <a href={{url_for('crossmatch_om')}}>cmatch OM</a> ||
-    <a href={{url_for('crossmatch_gaia')}}>cmatch GAIA</a> ||
+    <a href={{url_for('crossmatch_xmm')}}>cmatch XMM</a> |
+    <a href={{url_for('crossmatch_om')}}>cmatch OM</a> |
+    <a href={{url_for('crossmatch_gaia')}}>cmatch GAIA</a> |
+    </br>
 
     <a href={{url_for('region_summary', region_id='0')}}>Unique Region Browser</a> |
-    <a href={{url_for('observation_page', obsid='0411980401')}}>Obs Browser</a>
-    <a href={{url_for('plot_lcs', otype='Blazar')}}>otype Browser</a>
+    <a href={{url_for('observation_page', obsid='0411980401')}}>Obs Browser</a> |
+    <a href={{url_for('otype', otype='Blazar')}}>otype Browser</a> |
 </nav>
-    {% block content %}
-    {% endblock %}
+{% block content %}
+{% endblock %}
 </body>
 </html>

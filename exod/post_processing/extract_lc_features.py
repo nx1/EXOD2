@@ -105,7 +105,7 @@ def calc_features(df_lc, key):
 
     n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare = largest_peak_info(df_lc)
 
-    res = {'key'                     : key,
+    res = {'label'                     : key,
            'runid'                   : runid,
            'label'                   : label,
            'obsid'                   : obsid,

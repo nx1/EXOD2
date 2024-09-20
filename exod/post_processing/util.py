@@ -2,7 +2,7 @@ from exod.utils.path import savepaths_combined
 import pandas as pd
 
 def get_lc(key, df_lc_idx):
-    """ key : ('0761070101_0_5_0.2_12.0', '0')"""
+    """ label : ('0761070101_0_5_0.2_12.0', '0')"""
     key = str(key)
     start, stop = df_lc_idx.loc[key]
     df_lc = pd.read_hdf(savepaths_combined['lc'], start=start, stop=stop)

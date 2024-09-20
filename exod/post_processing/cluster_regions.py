@@ -92,6 +92,7 @@ class ClusterRegions:
         region_to_clusters (dict): Maps the region number to the containing the regions associated with each cluster.
         cluster_num_to_cluster (dict): Maps the cluster number to the cluster.
         cluster_to_cluster_num (dict): Maps the cluster to the cluster number. (reverse of cluster_num_to_cluster)
+        region_num_to_cluster_num (dict): Maps the region number to the cluster number (unique region number).
         df_regions_unique (pd.DataFrame): DataFrame containing the unique regions.
         n_clusters (int): Number of unique regions.
     """
@@ -105,6 +106,7 @@ class ClusterRegions:
         self.region_to_clusters = {}            # Maps the region number to the containing the regions associated with each cluster
         self.cluster_num_to_cluster = {}        # Maps the cluster number to the cluster
         self.cluster_to_cluster_num = {}        # Maps the cluster to the cluster number (reverse of cluster_num_to_cluster)
+        self.region_num_to_cluster_num = {}     # Maps the region number to the cluster number (unique region number)
         self.df_regions_unique = pd.DataFrame() # DataFrame containing the unique regions
         self.n_clusters = 0                     # Number of unique regions
 
@@ -189,6 +191,7 @@ class ClusterRegions:
         self.cluster_labels = self.df_regions['cluster_label'].values
         self.cluster_num_to_cluster = {c_num : self.cluster_num_to_cluster[new2old[c_num]] for c_num in range(self.n_clusters)}
         self.cluster_to_cluster_num = {v:k for k,v in self.cluster_num_to_cluster.items()}
+        self.region_num_to_cluster_num = {reg:cluster for reg, cluster in zip(self.df_regions.index, self.cluster_labels)}
 
     def save_unique_regions_table(self):
         logger.info(f'Saving unique regions table to {savepaths_combined["regions_unique"]}')

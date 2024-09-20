@@ -6,7 +6,7 @@ Date: {{content['evt_info']['date']}} |
 Object: {{content['evt_info']['object']}} |
 Exposure: {{content['evt_info']['exposure']}} |
 {% for lightcurve in content['lightcurves'] %}
-<img src="data:image/png;base64,{{lightcurve['data_url']}}">
+<a href={{  url_for('region_summary', region_id=lightcurve['region_id']) }}><img src="data:image/png;base64,{{lightcurve['data_url']}}"></a>
 {% endfor %}
 
 <h2>Detected Regions:</h2>

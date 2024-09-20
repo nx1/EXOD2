@@ -37,7 +37,7 @@ def load_df(loadpath):
 
 def save_result(key, value, runid, savedir):
     """
-    Save a key/value pair to a .csv file.
+    Save a label/value pair to a .csv file.
     """
     if isinstance(value, pd.DataFrame):
         # Append the runid to the dataframe if it is not there

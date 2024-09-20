@@ -72,10 +72,10 @@ def crossmatch_simulation_subsets(dfs_subsets):
             cmatch = sc1.match_to_catalog_sky(sc2)
 
             tab_cmatch = Table(cmatch)
-            tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['key', 'sep2d', 'dist3d'])
+            tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['label', 'sep2d', 'dist3d'])
             tab_cmatch['sep2d'] = tab_cmatch['sep2d'].to(u.arcsec)
 
-            is_match = np.where(tab_cmatch['sep2d'] < max_sep, tab_cmatch['key'], no_cmatch_id)  # Replace
+            is_match = np.where(tab_cmatch['sep2d'] < max_sep, tab_cmatch['label'], no_cmatch_id)  # Replace
             res[k2] = is_match
 
         df = pd.DataFrame(res)

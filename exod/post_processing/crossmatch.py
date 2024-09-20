@@ -42,11 +42,11 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     cmatch = skycoord_reg.match_to_catalog_sky(skycoord_xmm)
 
     tab_cmatch = Table(cmatch)
-    tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['key', 'sep2d', 'dist3d'])
+    tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['label', 'sep2d', 'dist3d'])
     tab_cmatch['sep2d_arcsec'] = tab_cmatch['sep2d'].to(u.arcsec)
     tab_cmatch['idx_orig'] = np.arange(len(tab_cmatch))
 
-    tab_fits_cmatch = tab_fits[tab_cmatch['key']]
+    tab_fits_cmatch = tab_fits[tab_cmatch['label']]
     tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
 
     matched_reg = df_region.iloc[tab_cmatch['idx_orig']]

@@ -2,6 +2,7 @@
 This module contains classes for filtering regions and lightcurves.
 """
 from abc import ABC, abstractmethod
+from itertools import chain, combinations, product
 
 
 class FilterBase(ABC):
@@ -180,7 +181,7 @@ class FilterLcMaxCounts(FilterBase):
 
     def apply(self, df_lc_stats):
         self.df = df_lc_stats
-        mask = self.df['max'] < self.max_counts
+        mask = self.df['n_max'] < self.max_counts
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
         return self.df_filtered
@@ -242,6 +243,65 @@ class FilterCmatchSeperation(FilterBase):
         return self.df_filtered
 
 
+def generate_combinations_with_one_or_none(filters):
+    """
+    Generates all combinations of zero or one filter from the given list.
+
+    This function creates an iterable that yields combinations of filters, 
+    where each combination includes either no filter or exactly one filter 
+    from the provided list. The function returns an iterator that produces 
+    these combinations on demand.
+
+    Parameters:
+        filters (list): A list of Filters() to generate combinations from.
+
+    Returns:
+        itertools.chain: An iterator yielding tuples that contain either 
+        no filters or one filter from the provided list. Each tuple is a 
+        valid combination.
+        
+    Example:
+        filters = ['filter1', 'filter2']
+        result = generate_combinations_with_one_or_none(filters)
+        print(list(result)) 
+        # Output: [(), ('filter1',), ('filter2',)]
+    """
+    return chain.from_iterable(combinations(filters, r) for r in range(2))
+
+
+def generate_valid_combinations(*filter_lists):
+    """
+    Generates all valid combinations of filters from multiple lists, allowing at most one filter from each list.
+
+    This function takes multiple lists of filters as input and generates all possible combinations 
+    where each combination contains zero or one filter from each list. The Cartesian product 
+    of the combinations from each list is computed to create all valid combinations across 
+    multiple filter categories.
+
+    Parameters:
+        *filter_lists (list of lists): Variable number of filter lists. Each argument is a 
+        list of filters representing a different filter category. The function will combine 
+        filters from each list, with each combination containing at most one filter from 
+        each category.
+
+    Returns:
+        list: A list of valid filter combinations. Each combination is represented as a list of filters, 
+        where the filters are chosen from the input lists. The result includes combinations with zero 
+        or one filter from each list.
+        
+    Example:
+        filters_energy = ['E1', 'E2']
+        filters_time = ['T1', 'T2']
+        result = generate_valid_combinations(filters_energy, filters_time)
+        print(result)
+        # Output: [[], ['E1'], ['E2'], ['T1'], ['T2'], ['E1', 'T1'], ['E1', 'T2'], ['E2', 'T1'], ['E2', 'T2']]
+    """
+    combinations_lists = [generate_combinations_with_one_or_none(filters) for filters in filter_lists]
+    valid_combinations = product(*combinations_lists)
+    valid_combinations = [list(chain.from_iterable(combo)) for combo in valid_combinations]
+    return valid_combinations
+
+
 if __name__ == "__main__":
     #f1 = FilterRegMultipleDetections('multiple_detections', n_obs=10)
     f2 = FilterRegBright('max_intensity', max_intensity_mean=5000)
@@ -261,3 +321,63 @@ if __name__ == "__main__":
         df = df_regions.copy()
         df = f.apply(df)
         print(f.info())
+
+    import pandas as pd
+    
+    from exod.post_processing.filter import *
+    from exod.utils.path import savepaths_combined
+    from exod.post_processing.cluster_regions import ClusterRegions
+    
+    df_regions        = pd.read_csv(savepaths_combined['regions'])
+    cluster_regions   = ClusterRegions(df_regions)
+    df_regions_unique = cluster_regions.df_regions_unique
+    
+    df_lc_feat       = pd.read_csv(savepaths_combined['lc_features'])
+    df_cmatch_dr14   = pd.read_csv(savepaths_combined['cmatch_dr14'])
+    df_cmatch_simbad = pd.read_csv(savepaths_combined['cmatch_simbad'])
+    
+    df_regions['sigma_max_B_peak']    = df_lc_feat['sigma_max_B_peak']
+    df_regions['sigma_max_B_eclipse'] = df_lc_feat['sigma_max_B_eclipse']
+    df_regions['DR14_SEP_ARCSEC']     = df_cmatch_dr14['SEP_ARCSEC']
+    df_regions['SIMBAD_SEP_ARCSEC']   = df_cmatch_simbad['SEP_ARCSEC']
+    
+    filters_energy = [FilterRegEnergyRange(name='E_band_full', min_energy=0.2, max_energy=12.0),
+                      FilterRegEnergyRange(name='E_band_soft', min_energy=0.2, max_energy=2.0),
+                      FilterRegEnergyRange(name='E_band_hard', min_energy=2.0, max_energy=12.0)]
+    
+    filters_time = [FilterRegTimeBin(name='t_bin_5',   t_bin=5),
+                    FilterRegTimeBin(name='t_bin_50',  t_bin=50),
+                    FilterRegTimeBin(name='t_bin_200', t_bin=200)]
+    
+    filters_sigma = [FilterLcSigmaPeak('3_sigma_peak',       min_sigma=3),
+                     FilterLcSigmaPeak('5_sigma_peak',       min_sigma=3),
+                     FilterLcSigmaEclipse('3_sigma_eclipse', min_sigma=3),
+                     FilterLcSigmaEclipse('5_sigma_eclipse', min_sigma=5)]
+    
+    filters_cmatch = [FilterCmatchSeperation('DR14 < 20"',   max_sep=20, direction='lower',    sep_col='DR14_SEP_ARCSEC'),
+                      FilterCmatchSeperation('SIMBAD < 20"', max_sep=20, direction='lower',    sep_col='SIMBAD_SEP_ARCSEC'),
+                      FilterCmatchSeperation('DR14 > 20"',   max_sep=20, direction='greater',  sep_col='DR14_SEP_ARCSEC'),
+                      FilterCmatchSeperation('SIMBAD > 20"', max_sep=20, direction='greater',  sep_col='SIMBAD_SEP_ARCSEC')]
+    
+    filters = [filters_energy, filters_time, filters_sigma, filters_cmatch]
+    valid_combinations = generate_valid_combinations(*filters)
+    
+    sub = []
+    all_res = []
+    df_removed = df_regions.copy()
+    for f_set in valid_combinations:
+        f_names = [f.name for f in f_set]
+        f_pars  = [f.get_parameters() for f in f_set]
+        df = df_regions.copy()
+        for f in f_set:
+            df = f.apply(df)
+        res = {}
+        res['subset']   = f_names
+        res['N_reg']    = len(df)
+        res['N_unique'] = df['cluster_label'].nunique()
+        #print(res)
+        print(f"Subset: {res['subset']!s:<70} | N_reg: {res['N_reg']:<7} | N_unique: {res['N_unique']:<7}")
+        all_res.append(res)
+    
+    df_res = pd.DataFrame(all_res)
+    print(df_res)
