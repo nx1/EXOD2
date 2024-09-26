@@ -79,7 +79,7 @@ def precompute_bayes_limits(threshold_sigma):
     """
     B_peak_threshold, B_eclipse_threshold = get_bayes_thresholds(threshold_sigma=threshold_sigma)
 
-    range_mu       = np.geomspace(start=1e-7, stop=1e3, num=50000) #
+    range_mu       = np.geomspace(start=1e-7, stop=1e3, num=50000)
     range_mu_large = np.geomspace(start=1e3, stop=1e6, num=1000)   # Above 1000
 
     tab_npeak, tab_neclipse = [], []
@@ -106,15 +106,18 @@ def precompute_bayes_limits(threshold_sigma):
     logger.info(f'Saving to {savepath}')
     np.savetxt(savepath, data)
 
-    # Visualization
+    # plot_bayes_limits(B_eclipse_threshold, B_peak_threshold, range_mu, tab_neclipse, tab_npeak, threshold_sigma)
+
+
+def plot_bayes_limits(B_eclipse_threshold, B_peak_threshold, range_mu, tab_neclipse, tab_npeak, threshold_sigma):
     plt.figure(figsize=(4, 4))
     plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='red')
     plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'N with $B_{{peak}} > 10^{{{B_peak_threshold:.2f}}}$', lw=1.0)
     plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'N with $B_{{eclipse}} > 10^{{{B_eclipse_threshold:.2f}}}$', lw=1.0)
     plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='lime', label='Detection Region')
     plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='lime')
-    plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.2, label=fr'Naive $5 \sigma$ Region', color='blue')
-    plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$ Region', color='blue')
+    plt.fill_between(range_mu, range_mu - 5 * np.sqrt(range_mu), range_mu + 5 * np.sqrt(range_mu), alpha=0.2, label=fr'Naive $5 \sigma$ Region', color='blue')
+    plt.fill_between(range_mu, range_mu - 3 * np.sqrt(range_mu), range_mu + 3 * np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$ Region', color='blue')
     plt.yscale('log')
     plt.xscale('log')
     plt.title(r'$B_{peak} = \frac{Q(N+1, \mu)}{e^{-\mu} \mu^{N} / N!} \ \  B_{eclipse} = \frac{P(N+1, \mu)}{e^{-\mu} \mu^{N} / N!}$')
@@ -254,17 +257,25 @@ def sigma_equivalent_B_eclipse(B_eclipse):
     f = lambda sigma: B_eclipse - B_eclipse_log(n_eclipse_large_mu(mu=1000, sigma=sigma), mu=1000)
     return root_scalar(f, bracket=(0, 10)).root
 
+
 class PrecomputeBayesLimits:
     def __init__(self, threshold_sigma):
         self.threshold_sigma = threshold_sigma
+        self.get_savepath()
         self.range_mu = None
         self.n_peak_threshold = None
         self.n_eclipse_threshold = None
-        self.savepath = path.utils / f'bayesfactorlimits_{threshold_sigma}.txt'
         self.is_loaded = False
 
     def __repr__(self):
         return f'{self.threshold_sigma}'
+
+    def get_savepath(self):
+        self.savepath = path.utils / f'bayesfactorlimits_{self.threshold_sigma}.txt'
+        if not self.savepath.exists():
+            logger.info(f'{self.savepath} does not exist. Precomputing Bayes Factors...')
+            precompute_bayes_limits(threshold_sigma=self.threshold_sigma)
+        return self.savepath
 
     def load(self):
         if self.is_loaded:
