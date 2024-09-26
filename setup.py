@@ -25,7 +25,8 @@ setup(
         'photutils',
         'astroquery',
         'pytest',
-        'Flask'
+        'Flask',
+        'tables'
     ],
 
     # Include additional files like data files, package data, etc.
