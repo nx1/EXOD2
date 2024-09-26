@@ -1,0 +1,22 @@
+
+{% extends "base.html" %}
+{% block content %}
+<body>
+    <h2>Subset Browser</h2>
+    <div class="container">
+        <div class="row header">
+            <div class="col">Subset Name</div>
+            <div class="col">Regions</div>
+            <div class="col">Unique</div>
+        </div>
+        {% for subset in subsets %}
+        <div class="row">
+            <div class="col"><a href={{ url_for('show_subset', subset_num=subset.id) }}>{{ subset.name }}</a></div>
+            <div class="col">{{ subset.n_reg }}</div>
+            <div class="col">{{ subset.n_unique }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+{% endblock %}
+

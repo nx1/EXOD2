@@ -6,7 +6,7 @@
 </div>
 
 <div class="container-fluid">
-<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
+<a href="{{ url_for('region_summary', region_id=content['region_id']) }}"> previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 <div class="row">
 <div class="col">
 <pre>

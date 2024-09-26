@@ -181,6 +181,7 @@ class ClusterRegions:
         self.df_regions_unique = df_regions_unique
 
     def renumber_clusters(self):
+        """Renumber the clusters so that they go from 0 to n_clusters."""
         logger.info('Renumbering clusters...')
         old2new = {old:new for new, old in zip(range(self.n_clusters), self.df_regions_unique.index)}
         new2old = {new:old for old, new in old2new.items()}

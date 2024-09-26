@@ -278,4 +278,5 @@ obsids_to_exclude = ['0690700201', # Puppis A  # Comet C/2009 P1 (Garradd)
                      '0672160632', # Comet C/2009 P1 (Garradd)	
                      '0672160931', # Comet C/2009 P1 (Garradd)	
                      '0672160932', # Comet C/2009 P1 (Garradd)	
+                     '0800730701', # Star HD 3447 Observation repositioned after 3ks
                      ]

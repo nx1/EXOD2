@@ -84,6 +84,7 @@ class Pipeline:
     def pre_process(self):
         """Pre-process the data."""
         self.precomputed_bayes_limit.load()
+        self.observation.download_events()
         self.observation.filter_events(clobber=self.clobber)
         self.observation.create_images(clobber=self.clobber)
         self.observation.get_files()

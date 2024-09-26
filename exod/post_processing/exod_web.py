@@ -1,5 +1,5 @@
-from exod.post_processing.crossmatch import crossmatch_dr14_slim
 from exod.post_processing.cluster_regions import ClusterRegions
+from exod.post_processing.filter_subsets import SubsetManager, Subset, generate_valid_combinations, get_filters, generate_valid_combinations
 from exod.utils.path import data, savepaths_combined
 
 import base64
@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from flask import Flask, render_template, url_for, request, redirect
 import astropy.units as u
 
+
+
 dtype = {'obsid' : str}
 csv_kwargs = {'dtype':dtype}
 #             'nrows': 1000}
@@ -22,6 +24,7 @@ df_dl            = pd.read_csv(savepaths_combined['dl_info'], **csv_kwargs)
 df_cmatch_simbad = pd.read_csv(savepaths_combined['cmatch_simbad'], **csv_kwargs)
 df_cmatch_om     = pd.read_csv(savepaths_combined['cmatch_om'], **csv_kwargs)
 df_cmatch_gaia   = pd.read_csv(savepaths_combined['cmatch_gaia'], **csv_kwargs)
+df_cmatch_xmm    = pd.read_csv(savepaths_combined['cmatch_dr14'], **csv_kwargs)
 df_dc            = pd.read_csv(savepaths_combined['dc_info'], **csv_kwargs)
 df_evt           = pd.read_csv(savepaths_combined['evt_info'], index_col='obsid', **csv_kwargs)
 df_obs           = pd.read_csv(savepaths_combined['obs_info'], **csv_kwargs)
@@ -36,10 +39,22 @@ df_otype_stats   = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/simbad_s
 cr = ClusterRegions(df_regions)
 df_sources_unique = cr.df_regions_unique
 assert len(df_cmatch_simbad) == len(df_sources_unique)
-tab_cmatch_xmm    = crossmatch_dr14_slim(df_sources_unique)
-df_cmatch_xmm     = tab_cmatch_xmm.to_pandas()
+
+df_regions['sigma_max_B_peak']    = df_lc_features['sigma_max_B_peak']      
+df_regions['sigma_max_B_eclipse'] = df_lc_features['sigma_max_B_eclipse']   
+df_regions['DR14_SEP_ARCSEC']     = df_regions['cluster_label'].map(df_cmatch_xmm['SEP_ARCSEC'])
+df_regions['SIMBAD_SEP_ARCSEC']   = df_regions['cluster_label'].map(df_cmatch_simbad['SEP_ARCSEC'])
+                                                                        
+filters = get_filters()                                                 
+valid_combinations = generate_valid_combinations(*filters)              
+sm = SubsetManager()                                                    
+sm.add_subsets([Subset(f, df_regions) for f in valid_combinations])     
+sm.calc_all()                                                           
+                                                                         
 
 app = Flask(__name__, static_folder=data, static_url_path='/static')
+
+
 
 @app.route('/')
 def main_page():
@@ -87,13 +102,13 @@ def region_summary(region_id):
     run_info           = df_run.loc[obsid]
 
     lightcurves = []
-    for i in range(len(region_idxs)):
-        runid = df_regions.iloc[i]['runid']
-        label = df_regions.iloc[i]['label']
+    for idx in region_idxs:
+        runid = df_regions.iloc[idx]['runid']
+        label = df_regions.iloc[idx]['label']
         key = str((runid, str(label)))
 
-        df_lc = get_lc_by_idx(region_idxs[i])
-        label = f'reg_id={region_idxs[i]} key={key}'
+        df_lc = get_lc_by_idx(idx)
+        label = f'reg_id={idx} key={key}'
         lightcurve_data_url = plot_lc(df_lc, label=label)
         lightcurves.append({'data_url' : lightcurve_data_url})
 
@@ -135,7 +150,7 @@ def otype(otype):
         reg = df_regions.iloc[idx]
         ra         = reg['ra_deg']
         dec        = reg['dec_deg']
-        region_id = reg['cluster_label']
+        region_id  = reg['cluster_label']
         label = f'reg_id={idx} unique_id={region_id} ra={ra:.2f} dec={dec:.2f}'
         lightcurve_data_url = plot_lc(df_lc, label)
         lightcurves.append({'data_url': lightcurve_data_url, 'region_id': region_id})
@@ -180,97 +195,29 @@ def observation_page(obsid):
                'lightcurves'     : lightcurves}
     return render_template('observation_page.html', content=content)
 
+@app.route('/subsets')
+def subsets():
+    return render_template('subsets.html', subsets=sm.subsets)
 
-@app.route('/regions')
-def regions():
-    tab_reg = df_regions.to_html(table_id='myTable', classes='display compact')
-    content   = {'tab' : tab_reg}
-    return render_template('table_template.html', content=content)
+@app.route('/subsets/<subset_num>')
+def show_subset(subset_num):
+    subset = sm.get_subset_by_index(int(subset_num))
+    # sort by maximum lightcurve count.
+    df_lc_features_subset = df_lc_features.loc[subset.df.index]
+    df_lc_features_subset = df_lc_features_subset.sort_values('n_max', ascending=False)
 
+    lightcurves = []
+    for idx in tqdm(df_lc_features_subset.index):
+        df_lc = get_lc_by_idx(idx)
+        unique_reg_id = cr.region_num_to_cluster_num[idx]
+        label = f'reg_id={idx} unique_reg_id={unique_reg_id}'
+        lightcurve_data_url = plot_lc(df_lc, label)
+        lightcurves.append({'data_url' : lightcurve_data_url, 'region_id' : unique_reg_id})
 
-@app.route('/unique_regions')
-def unique_regions():
-    tab_reg = df_sources_unique.to_html(table_id='myTable', classes='display compact')
-    content   = {'tab' : tab_reg}
-    return render_template('table_template.html', content=content)
+    content = {'lightcurves' : lightcurves,
+               'subset'      : subset}
 
-
-@app.route('/lightcurve_idx')
-def lightcurve_idx():
-    tab_lc_idx = df_lc_idx.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_lc_idx}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/simlist')
-def simlist():
-    tab_sim = df_sim.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_sim}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/run_info')
-def run_info():
-    tab_run = df_run.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_run}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/obs_info')
-def obs_info():
-    tab_obs = df_obs.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_obs}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/evt_info')
-def evt_info():
-    tab_evt = df_evt.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_evt}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/dl_info')
-def dl_info():
-    tab_dl = df_dl.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_dl}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/dc_info')
-def dc_info():
-    tab_dc = df_dc.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_dc}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/crossmatch_simbad')
-def crossmatch_simbad():
-    tab_cmatch = df_cmatch_simbad.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_cmatch}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/crossmatch_xmm')
-def crossmatch_xmm():
-    tab_cmatch_xmm = df_cmatch_xmm.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_cmatch_xmm}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/crossmatch_om')
-def crossmatch_om():
-    tab_cmatch_xmm = df_cmatch_om.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_cmatch_xmm}
-    return render_template("table_template.html", content=content)
-
-
-@app.route('/crossmatch_gaia')
-def crossmatch_gaia():
-    tab_cmatch_xmm = df_cmatch_gaia.to_html(table_id='myTable', classes='display compact')
-    content = {'tab':tab_cmatch_xmm}
-    return render_template("table_template.html", content=content)
-
+    return render_template('subset_page.html', content=content)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
