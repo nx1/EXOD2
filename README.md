@@ -1,6 +1,7 @@
 <p align="center">
   <img src="docs/images/EXOD_Logo.png" alt="EXOD Logo">
 </p>
+
 # EXOD (EPIC XMM-Newton Outburst Detector)
 
 EXOD is a pipeline and detection algorithm designed for the detection of rapid
