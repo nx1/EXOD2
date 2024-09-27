@@ -175,9 +175,9 @@ class Pipeline:
 
         for k, v in results.items():
             save_result(key=k, value=v, runid=self.runid, savedir=savedir)
-        plt.show()
-        # plt.close('all')
-        # plt.clf()
+        # plt.show()
+        plt.close('all')
+        plt.clf()
 
     def load_results(self):
         """Load results for all observation subsets, returns a list of dictionaries."""
@@ -396,7 +396,7 @@ def parameter_grid(obsids):
     parameter_grid = {
         'obsid'                     : obsids,
         'size_arcsec'               : [20.0],
-        'time_interval'             : [5, 50, 200],
+        'time_interval'             : [300, 600, 1000],
         'gti_only'                  : [False],
         'remove_partial_ccd_frames' : [True],
         'energy_ranges'             : [[0.2, 2.0], [2.0, 12.0], [0.2, 12.0]],
@@ -415,27 +415,21 @@ def parameter_grid(obsids):
         del(params['energy_ranges'])
         yield params
 
-def make_df_lc_idx():
+def make_df_lc_idx(df_lc):
     """
     Calculate the start and end indexs of each of the lightcurves.
     This is done so that a specific runid + label combination can be quickly accessed.
     """
+    df_lc = df_lc.reset_index(drop=True)
     tot = 0
     combinations = {}
-    logger.info('Calculating start and stop indices for each lightcurve... (can take some time)')
-    for chunk in pd.read_hdf(savepaths_combined['lc'], chunksize=2e7):
-        tot += 2e7
-        logger.info(f'Rows done: {tot}')
-        gb = chunk.groupby(['runid', 'label'])
-        for (label, runid), i in gb.groups.items():
-            if (label, runid) in combinations:
-                combinations[(label, runid)] = (combinations[(label, runid)][0], i[-1])
-            else:
-                combinations[(label, runid)] = (i[0], i[-1])
+    for (label, runid), i in df_lc.groupby(['label', 'runid']).groups.items():
+        combinations[(label, runid)] = (i[0], i[-1])
 
     df_start_stop = pd.DataFrame.from_dict(combinations, orient='index', columns=['start', 'stop'])
     df_start_stop = df_start_stop.sort_values('start')
     df_start_stop.to_csv(savepaths_combined['lc_idx'])
+    logger.info(f'Saved df_lc_idx to {savepaths_combined["lc_idx"]}')
 
 def combine_results(obsids):
     """
@@ -462,18 +456,19 @@ def combine_results(obsids):
     df_dc_info  = pd.DataFrame([r['dc_info'] for r in all_results])
     df_evt_info = pd.DataFrame([r['evt_info'] for r in all_results])
 
+    make_df_lc_idx(df_lc)
+
     # Save all dataframes
     logger.info('Saving DataFrames...')
     df_bti.to_csv(savepaths_combined['bti'], index=False)
     df_regions.to_csv(savepaths_combined['regions'], index=False)
-    df_lc.to_hdf(savepaths_combined['lc'], index=False)
+    df_lc.to_hdf(savepaths_combined['lc'], key='df_lc', index=False, mode='w', format='table')
     df_run_info.to_csv(savepaths_combined['run_info'], index=False)
     df_obs_info.to_csv(savepaths_combined['obs_info'], index=False)
     df_dl_info.to_csv(savepaths_combined['dl_info'], index=False)
     df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
     df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
 
-    make_df_lc_idx()
 
     logger.info(df_bti)
     logger.info(df_regions)

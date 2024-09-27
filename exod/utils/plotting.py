@@ -13,8 +13,11 @@ from exod.utils.logger import logger
 
 
 def use_scienceplots():
-    import scienceplots
-    plt.style.use('science')
+    try:
+        import scienceplots
+        plt.style.use('science')
+    except ModuleNotFoundError:
+        pass
 
 def set_latex_font():
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
