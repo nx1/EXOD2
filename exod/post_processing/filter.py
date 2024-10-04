@@ -155,6 +155,23 @@ class FilterLcSigmaEclipse(FilterBase):
         self.df_removed  = self.df[~mask]
         return self.df_filtered
 
+
+class FilterLcSigmaPeakOrEclipse(FilterBase):
+    def __init__(self, name, min_sigma):
+        super().__init__(name)
+        self.min_sigma = min_sigma 
+
+    def get_parameters(self):
+        return {'min_sigma': self.min_sigma}
+
+    def apply(self, df_lc_stats):
+        self.df = df_lc_stats
+        mask = (self.df['sigma_max_B_eclipse'] > self.min_sigma) | (self.df['sigma_max_B_peak'] > self.min_sigma)
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
+
 class FilterLcMinCounts(FilterBase):
     def __init__(self, name, min_counts):
         super().__init__(name)

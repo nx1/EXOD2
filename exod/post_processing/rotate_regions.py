@@ -63,6 +63,7 @@ hot_regions = {'_5_'   : hot_regions_5s,
                '_50_'  : hot_regions_50s,
                '_200_' : hot_regions_200s}
 
+energy_bands = ['_2.0_12.0', '_0.2_2.0']
 
 def get_pointing_angle(obsid, tab_xmm_obslist):
     """
@@ -164,9 +165,23 @@ def plot_hot_regions(df_regions_rotated, hot_regions):
         print(f'Saving to: hot_regions{k}s.png')
         # plt.show()
 
+def plot_detector_coords_soft_and_hard(df_regions_rotated):
+    for e in energy_bands:
+        sub = df_regions_rotated[df_regions_rotated['runid'].str.contains(e)]
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.set_title(f'{e} keV')
+        ax.scatter(sub['X_EPIC'], sub['Y_EPIC'], s=1.0, marker='.', color='black', alpha=0.2)
+        ax.set_xlim(-17500, 17500)
+        ax.set_ylim(-17500, 17500)
+        plt.savefig(data_plots / f'spatial_dist_{e}.png')
+        plt.savefig(data_plots / f'spatial_dist_{e}.pdf')
+        print(f'Saving to: spatial_dist_{e}.png')
+
+
 
 if __name__ == "__main__":
     df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)
+    plot_detector_coords_soft_and_hard(df_regions_rotated)
     # df_regions_rotated = rotate_regions_to_detector_coords()
     plot_regions_detector_coords(df_regions_rotated)
     plot_hot_regions(df_regions_rotated, hot_regions)

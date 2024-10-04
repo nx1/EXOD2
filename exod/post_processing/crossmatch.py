@@ -92,13 +92,15 @@ def crossmatch_cds(df, max_sep_arcsec=20, catalogue='simbad', ra_col='ra_deg', d
     print(f'Crossmatching {len(df)} rows with {catalogue} using CDS Xmatch max_sep={max_sep_arcsec}"')
     r = requests.post(
         url='http://cdsxmatch.u-strasbg.fr/xmatch/api/v1/sync',
-        data={'request': 'xmatch',
-              'distMaxArcsec': max_sep_arcsec,
-              'RESPONSEFORMAT': 'csv',
-              'cat2': catalogue,
-              'colRA1': ra_col,
-              'colDec1': dec_col},
-        files={'cat1': df.to_csv()})
+        data={'request'        : 'xmatch',
+              'distMaxArcsec'  : max_sep_arcsec,
+              'RESPONSEFORMAT' : 'csv',
+              'cat2'           : catalogue,
+              'colRA1'         : ra_col,
+              'colDec1'        : dec_col},
+        files={'cat1'          : df.to_csv()})
+    if r.status_code != 200:
+        raise Exception(f'Failed to crossmatch with CDS Xmatch. Status code: {r.status_code}')
     df_res = pd.read_csv(io.StringIO(r.text), low_memory=False)
     print(f'Returned {len(df_res)} rows')
     return df_res
@@ -150,11 +152,11 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
                         'GAIA DR3': savepaths_combined['cmatch_gaia'],
                         'XMM OM'  : savepaths_combined['cmatch_om'],
                         'XMM DR14': savepaths_combined['cmatch_dr14']}
+                        #'GLADE'   : savepaths_combined['cmatch_glade']}
     dfs_cmatch = {}
     dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique)
     print(f'Saving XMM DR14 crossmatch to {savepaths_cmatch["XMM DR14"]}')
     dfs_cmatch['XMM DR14'].write(savepaths_cmatch['XMM DR14'], format='csv', overwrite=True)
-
 
     if not clobber:
         if all([savepath.exists() for savepath in savepaths_cmatch.values()]):
@@ -166,14 +168,13 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
         else:
             logger.info('Some crossmatch files are missing. Recreating...')
 
-
     catalogs = {'SIMBAD'  : 'simbad',
                 'GAIA DR3': 'vizier:I/355/gaiadr3',
                 'XMM OM'  : 'vizier:II/378/xmmom6s'}
-    # 'GLADE'    : 'vizier:VII/291/gladep'}
-    # 'CHIME FRB': 'vizier:J/ApJS/257/59/table2',}
+                #'GLADE'   : 'vizier:VII/291/gladep'}
+                # 'CHIME FRB': 'vizier:J/ApJS/257/59/table2',}
 
-    catalogs_coord_cols = {'SIMBAD'   : {'ra': 'ra', 'dec': 'dec'},
+    catalogs_coord_cols = {'SIMBAD'   : {'ra': 'ra',      'dec': 'dec'},
                            'GAIA DR3' : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
                            'XMM OM'   : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
                            'GLADE'    : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},

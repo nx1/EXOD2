@@ -73,6 +73,22 @@ def get_filters():
     filters = [filters_energy, filters_time, filters_sigma, filters_cmatch]
     return filters
 
+
+def get_filters_param_grid():
+    filters_energy = [FilterRegEnergyRange(name='E_band_full', min_energy=0.2, max_energy=12.0),
+                      FilterRegEnergyRange(name='E_band_soft', min_energy=0.2, max_energy=2.0),
+                      FilterRegEnergyRange(name='E_band_hard', min_energy=2.0, max_energy=12.0)]
+    
+    filters_time = [FilterRegTimeBin(name='t_bin_5',   t_bin=5),
+                    FilterRegTimeBin(name='t_bin_50',  t_bin=50),
+                    FilterRegTimeBin(name='t_bin_200', t_bin=200)]
+
+    filters_sigma = [FilterLcSigmaPeakOrEclipse('5_sigma', min_sigma=5)]
+    filters = [filters_sigma, filters_energy, filters_time]
+    return filters
+
+
+
 if __name__ == "__main__":
     df_lc_features    = pd.read_csv(savepaths_combined['lc_features'])
     df_cmatch_dr14    = pd.read_csv(savepaths_combined['cmatch_dr14'])
@@ -86,7 +102,8 @@ if __name__ == "__main__":
     df_regions['DR14_SEP_ARCSEC']     = df_regions['cluster_label'].map(df_cmatch_dr14['SEP_ARCSEC'])
     df_regions['SIMBAD_SEP_ARCSEC']   = df_regions['cluster_label'].map(df_cmatch_simbad['SEP_ARCSEC'])
 
-    filters = get_filters()
+    # filters = get_filters()
+    filters = get_filters_param_grid()
     valid_combinations = generate_valid_combinations(*filters)
     sm = SubsetManager()
     sm.add_subsets([Subset(f, df_regions) for f in valid_combinations])
