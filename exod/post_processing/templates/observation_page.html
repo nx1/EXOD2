@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
 <body>
 <h2>Obsid Summary - <a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ content['obsid'] }}">{{ content['obsid'] }}</h2></a>
 Date: {{content['evt_info']['date']}} |
 Object: {{content['evt_info']['object']}} |
 Exposure: {{content['evt_info']['exposure']}} |
-{% for lightcurve in content['lightcurves'] %}
-<a href={{  url_for('region_summary', region_id=lightcurve['region_id']) }}><img src="data:image/png;base64,{{lightcurve['data_url']}}"></a>
-{% endfor %}
+<pre>
+{{render_lightcurves.render_lightcurves(content['lightcurves']) }}
+</pre>
 
 <h2>Detected Regions:</h2>
 {{content['tab_regions_obs'] | safe}}

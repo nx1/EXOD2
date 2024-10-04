@@ -1,0 +1,5 @@
+{% macro render_lightcurves(lightcurves) %}
+{% for lightcurve in lightcurves %}
+region_id = {{lightcurve['region_id'] }} unique_region_id = {{lightcurve['unique_region_id'] }} runid = {{lightcurve['runid']}} coords: {{ lightcurve['ra_deg'] }} {{ lightcurve['dec_deg'] }} {{ lightcurve['ra'] }} {{ lightcurve['dec'] }}<a href="https://sky.esa.int/esasky/?target={{ lightcurve['ra_deg'] }} {{ lightcurve['dec_deg'] }}&hips=XMM-Newton+EPIC+color&fov=0.5&cooframe=J2000&sci=true&lang=en">[ESASKY]</a><a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{ lightcurve['ra_deg'] }}+{{ lightcurve['dec_deg'] }}">[SIMBAD]</a>
+<a href="{{ url_for('region_summary', region_id=lightcurve['unique_region_id']) }}"><img src="data:image/png;base64,{{ lightcurve['data_url'] }}"></a>{% endfor %}
+{% endmacro %}

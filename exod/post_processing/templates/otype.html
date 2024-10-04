@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
 <body>
     <h2> Lightcurves for otype: {{ content['otype'] }}</h2>
@@ -15,9 +16,7 @@
             SEP_ARCSEC={{'%0.2f'| format(row['SEP_ARCSEC']|float)}} ra_deg={{'%0.2f'| format(row['ra_deg']|float)}} dec_deg={{'%0.2f'| format(row['dec_deg']|float)}} main_id={{row['main_id']}} main_type={{row['main_type']}} <a href="https://sky.esa.int/esasky/?target={{row['ra_deg']}} {{row['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0&cooframe=J2000&sci=true&lang=en">ESASKY</a> | <a href="/region/{{i}}">Region</a></br>
             {% endfor %}
             <h2> Lightcurves </h2>
-            {% for lightcurve in content['lightcurves'] %}
-            <a href={{url_for('region_summary', region_id=lightcurve['region_id'])}}><img src="data:image/png;base64,{{lightcurve['data_url']}}"></a>
-            {% endfor %}
+            {{render_lightcurves.render_lightcurves(content['lightcurves']) }}
             <pre>
             </pre>
             </div>

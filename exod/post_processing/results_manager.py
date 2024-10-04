@@ -64,13 +64,15 @@ class ResultsManager:
         sm.calc_all()
         self.subset_manager = sm
            
-    def get_results_for_runid_label(self, runid, label):
+    def get_results_for_obsid(self, obsid):
         pass
-    
-    def get_results_for_unique_region(self, unique_region_id):
-        region_idxs = self.df_regions_unique.iloc[unique_region_id]['idxs'] 
-        reg_info    = self.df_regions.iloc[region_idxs[0]] # This is bad.
-        obsid, obsid_subset, t_bin, E_lo, E_hi = reg_info['runid'].split('_')
+
+    def get_unique_region_summary(self, unique_region_id):
+        unique_region_id   = int(unique_region_id)
+        region_idxs = self.df_regions_unique.iloc[unique_region_id]['idxs']  # Indices of unique region
+        reg_info    = self.df_regions.iloc[region_idxs[0]]  # Get first index of the region
+        obsid, obs_subset_num, t_bin, E_lo, E_hi = reg_info['runid'].split('_')
+
         evt_info           = self.df_evt.loc[obsid].iloc[0]
         cmatch_simbad_info = self.df_cmatch_simbad.iloc[unique_region_id]
         cmatch_gaia_info   = self.df_cmatch_gaia.iloc[unique_region_id]
@@ -78,45 +80,27 @@ class ResultsManager:
         xmm_info           = self.df_cmatch_xmm.iloc[unique_region_id]
         run_info           = self.df_run.loc[obsid]
 
-    def get_results_for_obsid(self, obsid):
-        pass
+        lightcurves = self.get_and_plot_lcs_by_idxs(region_idxs)
+        lc_one_plot = self.plot_lcs_one_plot(region_idxs)
 
-    def get_region_summary(self, region_id):
-        region_id = int(region_id)
-        next_id = region_id + 1
-        prev_id = region_id - 1
-
-        region_idxs = self.df_regions_unique.iloc[region_id]['idxs']  # Indices of unique region
-        reg_info = self.df_regions.iloc[region_idxs[0]]  # Get first index of the region
-        obsid, obs_subset_num, t_bin, E_lo, E_hi = reg_info['runid'].split('_')
-
-        evt_info = self.df_evt.loc[obsid].iloc[0]
-        cmatch_simbad_info = self.df_cmatch_simbad.iloc[region_id]
-        cmatch_gaia_info = self.df_cmatch_gaia.iloc[region_id]
-        cmatch_om_info = self.df_cmatch_om.iloc[region_id]
-        xmm_info = self.df_cmatch_xmm.iloc[region_id]
-        run_info = self.df_run.loc[obsid]
-
-        lightcurves = self.get_lc_by_idxs(region_idxs)
-
-        # Bundle the content as a dictionary for Flask
         content = {
-            'region_id': region_id,
-            'region_idxs': region_idxs,
-            'next_id': next_id,
-            'prev_id': prev_id,
-            'reg_info': reg_info,
-            'evt_info': evt_info,
-            'run_info': run_info,
-            'cmatch_info': cmatch_simbad_info,
-            'cmatch_gaia_info': cmatch_gaia_info,
-            'cmatch_om_info': cmatch_om_info,
-            'xmm_info': xmm_info,
-            'obsid': obsid,
-            't_bin': t_bin,
-            'E_lo': E_lo,
-            'E_hi': E_hi,
-            'lightcurves': lightcurves
+            'region_id'        : unique_region_id,
+            'region_idxs'      : region_idxs,
+            'next_id'          : unique_region_id + 1,
+            'prev_id'          : unique_region_id - 1,
+            'reg_info'         : reg_info,
+            'evt_info'         : evt_info,
+            'run_info'         : run_info,
+            'cmatch_info'      : cmatch_simbad_info,
+            'cmatch_gaia_info' : cmatch_gaia_info,
+            'cmatch_om_info'   : cmatch_om_info,
+            'xmm_info'         : xmm_info,
+            'obsid'            : obsid,
+            't_bin'            : t_bin,
+            'E_lo'             : E_lo,
+            'E_hi'             : E_hi,
+            'lightcurves'      : lightcurves,
+            'lc_one_plot'      : lc_one_plot
         }
         return content
 
@@ -132,7 +116,7 @@ class ResultsManager:
         df_regions_to_plot = self.df_regions.iloc[idxs]
         print(f'Found {len(idxs)} lightcurves in {len(df_cmatch_simbad_otype)} unique regions for {otype}')
 
-        lightcurves = self.get_lc_by_idxs(idxs)
+        lightcurves = self.get_and_plot_lcs_by_idxs(idxs)
 
         content = {'otype': otype,
                    'df_otype_stats': self.df_otype_stats,
@@ -148,22 +132,62 @@ class ResultsManager:
         df_lc = pd.read_hdf(savepaths_combined['lc'], start=start, stop=stop)
         return df_lc
 
-    def get_lc_by_idxs(self, idxs):
+    def get_lcs_by_idxs(self, idxs):
+        return [self.get_lc_by_idx(idx) for idx in idxs]
+
+    def get_and_plot_lcs_by_idxs(self, idxs):
+        df_regions = self.df_regions.iloc[idxs]
         lightcurves = []
-        for idx in tqdm(idxs):
-            df_lc = self.get_lc_by_idx(idx)
-            reg = self.df_regions.iloc[idx]
-            unique_region_id = self.cr.region_num_to_cluster_num[idx]
-            label = f'reg_id={idx} unique_id={unique_region_id} ra={reg["ra_deg"]:.2f} dec={reg["dec_deg"]:.2f}'
-            lightcurve_data_url = plot_lc(df_lc, label)
-            lightcurves.append({
-                'data_url'  : lightcurve_data_url,
-                'region_id' : unique_region_id,
-                'ra_deg'    : reg['ra_deg'],
-                'dec_deg'   : reg['dec_deg'],
-                'ra'        : reg['ra'],
-                'dec'       : reg['dec']})
+        plt_labels = []
+        for region_id, row in df_regions.iterrows():
+            runid   = row['runid']
+            label   = row['label']
+            ra      = row['ra']
+            dec     = row['dec']
+            ra_deg  = row['ra_deg']
+            dec_deg = row['dec_deg']
+
+            unique_region_id = self.cr.region_num_to_cluster_num[region_id]
+            plt_labels.append(f'runid={runid} reg_id={region_id} unique_id={unique_region_id} ra={ra_deg:.2f} dec={dec_deg:.2f}')
+
+            res = {'region_id'        : region_id,
+                   'unique_region_id' : unique_region_id,
+                   'runid'            : runid,
+                   'label'            : label,
+                   'ra_deg'           : round(ra_deg,4),
+                   'dec_deg'          : round(dec_deg,4),
+                   'ra'               : ra,
+                   'dec'              : dec}
+            lightcurves.append(res)
+
+        dfs = self.get_lcs_by_idxs(idxs)
+        data_urls = [plot_lc(df_lc, label=plt_labels[i]) for i, df_lc in enumerate(dfs)]
+
+        for i, r in enumerate(lightcurves):
+            r['data_url'] = data_urls[i]
+
         return lightcurves
+
+    def plot_lcs_one_plot(self, idxs):
+        df_lcs = self.get_lcs_by_idxs(idxs)
+        regions = self.df_regions.iloc[idxs]
+        reg_tbins = {'5s'   : regions[regions['runid'].str.contains('_5_')],
+                     '50s'  : regions[regions['runid'].str.contains('_50_')],
+                     '200s' : regions[regions['runid'].str.contains('_200_')]}
+
+        fig = plt.figure(figsize=(15, 2))
+        ax = fig.subplots()
+        for df in df_lcs:
+            ax.step(df['time'], df['n'], lw=1.0)
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0, wspace=0)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        lightcurve_data_url = base64.b64encode(buf.read()).decode('ascii')
+        plt.close(fig)
+        return lightcurve_data_url
 
 
     def get_observation_summary(self, obsid):
@@ -176,7 +200,7 @@ class ResultsManager:
         # Get Lightcurves
         mask = self.df_lc_idx.index.str.contains(obsid)
         idxs = np.where(mask)[0]
-        lightcurves = self.get_lc_by_idxs(idxs)
+        lightcurves = self.get_and_plot_lcs_by_idxs(idxs)
 
         content = {'obsid': obsid,
                    'tab_regions_obs': tab_regions_obs,
@@ -190,7 +214,7 @@ class ResultsManager:
         df_lc_features_subset = self.df_lc_features.loc[subset.df.index]
         df_lc_features_subset = df_lc_features_subset.sort_values('n_max', ascending=False)
 
-        lightcurves = self.get_lc_by_idxs(df_lc_features_subset.index)
+        lightcurves = self.get_and_plot_lcs_by_idxs(df_lc_features_subset.index)
 
         content = {'lightcurves': lightcurves, 'subset': subset}
         return content
@@ -214,6 +238,7 @@ def plot_lc(df_lc, label):
     fig.savefig(buf, format='png')
     buf.seek(0)
     lightcurve_data_url = base64.b64encode(buf.read()).decode('ascii')
+    plt.close(fig)
     return lightcurve_data_url
 
 

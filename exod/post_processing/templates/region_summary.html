@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
 <body>
 <h2>Unique Region Summary - {{ content['region_id'] }}</h2>
@@ -6,7 +7,7 @@
 </div>
 
 <div class="container-fluid">
-<a href="{{ url_for('region_summary', region_id=content['region_id']) }}"> previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
+<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}"> previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 <div class="row">
 <div class="col">
 <pre>
@@ -33,6 +34,7 @@ object    : {{ content['evt_info']['object'] }}
 exposure  : {{ content['evt_info']['exposure'] }}
 N_events  : {{ content['evt_info']['N_events'] }}
 mean Rate : {{ content['evt_info']['mean_rate'] }}
+</pre>
 </div>
 <div class="col">
 <pre>
@@ -81,17 +83,19 @@ DIST   : {{content['cmatch_gaia_info']['Dist']}}
 
 
 <div class="row">
-    <div class="col">
-        {% for lightcurve in content['lightcurves'] %}
-        <img src="data:image/png;base64,{{lightcurve['data_url']}}">
-        {% endfor %}
-    </div>
+<div class="col">
+<pre>
+<img src="data:image/png;base64,{{content['lc_one_plot']}}">
+{{render_lightcurves.render_lightcurves(content['lightcurves']) }}
+</pre>
+</div>
 </div>
 
 <div class="col">
 <pre>
 <b>Runs and detections for obsid:{{content['obsid']}}:</b>
 <a href="{{ url_for('observation_page', obsid=content['obsid']) }}">View all Lightcurves for this observation</a>
+<a href="{{ url_for('plot_detection_images', obsid=content['obsid']) }}">View all Detection Images for observation</a>
 {% for i, row in content['run_info'].iterrows() %}
     {{ row['runid'] }} : {{ row['n_regions'] }}{% endfor %}
 </pre>

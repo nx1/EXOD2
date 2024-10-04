@@ -11,9 +11,6 @@ matplotlib.use('Agg')
 from flask import Flask, render_template
 
 rm = ResultsManager()
-rm.load_results()
-sm = rm.subset_manager
-cr = rm.cr
 
 app = Flask(__name__, static_folder=data, static_url_path='/static')
 
@@ -25,7 +22,7 @@ def main_page():
 
 @app.route('/region/<region_id>')
 def region_summary(region_id):
-    content = rm.get_region_summary(region_id)
+    content = rm.get_unique_region_summary(region_id)
     return render_template('region_summary.html', content=content)
 
 
@@ -43,7 +40,7 @@ def observation_page(obsid):
 
 @app.route('/subsets')
 def subsets():
-    return render_template('subsets.html', subsets=sm.subsets)
+    return render_template('subsets.html', subsets=rm.subset_manager.subsets)
 
 
 @app.route('/subsets/<subset_num>')
