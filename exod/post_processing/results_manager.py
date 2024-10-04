@@ -97,27 +97,7 @@ class ResultsManager:
         xmm_info = self.df_cmatch_xmm.iloc[region_id]
         run_info = self.df_run.loc[obsid]
 
-        lightcurves = []
-        for idx in region_idxs:
-            df_region = self.df_regions.iloc[idx]
-            runid = df_region['runid']
-            label = df_region['label']
-            key = str((runid, str(label)))
-
-            # Use helper function to get light curve data
-            df_lc = self.get_lc_by_idx(idx)
-            label = f'reg_id={idx} key={key}'
-            lightcurve_data_url = plot_lc(df_lc, label=label)
-            lightcurves.append({
-                'data_url': lightcurve_data_url,
-                'region_id': idx,
-                'runid': runid,
-                'label': label,
-                'ra': df_region['ra'],
-                'dec': df_region['dec'],
-                'ra_deg': df_region['ra_deg'],
-                'dec_deg': df_region['dec_deg']
-            })
+        lightcurves = self.get_lc_by_idxs(region_idxs)
 
         # Bundle the content as a dictionary for Flask
         content = {
@@ -133,7 +113,6 @@ class ResultsManager:
             'cmatch_om_info': cmatch_om_info,
             'xmm_info': xmm_info,
             'obsid': obsid,
-            'label': label,
             't_bin': t_bin,
             'E_lo': E_lo,
             'E_hi': E_hi,
@@ -153,16 +132,7 @@ class ResultsManager:
         df_regions_to_plot = self.df_regions.iloc[idxs]
         print(f'Found {len(idxs)} lightcurves in {len(df_cmatch_simbad_otype)} unique regions for {otype}')
 
-        lightcurves = []
-        for idx in tqdm(idxs):
-            df_lc = self.get_lc_by_idx(idx)
-            reg = self.cr.df_regions.iloc[idx]  # The 'cluster_label' is calculated in clusterregions.
-            ra = reg['ra_deg']
-            dec = reg['dec_deg']
-            unique_region_id = reg['cluster_label']
-            label = f'reg_id={idx} unique_id={unique_region_id} ra={ra:.2f} dec={dec:.2f}'
-            lightcurve_data_url = plot_lc(df_lc, label)
-            lightcurves.append({'data_url': lightcurve_data_url, 'region_id': unique_region_id})
+        lightcurves = self.get_lc_by_idxs(idxs)
 
         content = {'otype': otype,
                    'df_otype_stats': self.df_otype_stats,
@@ -178,6 +148,23 @@ class ResultsManager:
         df_lc = pd.read_hdf(savepaths_combined['lc'], start=start, stop=stop)
         return df_lc
 
+    def get_lc_by_idxs(self, idxs):
+        lightcurves = []
+        for idx in tqdm(idxs):
+            df_lc = self.get_lc_by_idx(idx)
+            reg = self.df_regions.iloc[idx]
+            unique_region_id = self.cr.region_num_to_cluster_num[idx]
+            label = f'reg_id={idx} unique_id={unique_region_id} ra={reg["ra_deg"]:.2f} dec={reg["dec_deg"]:.2f}'
+            lightcurve_data_url = plot_lc(df_lc, label)
+            lightcurves.append({
+                'data_url'  : lightcurve_data_url,
+                'region_id' : unique_region_id,
+                'ra_deg'    : reg['ra_deg'],
+                'dec_deg'   : reg['dec_deg'],
+                'ra'        : reg['ra'],
+                'dec'       : reg['dec']})
+        return lightcurves
+
 
     def get_observation_summary(self, obsid):
         evt_info = self.df_evt.loc[obsid].iloc[0]
@@ -187,25 +174,10 @@ class ResultsManager:
         tab_regions_obs = df_regions_obs[['runid', 'label', 'ra', 'dec', 'ra_deg', 'dec_deg']].to_html(table_id='myTable',
                                                                                                        classes='display compact')
         # Get Lightcurves
-        lightcurves = []
-        mask = rm.df_lc_idx.index.str.contains(obsid)
+        mask = self.df_lc_idx.index.str.contains(obsid)
         idxs = np.where(mask)[0]
-        df_lc_idx_obs = self.df_lc_idx[mask]
-        i = 0
-        for key, row in tqdm(df_lc_idx_obs.iterrows()):
-            df_lc = pd.read_hdf(savepaths_combined['lc'], start=row['start'], stop=row['stop'])
-            region_id = idxs[i]
-            df_region = self.df_regions.iloc[region_id]
-            unique_reg_id = self.cr.region_num_to_cluster_num[region_id]
-            label = f'key={key} reg_id={region_id} unique_reg_id={unique_reg_id}'
-            lightcurve_data_url = plot_lc(df_lc, label)
-            lightcurves.append({'data_url': lightcurve_data_url,
-                                'region_id': unique_reg_id,
-                                'ra_deg': df_region['ra_deg'],
-                                'dec_deg': df_region['dec_deg'],
-                                'ra': df_region['ra'],
-                                'dec': df_region['dec']})
-            i += 1
+        lightcurves = self.get_lc_by_idxs(idxs)
+
         content = {'obsid': obsid,
                    'tab_regions_obs': tab_regions_obs,
                    'evt_info': evt_info,
@@ -217,15 +189,10 @@ class ResultsManager:
         subset = self.subset_manager.get_subset_by_index(int(subset_num))
         df_lc_features_subset = self.df_lc_features.loc[subset.df.index]
         df_lc_features_subset = df_lc_features_subset.sort_values('n_max', ascending=False)
-        lightcurves = []
-        for idx in tqdm(df_lc_features_subset.index):
-            df_lc = self.get_lc_by_idx(idx)
-            unique_reg_id = self.cr.region_num_to_cluster_num[idx]
-            label = f'reg_id={idx} unique_reg_id={unique_reg_id}'
-            lightcurve_data_url = plot_lc(df_lc, label)
-            lightcurves.append({'data_url': lightcurve_data_url, 'region_id': unique_reg_id})
-        content = {'lightcurves': lightcurves,
-                   'subset': subset}
+
+        lightcurves = self.get_lc_by_idxs(df_lc_features_subset.index)
+
+        content = {'lightcurves': lightcurves, 'subset': subset}
         return content
 
 if __name__ == "__main__":
