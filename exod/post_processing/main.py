@@ -5,8 +5,8 @@ import astropy.units as u
 from astropy.table import Table
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
-from exod.post_processing.make_exod_cat import make_exod_catalogue
-from exod.post_processing.rotate_regions import rotate_regions_to_detector_coords, \
+from exod.post_processing.make_exod_cat import make_exod_catalogues
+from exod.post_processing.hot_regions import rotate_regions_to_detector_coords, \
     plot_regions_detector_coords, hot_regions, plot_hot_regions
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 import exod.post_processing.simbad_stats as simbad_stats
@@ -610,7 +610,7 @@ def process_regions(clobber=True):
     plot_gaia_hr_diagram(dfs_cmatch['GAIA DR3'])
     plot_om_ab_magnitudes(dfs_cmatch['XMM OM'])
 
-    df_reg_rotated = rotate_regions_to_detector_coords(clobber=clobber)
+    df_reg_rotated = rotate_regions_to_detector_coords(df_regions, clobber=clobber)
     plot_regions_detector_coords(df_reg_rotated)
     plot_hot_regions(df_reg_rotated, hot_regions)
 
@@ -625,7 +625,7 @@ def main(clobber=True):
     process_run_info()
     process_regions(clobber=clobber)
     process_lc_features(clobber=clobber)
-    make_exod_catalogue()
+    make_exod_catalogues()
     simbad_stats.main()
     plt.show()
 

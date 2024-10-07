@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -6,9 +7,9 @@ from astropy.table import Table
 from exod.processing.coordinates import rotate_XY
 from exod.utils.path import savepaths_combined, data_plots, data_combined, data_util
 from exod.xmm.bad_obs import obsids_to_exclude
+from exod.post_processing.util import calc_detid_column
 
-
-# These hot regions in in the coordinate system obtained from using
+# These hot regions in the coordinate system obtained from using
 # rotate_regions_to_detector_coords()
 # they were calculated with interactive_scatter_with_rectangles() is provided in utils.plotting
 #(x,y,w,h) the x,y position is defined from the upper left corner NOT THE CENTER!
@@ -63,7 +64,6 @@ hot_regions = {'_5_'   : hot_regions_5s,
                '_50_'  : hot_regions_50s,
                '_200_' : hot_regions_200s}
 
-energy_bands = ['_2.0_12.0', '_0.2_2.0']
 
 def get_pointing_angle(obsid, tab_xmm_obslist):
     """
@@ -73,14 +73,15 @@ def get_pointing_angle(obsid, tab_xmm_obslist):
     angle = tab_xmm_obslist[tab_xmm_obslist['OBS_ID'] == obsid]['PA_PNT'].value[0]
     return angle
 
-def rotate_regions_to_detector_coords(clobber=True):
+
+def rotate_regions_to_detector_coords(df_regions, clobber=True):
     print('Rotating regions to detector coordinates...')
     savepath = data_combined / 'transients_rotated.csv'
     if savepath.exists() and not clobber:
         print(f'{savepath} already exists and clobber is False. Reading from file...')
         df_regions_rotated = pd.read_csv(savepath, dtype={'obsid':str})
         return df_regions_rotated
-    df_regions = pd.read_csv(savepaths_combined['regions'])
+
     tab_xmm_obslist = Table.read(data_util / '4xmmdr14_obslist.fits')
     df_regions['obsid'] = df_regions['runid'].str.extract(r'(\d{10})')
     all_res = []
@@ -99,6 +100,7 @@ def rotate_regions_to_detector_coords(clobber=True):
                 'obsid': obsid,
                 'runid': row['runid'],
                 'label': row['label'],
+                'detid': row['detid'],
                 'angle': angle,
                 'X': row['X'],
                 'Y': row['Y'],
@@ -166,28 +168,49 @@ def plot_hot_regions(df_regions_rotated, hot_regions):
         # plt.show()
 
 def plot_detector_coords_soft_and_hard(df_regions_rotated):
+    """Plot the detector coords plots for soft and hard energies."""
+    energy_bands = ['_2.0_12.0', '_0.2_2.0']
     for e in energy_bands:
         sub = df_regions_rotated[df_regions_rotated['runid'].str.contains(e)]
         fig, ax = plt.subplots(figsize=(7, 7))
-        ax.set_title(f'{e} keV')
+        ax.set_title(f'Energy Range: {e} keV')
         ax.scatter(sub['X_EPIC'], sub['Y_EPIC'], s=1.0, marker='.', color='black', alpha=0.2)
         ax.set_xlim(-17500, 17500)
         ax.set_ylim(-17500, 17500)
-        plt.savefig(data_plots / f'spatial_dist_{e}.png')
-        plt.savefig(data_plots / f'spatial_dist_{e}.pdf')
-        print(f'Saving to: spatial_dist_{e}.png')
+        plt.savefig(data_plots / f'spatial_dist{e}.png')
+        plt.savefig(data_plots / f'spatial_dist{e}.pdf')
+        print(f'Saving to: spatial_dist{e}.png')
 
+
+def calc_hot_region_flags(df_regions, df_regions_rotated, hot_regions):
+    """Calculate the hot pixel flags for use on df_regions."""
+    all_masks = []
+    for k, v in hot_regions.items():
+        # Get the mask for the rows in the table that correspond to the time binning.
+        mask_t_bin = df_regions_rotated['runid'].str.contains(k)
+
+        # Loop over each hot region and calculate the mask on df_regions_rotated that corresponds
+        # to that specific hot region, append these all together in a list.
+        for i, (x,y,w,h) in enumerate(v):
+            mask = ((df_regions_rotated['X_EPIC'] < x+w) & (df_regions_rotated['X_EPIC'] > x)
+                  & (df_regions_rotated['Y_EPIC'] < y+h) & (df_regions_rotated['Y_EPIC'] > y)
+                  & mask_t_bin)
+
+            all_masks.append(mask)
+    mask_hot_pixels = np.logical_or.reduce(all_masks)
+
+    filt_hot_pixel  = np.isin(df_regions['detid'], df_regions_rotated[mask_hot_pixels]['detid'])
+    return filt_hot_pixel
 
 
 if __name__ == "__main__":
-    df_regions_rotated = rotate_regions_to_detector_coords(clobber=False)
+    df_regions = pd.read_csv(savepaths_combined['regions'])
+    df_regions = calc_detid_column(df_regions)
+    df_regions_rotated = rotate_regions_to_detector_coords(df_regions, clobber=False)
     plot_detector_coords_soft_and_hard(df_regions_rotated)
-    # df_regions_rotated = rotate_regions_to_detector_coords()
     plot_regions_detector_coords(df_regions_rotated)
     plot_hot_regions(df_regions_rotated, hot_regions)
-
-
-
+    calc_hot_region_flags(df_regions, df_regions_rotated, hot_regions)
 
 
 

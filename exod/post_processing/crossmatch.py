@@ -57,30 +57,39 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     return tab_fits_cmatch
 
 
-def crossmatch_dr14_slim(df_region):
-    """
-    Crossmatch the regions with the 4XMM DR13 slim catalogue.
-    """
+def crossmatch_dr14_slim(df_region, clobber=True):
+    """Crossmatch regions with the 4XMM DR14 slim catalogue."""
     logger.info('Crossmatching with 4XMM DR14 slim catalogue')
+    if not clobber and savepaths_combined['cmatch_dr14'].exists():
+        logger.info(f'{savepaths_combined['cmatch_dr14']} already exists and clobber=False, loading from files')
+        return Table.read(savepaths_combined['cmatch_dr14'])
+    else:
+        logger.info('Some crossmatch files are missing. Recreating...')
+
     fits_path = data_util / '4xmmdr14slim_240411.fits'
     tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
+    logger.info(f'Saving XMM DR14 crossmatch to {savepaths_combined['cmatch_dr14']}')
+    tab_xmm_cmatch.write(savepaths_combined['cmatch_dr14'], format='csv', overwrite=True)
     return tab_xmm_cmatch
 
+def crossmatch_glade(df_region, clobber=True):
+    """Crossmatch regions with GLADE+ catalogue, (converted to fits using topcat)"""
+    logger.info('Crossmatching with GLADEP slim catalogue (can take a second)')
+    if not clobber and savepaths_combined['cmatch_glade'].exists():
+        logger.info(f'{savepaths_combined['cmatch_glade']} already exists and clobber=False, loading from files')
+        return Table.read(savepaths_combined['cmatch_glade'])
+    else:
+        logger.info('Some crossmatch files are missing. Recreating...')
 
-def crossmatch_dr13_slim(df_region):
-    """
-    Crossmatch the regions with the 4XMM DR13 slim catalogue.
-    """
-    logger.info('Crossmatching with 4XMM DR13 slim catalogue')
-    fits_path = data_util / '4XMM_slim_DR13cat_v1.0.fits'
-    tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
-    return tab_xmm_cmatch
+    fits_path = data_util / 'GLADEP.fits'
+    tab_glade_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='RA', dec_col='Dec')
+    logger.info(f'Saving GLADE crossmatch to {savepaths_combined['cmatch_glade']}')
+    tab_glade_cmatch.write(savepaths_combined['cmatch_glade'], format='csv', overwrite=True)
+    return tab_glade_cmatch
 
 
 def crossmatch_tranin_dr12(df_region):
-    """
-    Crossmatch the regions with the CLAXON Hugo Tranin DR12 catalogue.
-    """
+    """Crossmatch the regions with the CLAXON Hugo Tranin DR12 catalogue."""
     logger.info('Crossmatching with CLAXON Hugo Tranin DR12 catalogue')
     fits_path = data_util / 'tranin/classification_DR12_with_input.fits'
     tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='RA', dec_col='DEC')
@@ -148,15 +157,15 @@ def xmatch(df, catalogue='simbad', max_sep_arcsec=20, ra_col='ra', dec_col='dec'
 
 
 def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True):
-    savepaths_cmatch = {'SIMBAD'  : savepaths_combined['cmatch_simbad'],
-                        'GAIA DR3': savepaths_combined['cmatch_gaia'],
-                        'XMM OM'  : savepaths_combined['cmatch_om'],
-                        'XMM DR14': savepaths_combined['cmatch_dr14']}
-                        #'GLADE'   : savepaths_combined['cmatch_glade']}
+    savepaths_cmatch = {'SIMBAD'   : savepaths_combined['cmatch_simbad'],
+                        'GAIA DR3' : savepaths_combined['cmatch_gaia'],
+                        'XMM OM'   : savepaths_combined['cmatch_om'],
+                        'XMM DR14' : savepaths_combined['cmatch_dr14'],
+                        'GLADE'    : savepaths_combined['cmatch_glade']}
+
     dfs_cmatch = {}
-    dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique)
-    print(f'Saving XMM DR14 crossmatch to {savepaths_cmatch["XMM DR14"]}')
-    dfs_cmatch['XMM DR14'].write(savepaths_cmatch['XMM DR14'], format='csv', overwrite=True)
+    dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique, clobber=clobber)
+    dfs_cmatch['GLADE'] = crossmatch_glade(df_regions_unique, clobber=clobber)
 
     if not clobber:
         if all([savepath.exists() for savepath in savepaths_cmatch.values()]):
@@ -176,9 +185,9 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
 
     catalogs_coord_cols = {'SIMBAD'   : {'ra': 'ra',      'dec': 'dec'},
                            'GAIA DR3' : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
-                           'XMM OM'   : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
-                           'GLADE'    : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
-                           'CHIME FRB': {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
+                           'XMM OM'   : {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
+                           #'GLADE'    : {'ra': 'RA',      'dec': 'Dec'}, # Not in Vizier (for now)
+                           #'CHIME FRB': {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
 
     for k, cat in catalogs.items():
         dfs_cmatch[k] = xmatch(df_regions_unique, cat, max_sep_arcsec=max_sep_arcsec,
@@ -193,4 +202,10 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
 if __name__ == "__main__":
     df_regions = pd.read_csv(savepaths_combined['regions'])
     cr = ClusterRegions(df_regions)
-    crossmatch_unique_regions(df_regions_unique=cr.df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)
+    dfs_cmatch = crossmatch_unique_regions(df_regions_unique=cr.df_regions_unique.reset_index(), max_sep_arcsec=20, clobber=False)
+
+    for k, df in dfs_cmatch.items():
+        print(k)
+        print(df)
+        print('----')
+
