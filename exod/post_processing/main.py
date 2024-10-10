@@ -25,6 +25,9 @@ def check_results_shape():
     for name, path in savepaths_combined.items():
         if name == 'lc':
             continue
+        if 'fits' in path.name:
+            continue
+        print(name, path)
         df = pd.read_csv(path)
         shape = df.shape
         shapes[name] = shape

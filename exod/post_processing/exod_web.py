@@ -31,6 +31,11 @@ def otype(otype):
     content = rm.get_otype_summary(otype)
     return render_template('otype.html', content=content)
 
+@app.route('/chime')
+def chime():
+    content = rm.get_chime_summary()
+    return render_template('chime.html', content=content)
+
 
 @app.route('/obs/<obsid>')
 def observation_page(obsid):
@@ -69,4 +74,4 @@ def show_ds9(obsid, region_id):
     view_obs_images(obsid=obsid, ra=ra, dec=dec)
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)

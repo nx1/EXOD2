@@ -5,23 +5,60 @@
     <h2> Lightcurves for otype: {{ content['otype'] }}</h2>
     <div class="container">
        <div class="row">
-           <div class="col-auto" style="width: 10%; position: fixed; top:30; left: 0; height: 100%; overflow-y: auto;">
-           {% for i, row in content['df_otype_stats'].iterrows() %}
-           <a href={{url_for('otype', otype=row['otype'])}}>{{ row['otype'] }} {{row['object_count']}}</a></br>
+           <div class="col-auto" style="width: 25%;">
+               <table class="table table-sm">
+                   <thead>
+                   <tr>
+                       <th>Object Type</th>
+                       <th>Count</th>
+                   </tr>
+                   </thead>
+                   <tbody>
+                   {% for i, row in content['df_otype_stats'].iterrows() %}
+                   <tr>
+                       <td><a href="{{ url_for('otype', otype=row['otype']) }}">{{ row['otype'] }}</a></td>
+                       <td>{{ row['object_count'] }}</td>
+                   </tr>
+                   {% endfor %}
+                   </tbody>
+               </table>
+           </div>
+           <div class="col-auto" style="width: 75%;">
+           <h2> Unique Regions with SIMBAD Crossmatch</h2>
+               <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Main ID</th>
+                            <th>Main Type</th>
+                            <th>RA</th>
+                            <th>Dec</th>
+                            <th>Sep ('')</th>
+                            <th>SIMBAD</th>
+                            <th>ESASKY</th>
+                            <th>Unique Region</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i, row in content['df_cmatch_simbad_otype'].iterrows() %}
+                        <tr>
+                            <td><a href="http://simbad.u-strasbg.fr/simbad/sim-id?Ident={{ row['main_id'] }}">{{ row['main_id'] }}</a></td>
+                            <td>{{ row['main_type'] }}</td>
+                            <td>{{ '%0.4f' | format(row['ra_deg'] | float) }}</td>
+                            <td>{{ '%0.4f' | format(row['dec_deg'] | float) }}</td>
+                            <td>{{ '%0.2f' | format(row['SEP_ARCSEC'] | float) }}</td>
+                            <td><a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{row['ra_deg']}} {{row['dec_deg']}}">SIMBAD</a></td>
+                            <td><a href="https://sky.esa.int/esasky/?target={{row['ra_deg']}} {{row['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0&cooframe=J2000&sci=true&lang=en">ESASKY</a></td>
+                            <td><a href="/region/{{ i }}">{{i}}</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+           <h2>One Plot Lightcurves</h2>
+           {% for lc in content['lcs_one_plot'] %}
+           <img src="data:image/png;base64,{{ lc }}">
            {% endfor %}
-            </div>
-            <div class="col-auto" style="width: 90%;">
-            <h2> Unique Regions with SIMBAD Crossmatch</h2>
-            {% for i, row in content['df_cmatch_simbad_otype'].iterrows() %}
-            SEP_ARCSEC={{'%0.2f'| format(row['SEP_ARCSEC']|float)}} ra_deg={{'%0.2f'| format(row['ra_deg']|float)}} dec_deg={{'%0.2f'| format(row['dec_deg']|float)}} main_id={{row['main_id']}} main_type={{row['main_type']}} <a href="https://sky.esa.int/esasky/?target={{row['ra_deg']}} {{row['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0&cooframe=J2000&sci=true&lang=en">ESASKY</a> | <a href="/region/{{i}}">Region</a></br>
-            {% endfor %}
-            <h2> Lightcurves </h2>
-            {{render_lightcurves.render_lightcurves(content['lightcurves']) }}
-            <pre>
-            </pre>
-            </div>
+           </div>
        </div>
     </div>
-
 </body>
 {% endblock %}

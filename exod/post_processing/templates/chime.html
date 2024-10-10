@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "render_lightcurves.html" as render_lightcurves %}
+{% block content %}
+<body>
+    <h2> Unique Regions within CHIME error circles (sorted by seperation)</h2>
+    <div class="container">
+    {% for reg in content['unique_regions'] %}
+    unique_region_id = <a href="{{url_for('region_summary', region_id=reg['unique_region_id'])}}">{{ reg['unique_region_id'] }}</a><br>
+        CHIME FRB Counterparts ({{reg['n_chime_matches']}}):<br>
+        <table>
+            <thead>
+                <tr>
+                    <th>tns_name</th>
+                    <th>ra (deg)</th>
+                    <th>dec (deg)</th>
+                    <th>ra_err (deg)</th>
+                    <th>dec_err (deg)</th>
+                    <th>Separation (arcsec)</th>
+                    <th>EXOD RA</th>
+                    <th>EXOD Dec</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in reg['chime_matches'] %}
+                    <tr>
+                        <td>{{ c['tns_name'] }}</td>
+                        <td>{{ c['ra'] }}</td>
+                        <td>{{ c['dec'] }}</td>
+                        <td>{{ c['ra_err'] }}</td>
+                        <td>{{ c['dec_err'] }}</td>
+                        <td>{{ c['Separation'] }}</td>
+                        <td>{{ c['ra_deg'] }}</td>
+                        <td>{{ c['dec_deg'] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br>
+        <a href="{{url_for('region_summary', region_id=reg['unique_region_id'])}}"><img src="data:image/png;base64,{{ reg['lc'] }}"></a>
+        <br>
+    {% endfor %}
+    </div>
+</body>
+{% endblock %}

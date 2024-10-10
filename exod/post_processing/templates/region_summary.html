@@ -1,149 +1,353 @@
 {% extends "base.html" %}
 {% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
+<head>
+    <style>
+        .card {
+               border: 1px solid #ccc;
+               background-color: #f9f9f9;
+        }
+    </style>
+</head>
 <body>
-<h2>Unique Region Summary - {{ content['region_id'] }}</h2>
-<div style="text-align: right;">
-</div>
-
+<h2>Unique Region Summary | unique_id={{ content['region_id'] }}</h2>
+<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">previous ({{ content['prev_id'] }})</a> <a
+        href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})</a>
 <div class="container-fluid">
-<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}"> previous ({{ content['prev_id'] }})</a> ||| <a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
-<div class="row">
-<div class="col">
-<pre>
-<b>Unique Region Information:</b>
-Unique ID  : {{ content['region_id'] }}
-Region IDs : {{ content['region_idxs']}}
-run ID     : {{ content['reg_info']['runid'] }}
-obsid      : <a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ content['obsid'] }}">{{ content['obsid'] }}</a>
-RA         : {{ content['reg_info']['ra'] }}
-Dec        : {{ content['reg_info']['dec'] }}
-RA (deg)   : {{ content['reg_info']['ra_deg'] }}
-Dec (deg)  : {{ content['reg_info']['dec_deg'] }}
-<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['reg_info']['ra_deg']}}+{{content['reg_info']['dec_deg']}}">coords SIMBAD</a>
-<a href="https://sky.esa.int/esasky/?target={{content['reg_info']['ra_deg']}} {{content['reg_info']['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0.4649968262252353&cooframe=J2000&sci=true&lang=en">coords ESASKY</a>
-mean intensity: {{ content['reg_info']['intensity_mean'] }}
-area: {{ content['reg_info']['area_bbox'] }}
-</pre>
-</div>
-<div class="col">
-<pre>
-<b>Event List Information:</b>
-Date      : {{ content['evt_info']['date'] }}
-object    : {{ content['evt_info']['object'] }}
-exposure  : {{ content['evt_info']['exposure'] }}
-N_events  : {{ content['evt_info']['N_events'] }}
-mean Rate : {{ content['evt_info']['mean_rate'] }}
-</pre>
-</div>
-<div class="col">
-<pre>
-<b>XMM DR14:</b>
-SRCID   : {{content['xmm_info']['SRCID']}}
-IAUNAME : {{content['xmm_info']['IAUNAME']}}
-RA      : {{content['xmm_info']['SC_RA']}}
-DEC     : {{content['xmm_info']['SC_DEC']}}
-{% if content['xmm_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP : {{content['xmm_info']['SEP_ARCSEC']}}"</span>{% endif %}
-N_DETECTIONS  : {{content['xmm_info']['N_DETECTIONS']}}
-0.2-12.0 Flux : {{content['xmm_info']['SC_EP_8_FLUX']}}
-0.5-4.5 Flux  : {{content['xmm_info']['SC_EP_9_FLUX']}}
-4.5-12.0 Flux : {{content['xmm_info']['SC_EP_5_FLUX']}}
-{% if content['xmm_info']['SC_VAR_FLAG']%}<span style="color:green;">SC_VAR_FLAG   : {{content['xmm_info']['SC_VAR_FLAG']}}</span>{% else %}<span style="color:red;">SC_VAR_FLAG   : {{content['xmm_info']['SC_VAR_FLAG']}}</span>{% endif %}
-<a href="http://xmm-catalog.irap.omp.eu/source/{{content['xmm_info']['SRCID']}}">[XMM CAT]</a>
-</pre>
-</div>
-<div class="col">
-<pre>
-<b>SIMBAD:</b>
-MAIN_ID : {{content['cmatch_info']['main_id']}}
-RA      : {{content['cmatch_info']['ra_deg']}}
-DEC     : {{content['cmatch_info']['dec_deg']}}
-{% if content['cmatch_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP     : {{content['cmatch_info']['SEP_ARCSEC']}}"</span>{% endif %}
-main_type   : {{content['cmatch_info']['main_type']}}
-other_types : {{content['cmatch_info']['other_types']}}
-nbref       : {{content['cmatch_info']['nbref']}}
-<a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['cmatch_info']['main_id']}}">[LINK]</a>
-</pre>
-</div>
-<div class="col">
-<pre>
-<b>GAIA:</b>
-DR3Name: {{content['cmatch_gaia_info']['DR3Name']}}
-RA     : {{content['cmatch_gaia_info']['RAdeg']}}
-DEC    : {{content['cmatch_gaia_info']['DEdeg']}}
-{% if content['cmatch_gaia_info']['SEP_ARCSEC'] < 10 %}<span style="color:green;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% else %}<span style="color:red;">SEP  : {{content['cmatch_gaia_info']['SEP_ARCSEC']}}"</span>{% endif %}
-Gmag   : {{content['cmatch_gaia_info']['Gmag']}} +- {{content['cmatch_gaia_info']['e_Gmag']}}
-Teff   : {{content['cmatch_gaia_info']['Teff']}}
-PGAL   : {{content['cmatch_gaia_info']['PGal']}}
-PQSO   : {{content['cmatch_gaia_info']['PQSO']}}
-DIST   : {{content['cmatch_gaia_info']['Dist']}}
-</pre>
-</div>
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Unique Region Info Box -->
+            <div class="card-body small">
+                <b>Unique Region Information:</b><br>
+                <table class="table table-bordered table-striped">
+                    <thead>
+                    <tr>
+                        <th>Unique ID</th>
+                        <th>RA (deg)</th>
+                        <th>Dec (deg)</th>
+                        <th>SIMBAD</th>
+                        <th>ESASKY</th>
+                        <th>Regs</th>
+                        <th>Obs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>{{ content['region_id'] }}</td>
+                        <td>{{ content['df_region_unique']['ra_deg'] | round(4) }}</td>
+                        <td>{{ content['df_region_unique']['dec_deg'] | round(4) }}</td>
+                        <td>
+                            <a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{content['df_region_unique']['ra_deg']}}+{{content['df_region_unique']['dec_deg']}}">SIMBAD</a>
+                        </td>
+                        <td>
+                            <a href="https://sky.esa.int/esasky/?target={{content['df_region_unique']['ra_deg']}} {{content['df_region_unique']['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0.4649968262252353&cooframe=J2000&sci=true&lang=en">ESASKY</a>
+                        </td>
+                        <td>{{ content['n_regions'] }}</td>
+                        <td>{{ content['n_obsids'] }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Observation Info Box -->
+            <div class="card-body small">
+                <b>Observation Info:</b><br>
+                <table class="table table-bordered table-striped">
+                    <thead>
+                    <tr>
+                        <th>obsid</th>
+                        <th>Date</th>
+                        <th>Object</th>
+                        <th class="text-end">Exposure</th>
+                        <th class="text-end">N events</th>
+                        <th class="text-end">Mean Rate</th>
+                        <th>LCs</th>
+                        <th>IMGs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for index, row in content['df_obs_info'].iterrows() %}
+                    <tr>
+                        <td><a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ row['obsid'] }}">{{ row['obsid']
+                            }}</a></td>
+                        <td>{{ row['date'] }}</td>
+                        <td>{{ row['object'] }}</td>
+                        <td class="text-end">{{ row['exposure'] }}</td>
+                        <td class="text-end">{{ row['N_events'] }}</td>
+                        <td class="text-end">{{ row['mean_rate'] }}</td>
+                        <td><a href="{{ url_for('observation_page', obsid=row['obsid']) }}">☺</a></td>
+                        <td><a href="{{ url_for('plot_detection_images', obsid=obsid) }}">☹</a></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- XMM DR14 Box -->
+            <div class="d-flex flex-wrap">
+                <div class="card-body small w-50">
+                    <b>XMM DR14:</b><br>
+                    <table class="table table-striped">
+                        <tbody>
+                        <tr>
+                            <th>SRCID</th>
+                            <td>
+                                <a href="http://xmm-catalog.irap.omp.eu/source/{{ content['cmatch_xmm_info']['SRCID'] }}">{{
+                                    content['cmatch_xmm_info']['SRCID']}}</a></td>
+                        </tr>
+                        <tr>
+                            <th>IAUNAME</th>
+                            <td>{{ content['cmatch_xmm_info']['IAUNAME'] }}</td>
+                        </tr>
+                        <tr>
+                            <th>RA (deg)</th>
+                            <td>{{ content['cmatch_xmm_info']['SC_RA'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <th>DEC (deg)</th>
+                            <td>{{ content['cmatch_xmm_info']['SC_DEC'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <th>SEP (")</th>
+                            <td>
+                                {% if content['cmatch_xmm_info']['SEP_ARCSEC'] < 10 %}
+                                <span style="color:green;">{{ content['cmatch_xmm_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% else %}
+                                <span style="color:red;">{{ content['cmatch_xmm_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>N detections</th>
+                            <td>{{ content['cmatch_xmm_info']['N_DETECTIONS'] }}</td>
+                        </tr>
+                        <tr>
+                            <th>0.2-12.0 Flux</th>
+                            <td>{{ '{:.2e}'.format(content['cmatch_xmm_info']['SC_EP_8_FLUX']) }}</td>
+                        </tr>
+                        <tr>
+                            <th>0.5-4.5 Flux</th>
+                            <td>{{ '{:.2e}'.format(content['cmatch_xmm_info']['SC_EP_9_FLUX'])}}</td>
+                        </tr>
+                        <tr>
+                            <th>4.5-12.0 Flux</th>
+                            <td>{{ '{:.2e}'.format(content['cmatch_xmm_info']['SC_EP_5_FLUX']) }}</td>
+                        </tr>
+                        <tr>
+                            <th>SC_VAR_FLAG</th>
+                            <td>
+                                {% if content['cmatch_xmm_info']['SC_VAR_FLAG'] %}
+                                <span style="color:green;">{{ content['cmatch_xmm_info']['SC_VAR_FLAG'] }}</span>
+                                {% else %}
+                                <span style="color:red;">{{ content['cmatch_xmm_info']['SC_VAR_FLAG'] }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- SIMBAD Box -->
+                <div class="card-body small w-50">
+                    <b>SIMBAD:</b><br>
+                    <table class="table table-striped">
+                        <tbody>
+                        <tr>
+                            <td>Main ID</td>
+                            <td>
+                                <a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{ content['cmatch_info']['main_id'] }}">{{
+                                    content['cmatch_info']['main_id'] }}</a></td>
+                        </tr>
+                        <tr>
+                            <td>RA</td>
+                            <td>{{ content['cmatch_info']['ra'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>DEC</td>
+                            <td>{{ content['cmatch_info']['dec'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>SEP</td>
+                            <td>
+                                {% if content['cmatch_info']['SEP_ARCSEC'] < 10 %}
+                                <span style="color:green;">{{ content['cmatch_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% else %}
+                                <span style="color:red;">{{ content['cmatch_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Main Type</td>
+                            <td>{{ content['cmatch_info']['main_type'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>Other Types</td>
+                            <td>{{ content['cmatch_info']['other_types'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>Refs</td>
+                            <td>{{ content['cmatch_info']['nbref'] | round(0) }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- GAIA Box -->
+                <div class="card-body small w-50">
+                    <b>GAIA:</b>
+                    <table class="table table-striped">
+                        <tr>
+                            <td>DR3Name</td>
+                            <td><a href="https://gea.esac.esa.int/archive/">{{ content['cmatch_gaia_info']['DR3Name']
+                                }}</a></td>
+                        </tr>
+                        <tr>
+                            <td>RA</td>
+                            <td>{{ content['cmatch_gaia_info']['RAdeg'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>DEC</td>
+                            <td>{{ content['cmatch_gaia_info']['DEdeg'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>SEP</td>
+                            <td>
+                                {% if content['cmatch_gaia_info']['SEP_ARCSEC'] < 10 %}
+                                <span style="color:green;">{{ content['cmatch_gaia_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% else %}
+                                <span style="color:red;">{{ content['cmatch_gaia_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Gmag</td>
+                            <td>{{ content['cmatch_gaia_info']['Gmag'] | round(1) }} ± {{
+                                content['cmatch_gaia_info']['e_Gmag'] | round(5) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Teff (K)</td>
+                            <td>{{ content['cmatch_gaia_info']['Teff'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>PGAL</td>
+                            <td>{{ content['cmatch_gaia_info']['PGal'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>PQSO</td>
+                            <td>{{ content['cmatch_gaia_info']['PQSO'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>DIST (pc)</td>
+                            <td>{{ content['cmatch_gaia_info']['Dist'] | round(1) }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <!-- GLADE Box -->
+                <div class="card-body small w-50">
+                    <b>GLADE:</b><br>
+                    <table class="table table-striped">
+                        <tr>
+                            <td>GLADE_no</td>
+                            <td>{{ content['cmatch_glade_info']['GLADE_no'] }}</td>
+                        </tr>
+                        <tr>
+                            <td>RA</td>
+                            <td>{{ content['cmatch_glade_info']['RA'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>DEC</td>
+                            <td>{{ content['cmatch_glade_info']['Dec'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>SEP</td>
+                            <td>
+                                {% if content['cmatch_glade_info']['SEP_ARCSEC'] < 10 %}
+                                <span style="color:green;">{{ content['cmatch_glade_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% else %}
+                                <span style="color:red;">{{ content['cmatch_glade_info']['SEP_ARCSEC'] | round(1) }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>d_L (Mpc)</td>
+                            <td>{{ content['cmatch_glade_info']['d_L'] | round(1) }}</td>
+                        </tr>
+                        <tr>
+                            <td>M*</td>
+                            <td>{{ content['cmatch_glade_info']['M*'] | round(1) }} ± {{
+                                content['cmatch_glade_info']['M*_err'] | round(1) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>z_cmb</td>
+                            <td>{{ content['cmatch_glade_info']['z_cmb'] | round(4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>z_helio</td>
+                            <td>{{ content['cmatch_glade_info']['z_helio'] | round (4) }}</td>
+                        </tr>
+                        <tr>
+                            <td>B (mag)</td>
+                            <td>{{ content['cmatch_glade_info']['B'] | round(2) }}</td>
+                        </tr>
+                    </table>
 
 
+                </div>
+            </div>
+        </div>
 
-<div class="row">
-<div class="col">
-<pre>
+        <!-- Aladin Lite box -->
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-6">
+                    <b>DSS2:</b>
+                    <div id="aladin-lite-div" style="width:100%;height:400px;"></div>
+                    <script type="text/javascript"
+                            src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js"
+                            charset="utf-8"></script>
+                    <script type="text/javascript">
+                        let aladin;
+                        A.init.then(() => {
+                            aladin = A.aladin('#aladin-lite-div',
+                            {survey: "P/DSS2/color",
+                            fov:0.1,
+                            cooFrame: 'equatorial',
+                            showCooGridControl: false,
+                            showSimbadPointerControl: true,
+                            showCooGrid: false,
+                            target: "{{ content['df_region_unique']['ra_deg'] }} {{ content['df_region_unique']['dec_deg'] }}"});
+                        });
+                    </script>
+                </div>
+                <div class="col-md-6">
+                    <b>XMM:</b>
+                    <div id="aladin-lite-div2" style="width:100%;height:400px;"></div>
+                    <script type="text/javascript"
+                            src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js"
+                            charset="utf-8"></script>
+                    <script type="text/javascript">
+                        let aladin2;
+                        A.init.then(() => {
+                            aladin2 = A.aladin('#aladin-lite-div2',
+                            {survey: "P/XMM/PN/color",
+                            fov:0.1,
+                            cooFrame: 'equatorial',
+                            showCooGridControl: false,
+                            showSimbadPointerControl: true,
+                            showCooGrid: false,
+                            target: "{{ content['df_region_unique']['ra_deg'] }} {{ content['df_region_unique']['dec_deg'] }}"});
+                        });
+                    </script>
+                </div>
+                <pre>
+<b>Combined Lightcurve:</b>
 <img src="data:image/png;base64,{{content['lc_one_plot']}}">
-{{render_lightcurves.render_lightcurves(content['lightcurves']) }}
-</pre>
+<b>Individual Lightcurves:</b>{{render_lightcurves.render_lightcurves(content['lightcurves']) }}</pre>
 </div>
 </div>
-
-<div class="col">
-<pre>
-<b>Runs and detections for obsid:{{content['obsid']}}:</b>
-<a href="{{ url_for('observation_page', obsid=content['obsid']) }}">View all Lightcurves for this observation</a>
-<a href="{{ url_for('plot_detection_images', obsid=content['obsid']) }}">View all Detection Images for observation</a>
-{% for i, row in content['run_info'].iterrows() %}
-    {{ row['runid'] }} : {{ row['n_regions'] }}{% endfor %}
-</pre>
 </div>
-<div class="col">
-<b>DSS2:</b>
-<div id="aladin-lite-div" style="width:600px;height:400px;"></div>
-<script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
-<script type="text/javascript">
-    let aladin;
-    A.init.then(() => {
-        aladin = A.aladin('#aladin-lite-div',
-        {survey: "P/DSS2/color",
-        fov:0.1,
-        cooFrame: 'equatorial',
-        target: 'NGC 1313',
-        showCooGridControl: false,
-        showSimbadPointerControl: true,
-        showCooGrid: false,
-        target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
-    });
-</script>
-</div>
-<div class="col">
-<b>XMM:</b>
-<div id="aladin-lite-div2" style="width:600px;height:400px;"></div>
-<script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
-<script type="text/javascript">
-    let aladin2;
-    A.init.then(() => {
-        aladin2 = A.aladin('#aladin-lite-div2',
-        {survey: "P/XMM/PN/color",
-        fov:0.1,
-        cooFrame: 'equatorial',
-        target: 'NGC 1313',
-        showCooGridControl: false,
-        showSimbadPointerControl: true,
-        showCooGrid: false,
-        target: "{{ content['reg_info']['ra_deg'] }} {{ content['reg_info']['dec_deg'] }}"});
-
-    });
-</script>
-</div>
-
-
-<a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">&lt; previous ({{ content['prev_id'] }})</a>
-<div style="text-align: right;">
-<a href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})&gt;</a>
 </div>
 </body>
 {% endblock %}

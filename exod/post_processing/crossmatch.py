@@ -161,11 +161,11 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
                         'GAIA DR3' : savepaths_combined['cmatch_gaia'],
                         'XMM OM'   : savepaths_combined['cmatch_om'],
                         'XMM DR14' : savepaths_combined['cmatch_dr14'],
-                        'GLADE'    : savepaths_combined['cmatch_glade']}
+                        'GLADE+'    : savepaths_combined['cmatch_glade']}
 
     dfs_cmatch = {}
     dfs_cmatch['XMM DR14'] = crossmatch_dr14_slim(df_regions_unique, clobber=clobber)
-    dfs_cmatch['GLADE'] = crossmatch_glade(df_regions_unique, clobber=clobber)
+    dfs_cmatch['GLADE+'] = crossmatch_glade(df_regions_unique, clobber=clobber)
 
     if not clobber:
         if all([savepath.exists() for savepath in savepaths_cmatch.values()]):
@@ -180,13 +180,13 @@ def crossmatch_unique_regions(df_regions_unique, max_sep_arcsec=20, clobber=True
     catalogs = {'SIMBAD'  : 'simbad',
                 'GAIA DR3': 'vizier:I/355/gaiadr3',
                 'XMM OM'  : 'vizier:II/378/xmmom6s'}
-                #'GLADE'   : 'vizier:VII/291/gladep'}
+                #'GLADE+'   : 'vizier:VII/291/gladep'}
                 # 'CHIME FRB': 'vizier:J/ApJS/257/59/table2',}
 
     catalogs_coord_cols = {'SIMBAD'   : {'ra': 'ra',      'dec': 'dec'},
                            'GAIA DR3' : {'ra': 'RAJ2000', 'dec': 'DEJ2000'},
                            'XMM OM'   : {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
-                           #'GLADE'    : {'ra': 'RA',      'dec': 'Dec'}, # Not in Vizier (for now)
+                           #'GLADE+'    : {'ra': 'RA',      'dec': 'Dec'}, # Not in Vizier (for now)
                            #'CHIME FRB': {'ra': 'RAJ2000', 'dec': 'DEJ2000'}}
 
     for k, cat in catalogs.items():
