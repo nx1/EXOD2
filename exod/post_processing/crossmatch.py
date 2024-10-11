@@ -36,23 +36,38 @@ def crossmatch_fits_table(fits_path, df_region, ra_col, dec_col):
     """
     tab_fits = Table.read(fits_path)
 
-    skycoord_xmm = SkyCoord(ra=tab_fits[ra_col], dec=tab_fits[dec_col], unit=u.deg, frame='fk5', equinox='J2000')
-    skycoord_reg = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
+    tab_fits_cmatch = crossmatch_astropy_table_with_regions(tab_fits, df_region, ra_col, dec_col)
+    return tab_fits_cmatch
 
-    cmatch = skycoord_reg.match_to_catalog_sky(skycoord_xmm)
+
+def crossmatch_astropy_table_with_regions(tab, df_region, ra_col, dec_col):
+    """
+    Crossmatch with an arbitrary Fits Table.
+
+    Parameters:
+        tab (astropy.Table): Astropy Table
+        df_region (pd.DataFrame): DataFrame containing the regions to crossmatch (must have ra_deg and dec_deg columns)
+        ra_col (str): Column name for the RA values in degrees
+        dec_col (str): Column name for the DEC values in in degrees.
+
+    Returns:
+        tab_fits_cmatch (astropy.Table): Table containing the crossmatched data.
+    """
+    sc1 = SkyCoord(ra=tab[ra_col], dec=tab[dec_col], unit=u.deg, frame='fk5', equinox='J2000')
+    sc2 = SkyCoord(ra=df_region['ra_deg'].values, dec=df_region['dec_deg'].values, unit='deg', frame='fk5', equinox='J2000')
+
+    cmatch = sc2.match_to_catalog_sky(sc1)
 
     tab_cmatch = Table(cmatch)
     tab_cmatch.rename_columns(names=tab_cmatch.colnames, new_names=['label', 'sep2d', 'dist3d'])
     tab_cmatch['sep2d_arcsec'] = tab_cmatch['sep2d'].to(u.arcsec)
-    tab_cmatch['idx_orig'] = np.arange(len(tab_cmatch))
+    tab_cmatch['idx_orig']     = np.arange(len(tab_cmatch))
+    df_region_matched = df_region.iloc[tab_cmatch['idx_orig']]
 
-    tab_fits_cmatch = tab_fits[tab_cmatch['label']]
-    tab_fits_cmatch['SEP_ARCSEC'] = tab_cmatch['sep2d_arcsec']
-
-    matched_reg = df_region.iloc[tab_cmatch['idx_orig']]
-
-    tab_fits_cmatch['RA_OFFSET'] = calc_ra_offset(ra_deg1=matched_reg['ra_deg'], ra_deg2=tab_fits_cmatch[ra_col], dec_deg1=matched_reg['dec_deg'])
-    tab_fits_cmatch['DEC_OFFSET'] = calc_dec_offset(dec_deg1=matched_reg['dec_deg'], dec_deg2=tab_fits_cmatch[dec_col])
+    tab_fits_cmatch = tab[tab_cmatch['label']]
+    tab_fits_cmatch['SEP_ARCSEC']   = tab_cmatch['sep2d_arcsec']
+    tab_fits_cmatch['RA_OFFSET']    = calc_ra_offset(ra_deg1=df_region_matched['ra_deg'], ra_deg2=tab_fits_cmatch[ra_col], dec_deg1=df_region_matched['dec_deg'])
+    tab_fits_cmatch['DEC_OFFSET']   = calc_dec_offset(dec_deg1=df_region_matched['dec_deg'], dec_deg2=tab_fits_cmatch[dec_col])
     tab_fits_cmatch['IDX_ORIGINAL'] = tab_cmatch['idx_orig']
     return tab_fits_cmatch
 
