@@ -34,13 +34,13 @@ def plot_lc(df_lc, label):
     return lightcurve_data_url
 
 
-def create_iau_srcids(ra_deg, dec_deg):
+def create_iau_srcids(ra_deg, dec_deg, ra_precision=1, dec_precision=0):
     """Create Source Identifiers from coordinates in degrees (IAU name)."""
     sc = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg')
     srcids = []
     for s in sc:
-        ra   = s.ra.to_string(unit=u.hour, sep='', precision=2, pad=True)
-        dec  = s.dec.to_string(sep='', precision=2, alwayssign=True, pad=True)
+        ra   = s.ra.to_string(unit=u.hour, sep='', precision=ra_precision, pad=True)
+        dec  = s.dec.to_string(sep='', precision=dec_precision, alwayssign=True, pad=True)
         name = f"EXOD J{ra}{dec}"
         srcids.append(name)
     return srcids
@@ -66,6 +66,7 @@ class ResultsManager:
         self.calc_subsets()
         self.calc_flags()
         self.df_regions = self.decode_runids(self.df_regions)
+        self.get_unique_region_iau_srcids()
 
     def load_results(self):
         self.df_dl            = pd.read_csv(savepaths_combined['dl_info'])
@@ -98,6 +99,8 @@ class ResultsManager:
         self.df_regions['sigma_max_B_eclipse'] = self.df_lc_features['sigma_max_B_eclipse']
         self.df_regions['DR14_SEP_ARCSEC']     = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SEP_ARCSEC'])
         self.df_regions['SIMBAD_SEP_ARCSEC']   = self.df_regions['cluster_label'].map(self.df_cmatch_simbad['SEP_ARCSEC'])
+        self.df_regions['SC_VAR_FLAG']   = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SC_VAR_FLAG'])
+
         filters = get_filters()
         valid_combinations = generate_valid_combinations(*filters)
         sm = SubsetManager()
@@ -114,6 +117,10 @@ class ResultsManager:
         df[['obsid', 'obsid_subset', 't_bin', 'E_lo', 'E_hi']] = df['runid'].str.split('_', expand=True)
         df = df.astype({'t_bin': 'float', 'E_lo': 'float', 'E_hi': 'float'})
         return df
+
+    def get_unique_region_iau_srcids(self):
+        iau_names = create_iau_srcids(self.df_regions_unique['ra_deg'], self.df_regions_unique['dec_deg'])
+        self.df_regions_unique['iau_name'] = iau_names
 
     def get_flags(self, region_id):
         lc_feat = self.df_lc_features.iloc[region_id]
@@ -151,7 +158,7 @@ class ResultsManager:
             'next_id'           : unique_region_id + 1,
             'prev_id'           : unique_region_id - 1,
             'n_regions'         : len(region_ids),
-            'df_obs_info'      : df_obs_info,
+            'df_obs_info'       : df_obs_info,
             'cmatch_info'       : cmatch_simbad_info,
             'cmatch_gaia_info'  : cmatch_gaia_info,
             'cmatch_om_info'    : cmatch_om_info,
@@ -182,12 +189,13 @@ class ResultsManager:
 
     def get_otype_summary(self, otype):
         df_cmatch_simbad_otype = self.df_cmatch_simbad[self.df_cmatch_simbad['main_type'] == otype]
-        df_cmatch_gaia_otype   = self.df_cmatch_gaia.loc[df_cmatch_simbad_otype.index]
-        df_cmatch_om_otype     = self.df_cmatch_om.loc[df_cmatch_simbad_otype.index]
-        df_cmatch_xmm_otype    = self.df_cmatch_xmm.loc[df_cmatch_simbad_otype.index]
+        unique_region_ids      = df_cmatch_simbad_otype.index
+        df_cmatch_gaia_otype   = self.df_cmatch_gaia.loc[unique_region_ids]
+        df_cmatch_om_otype     = self.df_cmatch_om.loc[unique_region_ids]
+        df_cmatch_xmm_otype    = self.df_cmatch_xmm.loc[unique_region_ids]
 
-        region_ids = [self.df_regions_unique.iloc[i]['idxs'] for i in df_cmatch_simbad_otype.index]
-        lcs_one_plot = [self.plot_lcs_one_plot(reg_ids) for reg_ids in region_ids]
+        region_ids = [self.df_regions_unique.iloc[i]['idxs'] for i in unique_region_ids]
+        lcs_one_plot = [{'unique_region_id': unique_region_id, 'data_url':self.plot_lcs_one_plot(reg_ids)} for unique_region_id, reg_ids in zip(unique_region_ids, region_ids)]
 
         # Unpack list of lists.
         # region_ids = [idx for sublist in region_ids for idx in sublist]
@@ -321,7 +329,8 @@ class ResultsManager:
                     continue
 
                 ax[i].step(df_lc_sub['t0_shifted'], df_lc_sub['n'], lw=1.0,
-                           label=fr'$t_{{bin}}$={t_bin}s E = {E_lo}-{E_hi} keV', color=colors.get(f'{E_lo}_{E_hi}'))
+                           label=fr'$t_{{bin}}$={t_bin}s E = {E_lo}-{E_hi} keV',
+                           color=colors.get(f'{E_lo}_{E_hi}'))
 
             ax[i].legend()
 

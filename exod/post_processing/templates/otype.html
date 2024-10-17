@@ -55,7 +55,7 @@
                 </table>
            <h2>One Plot Lightcurves</h2>
            {% for lc in content['lcs_one_plot'] %}
-           <img src="data:image/png;base64,{{ lc }}">
+           <a href="{{ url_for('region_summary', region_id=lc['unique_region_id']) }}"><img src="data:image/png;base64,{{ lc['data_url'] }}"></a>
            {% endfor %}
            </div>
        </div>
