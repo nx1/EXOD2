@@ -2,8 +2,8 @@
 {% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
 <body>
-    <h2> Lightcurves for otype: {{ content['otype'] }}</h2>
     <div class="container">
+    <h2> Combined lightcurves SIMBAD for otype: {{ content['otype'] }}</h2>
        <div class="row">
            <div class="col-auto" style="width: 25%;">
                <table class="table table-sm">
@@ -25,7 +25,7 @@
            </div>
            <div class="col-auto" style="width: 75%;">
            <h2> Unique Regions with SIMBAD Crossmatch</h2>
-               <table border="1">
+               <table class='table table-sm table-hover' border="1">
                     <thead>
                         <tr>
                             <th>Main ID</th>

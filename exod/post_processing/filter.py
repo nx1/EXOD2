@@ -235,6 +235,7 @@ class FilterLcLength(FilterBase):
         self.df_removed  = self.df[~mask]
         return self.df_filtered
 
+
 class FilterCmatchSeperation(FilterBase):
     def __init__(self, name, max_sep, direction='lower', sep_col='SEP_ARCSEC'):
         super().__init__(name)
@@ -257,6 +258,21 @@ class FilterCmatchSeperation(FilterBase):
         
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
+
+class FilterCmatchDR14Variable(FilterBase):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def get_parameters(self):
+        return {'Variable': True}
+
+    def apply(self, df_cmatch):
+        self.df = df_cmatch
+        mask = ~df_cmatch['SC_VAR_FLAG']
+        self.df_filtered = self.df[mask]
+        self.df_removed = self.df[~mask]
         return self.df_filtered
 
 
@@ -338,4 +354,3 @@ if __name__ == "__main__":
         df = df_regions.copy()
         df = f.apply(df)
         print(f.info())
-

@@ -2,21 +2,29 @@
 {% extends "base.html" %}
 {% block content %}
 <body>
-    <h2>Subset Browser</h2>
-    <div class="container">
-        <div class="row header">
-            <div class="col">Subset Name</div>
-            <div class="col">Regions</div>
-            <div class="col">Unique</div>
-        </div>
-        {% for subset in subsets %}
-        <div class="row">
-            <div class="col"><a href={{ url_for('show_subset', subset_num=subset.id) }}>{{ subset.name }}</a></div>
-            <div class="col">{{ subset.n_reg }}</div>
-            <div class="col">{{ subset.n_unique }}</div>
-        </div>
-        {% endfor %}
-    </div>
+<div class="container">
+<h2>Subset Browser</h2>
+<p>This page contains links to various detection subsets from EXOD, they can be useful
+in searching for specific types of sources.</p>
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Subset Name</th>
+                <th>Regions</th>
+                <th>Unique</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for subset in subsets %}
+            <tr>
+                <td><a href="{{ url_for('show_subset', subset_num=subset.id) }}">{{ subset.name }}</a></td>
+                <td>{{ subset.n_reg }}</td>
+                <td>{{ subset.n_unique }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 </body>
 {% endblock %}
 

@@ -16,8 +16,8 @@ app = Flask(__name__, static_folder=data, static_url_path='/static')
 
 @app.route('/')
 def main_page():
-    content = {}
-    return render_template("obs_list.html", content=content)
+    content = rm.get_homepage_summary()
+    return render_template("homepage.html", content=content)
 
 
 @app.route('/region/<region_id>')

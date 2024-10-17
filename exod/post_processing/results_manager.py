@@ -375,6 +375,10 @@ class ResultsManager:
         content = {'lightcurves': lightcurves, 'subset': subset}
         return content
 
+    def get_homepage_summary(self):
+        content = {'savepaths_combined':savepaths_combined}
+        return content
+
 
 if __name__ == "__main__":
     rm = ResultsManager()

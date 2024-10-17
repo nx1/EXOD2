@@ -2,25 +2,27 @@
 {% import "render_lightcurves.html" as render_lightcurves %}
 {% block content %}
 <body>
+<div class="container">
 <h2>Obsid Summary - <a href="https://nxsa.esac.esa.int/nxsa-web/#obsid={{ content['obsid'] }}">{{ content['obsid'] }}</h2></a>
-Date: {{content['evt_info']['date']}} |
-Object: {{content['evt_info']['object']}} |
-Exposure: {{content['evt_info']['exposure']}} |
+<table class="table table-sm">
+<thead>
+<tr>
+<th>Index</th>
+<th>Event Information</th>
+</tr>
+</thead>
+<tbody>
+{% for i, row in content['evt_info'].items() %}
+<tr>
+<td>{{ i }}</td>
+<td>{{ row }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
 <pre>
 {{render_lightcurves.render_lightcurves(content['lightcurves']) }}
 </pre>
-
-<h2>Detected Regions:</h2>
-{{content['tab_regions_obs'] | safe}}
-<script>
-    $(document).ready( function () {
-        $('#myTable').DataTable({
-            "pageLength": 500,
-            scrollCollapse: true,
-            scroller: true,
-            scrollY:500
-        });
-    } );
-</script>
 </body>
+</div>
 {% endblock %}

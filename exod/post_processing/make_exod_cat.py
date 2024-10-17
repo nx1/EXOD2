@@ -35,7 +35,7 @@ def make_exod_catalogues():
     dfs_cmatch = crossmatch_unique_regions(df_regions_unique.reset_index(), clobber=False)
 
     df_regions_unique['region_num'] = df_regions_unique.index.values
-    df_regions_unique['srcid'] = create_iau_srcids(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'])
+    df_regions_unique['srcid'] = create_iau_srcids(ra_deg=df_regions_unique['ra_deg'], dec_deg=df_regions_unique['dec_deg'], ra_precision=2, dec_precision=2)
 
     assert len(df_regions_unique['srcid'].unique()) == len(df_regions_unique)
 

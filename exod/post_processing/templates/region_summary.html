@@ -10,7 +10,7 @@
     </style>
 </head>
 <body>
-<h2>Unique Region Summary | unique_id={{ content['region_id'] }}</h2>
+    <h2>Unique Region Summary | unique_id={{ content['region_id'] }} | {{content['df_region_unique']['iau_name']}}</h2>
 <a href="{{ url_for('region_summary', region_id=content['prev_id']) }}">previous ({{ content['prev_id'] }})</a> <a
         href="{{ url_for('region_summary', region_id=content['next_id']) }}">next ({{ content['next_id'] }})</a>
 <div class="container-fluid">
@@ -153,21 +153,19 @@
                     <table class="table table-striped">
                         <tbody>
                         <tr>
-                            <td>Main ID</td>
-                            <td>
-                                <a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{ content['cmatch_info']['main_id'] }}">{{
-                                    content['cmatch_info']['main_id'] }}</a></td>
+                            <th>Main ID</th>
+                            <td><a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{ content['cmatch_info']['main_id'] }}">{{ content['cmatch_info']['main_id'] }}</a></td>
                         </tr>
                         <tr>
-                            <td>RA</td>
+                            <th>RA</th>
                             <td>{{ content['cmatch_info']['ra'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>DEC</td>
+                            <th>DEC</th>
                             <td>{{ content['cmatch_info']['dec'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>SEP</td>
+                            <th>SEP</th>
                             <td>
                                 {% if content['cmatch_info']['SEP_ARCSEC'] < 10 %}
                                 <span style="color:green;">{{ content['cmatch_info']['SEP_ARCSEC'] | round(1) }}</span>
@@ -177,15 +175,15 @@
                             </td>
                         </tr>
                         <tr>
-                            <td>Main Type</td>
+                            <th>Main Type</th>
                             <td>{{ content['cmatch_info']['main_type'] }}</td>
                         </tr>
                         <tr>
-                            <td>Other Types</td>
+                            <th>Other Types</th>
                             <td>{{ content['cmatch_info']['other_types'] }}</td>
                         </tr>
                         <tr>
-                            <td>Refs</td>
+                            <th>Refs</th>
                             <td>{{ content['cmatch_info']['nbref'] | round(0) }}</td>
                         </tr>
                         </tbody>
@@ -197,20 +195,19 @@
                     <b>GAIA:</b>
                     <table class="table table-striped">
                         <tr>
-                            <td>DR3Name</td>
-                            <td><a href="https://gea.esac.esa.int/archive/">{{ content['cmatch_gaia_info']['DR3Name']
-                                }}</a></td>
+                            <th>DR3Name</th>
+                            <td><a href="https://gea.esac.esa.int/archive/">{{ content['cmatch_gaia_info']['DR3Name'] }}</a></td>
                         </tr>
                         <tr>
-                            <td>RA</td>
+                            <th>RA</th>
                             <td>{{ content['cmatch_gaia_info']['RAdeg'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>DEC</td>
+                            <th>DEC</th>
                             <td>{{ content['cmatch_gaia_info']['DEdeg'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>SEP</td>
+                            <th>SEP</th>
                             <td>
                                 {% if content['cmatch_gaia_info']['SEP_ARCSEC'] < 10 %}
                                 <span style="color:green;">{{ content['cmatch_gaia_info']['SEP_ARCSEC'] | round(1) }}</span>
@@ -220,25 +217,25 @@
                             </td>
                         </tr>
                         <tr>
-                            <td>Gmag</td>
+                            <th>Gmag</th>
                             <td>{{ content['cmatch_gaia_info']['Gmag'] | round(1) }} ± {{
                                 content['cmatch_gaia_info']['e_Gmag'] | round(5) }}
                             </td>
                         </tr>
                         <tr>
-                            <td>Teff (K)</td>
+                            <th>Teff (K)</th>
                             <td>{{ content['cmatch_gaia_info']['Teff'] }}</td>
                         </tr>
                         <tr>
-                            <td>PGAL</td>
+                            <th>PGAL</th>
                             <td>{{ content['cmatch_gaia_info']['PGal'] }}</td>
                         </tr>
                         <tr>
-                            <td>PQSO</td>
+                            <th>PQSO</th>
                             <td>{{ content['cmatch_gaia_info']['PQSO'] }}</td>
                         </tr>
                         <tr>
-                            <td>DIST (pc)</td>
+                            <th>DIST (pc)</th>
                             <td>{{ content['cmatch_gaia_info']['Dist'] | round(1) }}</td>
                         </tr>
                     </table>
@@ -248,19 +245,19 @@
                     <b>GLADE:</b><br>
                     <table class="table table-striped">
                         <tr>
-                            <td>GLADE_no</td>
+                            <th>GLADE_no</th>
                             <td>{{ content['cmatch_glade_info']['GLADE_no'] }}</td>
                         </tr>
                         <tr>
-                            <td>RA</td>
+                            <th>RA</th>
                             <td>{{ content['cmatch_glade_info']['RA'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>DEC</td>
+                            <th>DEC</th>
                             <td>{{ content['cmatch_glade_info']['Dec'] | round(4) }}</td>
                         </tr>
                         <tr>
-                            <td>SEP</td>
+                            <th>SEP</th>
                             <td>
                                 {% if content['cmatch_glade_info']['SEP_ARCSEC'] < 10 %}
                                 <span style="color:green;">{{ content['cmatch_glade_info']['SEP_ARCSEC'] | round(1) }}</span>
@@ -270,17 +267,17 @@
                             </td>
                         </tr>
                         <tr>
-                            <td>d_L (Mpc)</td>
+                            <th>d_L (Mpc)</th>
                             <td>{{ content['cmatch_glade_info']['d_L'] | round(1) }}</td>
                         </tr>
                         <tr>
-                            <td>M*</td>
+                            <th>M* (10^10 M_sol)</th>
                             <td>{{ content['cmatch_glade_info']['M*'] | round(1) }} ± {{
                                 content['cmatch_glade_info']['M*_err'] | round(1) }}
                             </td>
                         </tr>
                         <tr>
-                            <td>z_cmb</td>
+                            <th>z_cmb</th>
                             <td>{{ content['cmatch_glade_info']['z_cmb'] | round(4) }}</td>
                         </tr>
                         <tr>

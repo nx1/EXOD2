@@ -39,14 +39,18 @@ if __name__ == "__main__":
             N_extras_sources_with_cmatch    = len(np.unique(tab_cmatch_matches['SRCID']))
             N_exod_sources_without_cmatch   = len(np.unique(df_regions_no_matches['cluster_label']))
             N_extras_sources_without_cmatch = len(np.unique(tab_cmatch_no_matches['SRCID']))
+            
+            perc_exod_sources_with_cmatch      = (N_exod_sources_with_cmatch      / N_exod_sources_in_overlapping_obsids) * 100
+            perc_extras_sources_with_cmatch    = (N_extras_sources_with_cmatch    / N_extras_sources_in_overlapping_obsids) * 100
+            perc_exod_sources_without_cmatch   = (N_exod_sources_without_cmatch   / N_exod_sources_in_overlapping_obsids) * 100
+            perc_extras_sources_without_cmatch = (N_extras_sources_without_cmatch / N_extras_sources_in_overlapping_obsids) * 100
 
             print(f'Combination: exod={k} extras={k2}')
             print(f'Number of overlapping obsids                      = {len(obsid_overlapping):,}')
             print(f'Number of exod sources in overlapping obsids      = {N_exod_sources_in_overlapping_obsids:,}')
             print(f'Number of extras sources in overlapping obsids    = {N_extras_sources_in_overlapping_obsids:,}')
-            print(f'Number of exod sources with crossmatch            = {N_exod_sources_with_cmatch:,}')
-            print(f'Number of extras sources with crossmatch          = {N_extras_sources_with_cmatch:,}')
-            print(f'Number of exod sources without crossmatch         = {N_exod_sources_without_cmatch:,}')
-            print(f'Number of extras without crossmatch               = {N_extras_sources_without_cmatch:,}')
-
+            print(f'Number of exod sources with crossmatch            = {N_exod_sources_with_cmatch:,} ({perc_exod_sources_with_cmatch:.2f}%)')
+            print(f'Number of extras sources with crossmatch          = {N_extras_sources_with_cmatch:,} ({perc_extras_sources_with_cmatch:.2f}%)')
+            print(f'Number of exod sources without crossmatch         = {N_exod_sources_without_cmatch:,} ({perc_exod_sources_without_cmatch:.2f}%)')
+            print(f'Number of extras without crossmatch               = {N_extras_sources_without_cmatch:,} ({perc_extras_sources_without_cmatch:.2f}%)')
             print('\n')

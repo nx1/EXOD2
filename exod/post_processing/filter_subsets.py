@@ -69,8 +69,10 @@ def get_filters():
                       FilterCmatchSeperation('SIMBAD < 40"', max_sep=40, direction='lower',    sep_col='SIMBAD_SEP_ARCSEC'),
                       FilterCmatchSeperation('DR14 > 40"',   max_sep=40, direction='greater',  sep_col='DR14_SEP_ARCSEC'),
                       FilterCmatchSeperation('SIMBAD > 40"', max_sep=40, direction='greater',  sep_col='SIMBAD_SEP_ARCSEC')]
+
+    filters_var_flag = [FilterCmatchDR14Variable('SC_VAR_FLAG=False')]
     
-    filters = [filters_energy, filters_time, filters_sigma, filters_cmatch]
+    filters = [filters_energy, filters_time, filters_sigma, filters_cmatch, filters_var_flag]
     return filters
 
 
@@ -91,19 +93,21 @@ def get_filters_param_grid():
 
 if __name__ == "__main__":
     df_lc_features    = pd.read_csv(savepaths_combined['lc_features'])
-    df_cmatch_dr14    = pd.read_csv(savepaths_combined['cmatch_dr14'])
+    df_cmatch_xmm     = pd.read_csv(savepaths_combined['cmatch_dr14'])
     df_cmatch_simbad  = pd.read_csv(savepaths_combined['cmatch_simbad'])
     df_regions        = pd.read_csv(savepaths_combined['regions'])
     cluster_regions   = ClusterRegions(df_regions)
 
-    print(len(df_lc_features), len(df_cmatch_dr14), len(df_cmatch_simbad), len(df_regions))
+    print(len(df_lc_features), len(df_cmatch_xmm), len(df_cmatch_simbad), len(df_regions))
     df_regions['sigma_max_B_peak']    = df_lc_features['sigma_max_B_peak']
     df_regions['sigma_max_B_eclipse'] = df_lc_features['sigma_max_B_eclipse']
-    df_regions['DR14_SEP_ARCSEC']     = df_regions['cluster_label'].map(df_cmatch_dr14['SEP_ARCSEC'])
+    df_regions['DR14_SEP_ARCSEC']     = df_regions['cluster_label'].map(df_cmatch_xmm['SEP_ARCSEC'])
     df_regions['SIMBAD_SEP_ARCSEC']   = df_regions['cluster_label'].map(df_cmatch_simbad['SEP_ARCSEC'])
+    df_regions['SC_VAR_FLAG']         = df_regions['cluster_label'].map(df_cmatch_xmm['SC_VAR_FLAG'])
 
-    # filters = get_filters()
-    filters = get_filters_param_grid()
+    filters = get_filters()
+    #filters = get_filters_param_grid()
+
     valid_combinations = generate_valid_combinations(*filters)
     sm = SubsetManager()
     sm.add_subsets([Subset(f, df_regions) for f in valid_combinations])

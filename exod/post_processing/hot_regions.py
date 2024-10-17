@@ -200,8 +200,8 @@ def calc_hot_region_flags(df_regions, df_regions_rotated, hot_regions):
     mask_hot_pixels = np.logical_or.reduce(all_masks)
 
     filt_hot_pixel  = np.isin(df_regions['detid'], df_regions_rotated[mask_hot_pixels]['detid'])
+    
     return filt_hot_pixel
-
 
 if __name__ == "__main__":
     df_regions = pd.read_csv(savepaths_combined['regions'])
@@ -210,7 +210,3 @@ if __name__ == "__main__":
     plot_detector_coords_soft_and_hard(df_regions_rotated)
     plot_regions_detector_coords(df_regions_rotated)
     plot_hot_regions(df_regions_rotated, hot_regions)
-    calc_hot_region_flags(df_regions, df_regions_rotated, hot_regions)
-
-
-

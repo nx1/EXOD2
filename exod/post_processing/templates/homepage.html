@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "render_lightcurves.html" as render_lightcurves %}
+{% block content %}
+
+<div class="container">
+<h1>EXOD (XMM-Newton X-ray Outburst Detector)</h1>
+<h2>Introduction</h2>
+<p>
+EXOD is an algorithm designed for the detection of rapid X-ray transients in
+photon counting data. 
+</p>
+
+<p>
+The EXOD catalogue was compiled from 15,105 XMM-Newton observations spanning from 2001-08-19 to 2023-11-16.
+</p>
+
+<p>
+The data on this website contains the results from the output of EXOD over 3 different time binnings:
+
+5s, 50s, 200s and 3 different energy bands 0.2-2.0 keV (soft) 2.0 - 12.0 keV (hard) and 0.2 - 12.0 keV (full).
+</p>
+
+<p>
+<b>Please note that due to the dynamic nature of the loading of data on this website, some pages my
+take a while to load, please be patient.</b>
+</p>
+    
+<p>
+If you use the EXOD catalogue in your research and publish results, please
+acknowledge the catalogue and cite the relevant paper:
+</p>
+    
+<blockquote>
+<p><em>This research has made use of data from the EXOD source catalogue (Khan et al. 2024)</em></p>
+</blockquote>
+
+<h2>External Links</h2>
+<ul>
+<li><a href="https://github.com/nx1/EXOD2">EXOD on GitHub</a>
+<li><a href="https://exod2.readthedocs.io/en/latest/">EXOD Documentation</a>
+<li><a href="http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR14/4XMM_DR14.html">4XMM-DR14</a>
+<li><a href="https://xcatdb.unistra.fr/4xmmdr14/index.html">XCAT-DB at the SSC institute, Observatoire Astronomique, Strasbourg</a>
+<li><a href="http://nxsa.esac.esa.int/nxsa-web/#search">XSA at ESA's XMM-Newton SOC</a>
+<li><a href="http://xmm-catalog.irap.omp.eu/">The IRAP catalogue server </a>
+<li><a href="http://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl">Browse at HEASARC NASA GSFC</a>
+</ul>
+
+<h2>Data Products</h2>
+<table class='table table-hover'>
+    <thead>
+        <tr>
+            <th>Product Name</th>
+            <th>File Name</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product_name, file_info in content['savepaths_combined'].items() %}
+        <tr>
+            <td>{{ product_name }}</td>
+            <td>{{ file_info.name }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Questions and Queries</h2>
+For further questions, please contact Norman Khan or Erwan Quintin.
+
+<h2>Acknowledgements</h2>
+This project has received funding from the European
+Union’s Horizon 2020 research and innovation programme under grant agreement
+number 101004168, the XMM2ATHENA project.
+
+This research has made use of data obtained from the 4XMM XMM-Newton serendipitous source catalogue compiled by the 10 institutes of
+the XMM-Newton Survey Science Centre selected by ESA. This research has
+also made use of the SIMBAD database, operated at CDS, Strasbourg, France.
+<hr>
+<p>Last Updated: 17-October-2024</p>
+</div>
+
+{% endblock %}
+
