@@ -26,19 +26,21 @@ if __name__ == "__main__":
 
             tab_cmatch = crossmatch_astropy_table_with_regions(tab_extras_overlapping, df_regions_overlapping, 'RA', 'DEC')
             MAX_SEP = 20
-            tab_cmatch_matches    = tab_cmatch[tab_cmatch['SEP_ARCSEC'] < MAX_SEP]
-            tab_cmatch_no_matches = tab_cmatch[~(tab_cmatch['SEP_ARCSEC'] < MAX_SEP)]
+            mask = tab_cmatch['SEP_ARCSEC'] < MAX_SEP
+            tab_cmatch_matches    = tab_cmatch[mask]
+            tab_cmatch_no_matches = tab_cmatch[~mask]
 
             df_regions_matches    = df_regions_overlapping.iloc[tab_cmatch_matches['IDX_ORIGINAL']]
             df_regions_no_matches = df_regions_overlapping.iloc[tab_cmatch_no_matches['IDX_ORIGINAL']]
 
-            N_exod_sources_in_overlapping_obsids    = len(np.unique(df_regions_overlapping['cluster_label']))
-            N_extras_sources_in_overlapping_obsids  = len(np.unique(tab_extras_overlapping['SRCID']))
+            N_exod_sources_in_overlapping_obsids   = len(np.unique(df_regions_overlapping['cluster_label']))
+            N_extras_sources_in_overlapping_obsids = len(np.unique(tab_extras_overlapping['SRCID']))
 
             N_exod_sources_with_cmatch      = len(np.unique(df_regions_matches['cluster_label']))
+            N_exod_sources_without_cmatch   = N_exod_sources_in_overlapping_obsids - N_exod_sources_with_cmatch 
+
             N_extras_sources_with_cmatch    = len(np.unique(tab_cmatch_matches['SRCID']))
-            N_exod_sources_without_cmatch   = len(np.unique(df_regions_no_matches['cluster_label']))
-            N_extras_sources_without_cmatch = len(np.unique(tab_cmatch_no_matches['SRCID']))
+            N_extras_sources_without_cmatch = N_extras_sources_in_overlapping_obsids - N_extras_sources_with_cmatch 
             
             perc_exod_sources_with_cmatch      = (N_exod_sources_with_cmatch      / N_exod_sources_in_overlapping_obsids) * 100
             perc_extras_sources_with_cmatch    = (N_extras_sources_with_cmatch    / N_extras_sources_in_overlapping_obsids) * 100
@@ -50,7 +52,8 @@ if __name__ == "__main__":
             print(f'Number of exod sources in overlapping obsids      = {N_exod_sources_in_overlapping_obsids:,}')
             print(f'Number of extras sources in overlapping obsids    = {N_extras_sources_in_overlapping_obsids:,}')
             print(f'Number of exod sources with crossmatch            = {N_exod_sources_with_cmatch:,} ({perc_exod_sources_with_cmatch:.2f}%)')
-            print(f'Number of extras sources with crossmatch          = {N_extras_sources_with_cmatch:,} ({perc_extras_sources_with_cmatch:.2f}%)')
             print(f'Number of exod sources without crossmatch         = {N_exod_sources_without_cmatch:,} ({perc_exod_sources_without_cmatch:.2f}%)')
+            print(f'Number of extras sources with crossmatch          = {N_extras_sources_with_cmatch:,} ({perc_extras_sources_with_cmatch:.2f}%)')
             print(f'Number of extras without crossmatch               = {N_extras_sources_without_cmatch:,} ({perc_extras_sources_without_cmatch:.2f}%)')
             print('\n')
+
