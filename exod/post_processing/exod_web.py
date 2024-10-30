@@ -19,12 +19,10 @@ def main_page():
     content = rm.get_homepage_summary()
     return render_template("homepage.html", content=content)
 
-
 @app.route('/region/<region_id>')
 def region_summary(region_id):
     content = rm.get_unique_region_summary(region_id)
     return render_template('region_summary.html', content=content)
-
 
 @app.route('/otype/<otype>')
 def otype(otype):
@@ -36,17 +34,14 @@ def chime():
     content = rm.get_chime_summary()
     return render_template('chime.html', content=content)
 
-
 @app.route('/obs/<obsid>')
 def observation_page(obsid):
     content = rm.get_observation_summary(obsid)
     return render_template('observation_page.html', content=content)
 
-
 @app.route('/subsets')
 def subsets():
     return render_template('subsets.html', subsets=rm.subset_manager.subsets)
-
 
 @app.route('/subsets/<subset_num>')
 def show_subset(subset_num):
@@ -55,15 +50,7 @@ def show_subset(subset_num):
 
 @app.route('/img/<obsid>')
 def plot_detection_images(obsid):
-    figs = plot_images(obsid, rm.df_regions)
-    images = []
-    for fig in figs:
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
-        data_url = base64.b64encode(buf.read()).decode('ascii')
-        images.append(data_url)
-    content = {'images' : images}
+    content = rm.get_observation_image_summary(obsid)
     return render_template('plot_detection_images.html', content=content)
 
 @app.route('/ds9/<obsid>/<region_id>')
@@ -74,4 +61,4 @@ def show_ds9(obsid, region_id):
     view_obs_images(obsid=obsid, ra=ra, dec=dec)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

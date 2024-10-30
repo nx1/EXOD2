@@ -6,11 +6,13 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from matplotlib import pyplot as plt
 
+from exod.utils.path import savepaths_combined
+from exod.utils.plotting import plot_event_list_ccds
+from exod.xmm.observation import Observation
 from exod.post_processing.crossmatch_runs import get_run_subset_keys
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
 from exod.post_processing.hot_regions import rotate_regions_to_detector_coords, calc_hot_region_flags, hot_regions
 from exod.post_processing.util import calc_detid_column
-from exod.utils.path import savepaths_combined
 from exod.post_processing.cluster_regions import ClusterRegions
 from exod.post_processing.filter_subsets import SubsetManager, get_filters, generate_valid_combinations, Subset
 import pandas as pd
@@ -363,6 +365,24 @@ class ResultsManager:
                    'evt_info': evt_info,
                    'run_info': run_info,
                    'lightcurves': lightcurves}
+        return content
+
+    def get_observation_image_summary(self, obsid):
+        obs = Observation(obsid)
+        obs.download_events()
+        obs.get_files()
+        images = []
+        for evt in obs.events_processed:
+            print(f'Plotting ccds for {evt}')
+            evt.read()
+            fig = plot_event_list_ccds(evt.data)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png')
+            buf.seek(0)
+            data_url = base64.b64encode(buf.read()).decode('ascii')
+            images.append(data_url)
+
+        content = {'images': images}
         return content
 
     def get_subset_summary(self, subset_num):
