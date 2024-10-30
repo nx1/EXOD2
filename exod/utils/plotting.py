@@ -13,6 +13,7 @@ from exod.utils.logger import logger
 
 
 def use_scienceplots():
+    """Use the scienceplots module for matplotlib plots."""
     try:
         import scienceplots
         plt.style.use('science')
@@ -20,17 +21,20 @@ def use_scienceplots():
         pass
 
 def set_latex_font():
+    """Set matplotlib global font to STIX (same as latex)."""
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
     matplotlib.rcParams['font.family'] = 'STIXGeneral'
 
 
 def cmap_image():
+    """Colormap used in production of images."""
     cmap = matplotlib.colormaps['hot']
     cmap.set_bad('black')
     return cmap
 
 
 def plot_image(image_arr, title, log=False):
+    """Plot a 2D numpy array as an image."""
     plt.figure(figsize=(7,7))
     plt.title(title)
     norm = None
@@ -44,6 +48,14 @@ def plot_image(image_arr, title, log=False):
 
 
 def compare_images(images, titles, log=False, plot=False):
+    """
+    Creates a slideshow of multiple 2D numpy arrays of the same size.
+    Args:
+        images (list of np.ndarray): list of numpy arrays
+        titles (list): titles of images
+        log (bool): use Log normalisation for image plots.
+        plot (bool): switch to disable or enable plotting.
+    """
     if not plot:
         return None
 
@@ -69,6 +81,15 @@ def compare_images(images, titles, log=False, plot=False):
 
 
 def plot_frame_masks(instrum, masks, labels, plot=False):
+    """
+    Helper function to view which frames were masked during processing making of the data cube.
+
+    Args:
+        instrum (str): Name of the instruement.
+        masks (list of np.arrays): list of masks (true/false arrays) corresponding
+        labels(list of str): labels for each mask.
+        plot (bool): switch for turn on/off plotting
+    """
     if not plot:
         return None
     cmap = ListedColormap([[1, 0, 0], [0, 1, 0]])
@@ -95,15 +116,13 @@ def plot_3d_image(image):
     ax.set_xticks([])
     ax.set_yticks([])
     # ax.set_zticks([])
-
     # ax.set_zlim(0,100)ax.set_zticks([])
-
     plt.tight_layout()
-
     plt.show()
 
 
 def plot_cube_statistics(data):
+    """Plot various first order functions for a 3-dimensional data cube."""
     cube = data
     logger.info('Calculating and plotting data cube statistics...')
     image_max = np.nanmax(cube, axis=2)
@@ -145,6 +164,16 @@ def plot_cube_statistics(data):
 
 
 def plot_aitoff(ra_deg, dec_deg, savepath=None, color='grey', title=None):
+    """
+    Plot ra and dec coordinates on an aitoff plot.
+
+    Args:
+        ra_deg (list): ras in degrees.
+        dec_deg (list): decs in degrees.
+        savepath (str or Path): savepath for plot.
+        color (str): color for the marker points.
+        title (str): Title for the plot.
+    """
     sky_coords = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg', frame='fk5', equinox='J2000')
     gal_coords = sky_coords.galactic
 
@@ -165,6 +194,14 @@ def plot_aitoff(ra_deg, dec_deg, savepath=None, color='grey', title=None):
 
 
 def plot_aitoff_density(ra_deg, dec_deg, savepath=None):
+    """
+    Plot ra and dec coordinates on an aitoff plot and color them by spatial density.
+
+    Args:
+        ra_deg (list): ras in degrees.
+        dec_deg (list): decs in degrees.
+        savepath (str or Path): savepath for plot.
+    """
     sky_coords = SkyCoord(ra=ra_deg, dec=dec_deg, unit='deg', frame='fk5', equinox='J2000')
     gal_coords = sky_coords.galactic
 
@@ -199,13 +236,12 @@ def interactive_scatter_with_rectangles(x_data, y_data):
     Plot x and y data, allowing the user to interactively select rectangles.
     Prints the (x, y, width, height) of the selected rectangle in the terminal.
 
-    Parameters:
-    - x_data: array-like, the x coordinates of the scatter data.
-    - y_data: array-like, the y coordinates of the scatter data.
+    Args:
+        x_data (array): the x coordinates of the scatter data.
+        y_data (array): the y coordinates of the scatter data.
     """
     fig, ax = plt.subplots()
     ax.scatter(x_data, y_data, color='black', alpha=0.5, s=1)
-
 
     def onselect(eclick, erelease):
         x1, y1 = eclick.xdata, eclick.ydata
@@ -221,3 +257,39 @@ def interactive_scatter_with_rectangles(x_data, y_data):
 
     rect_selector = RectangleSelector(ax, onselect, useblit=True, button=[1], minspanx=0.1, minspany=0.1, spancoords='data', interactive=True)
     plt.show()
+
+
+def get_image_limits(image):
+    """Get the x and y limits of the non-zero pixels in an image."""
+    # Find the non-zero rows and columns
+    non_zero_rows = np.any(image != 0, axis=1)
+    non_zero_cols = np.any(image != 0, axis=0)
+
+    # Get the min and max of the non-zero rows and columns
+    ymin, ymax = np.where(non_zero_rows)[0][[0, -1]]
+    xmin, xmax = np.where(non_zero_cols)[0][[0, -1]]
+
+    return (xmin, xmax), (ymin, ymax)
+
+def plot_event_list_ccds(table):
+    """
+    Plot the images for each CCD for a given eventlist.
+    
+    Parameters:
+        table (astropy.table.Table): Event List Table.
+
+    Returns:
+        fig (matplotlib.figure.Figure): Figure with each subplots containing the image for the specific CCD.
+    """
+    ccdnrs = np.unique(table['CCDNR'])
+    fig, ax = plt.subplots((len(ccdnrs)+1)//2, 2 , figsize=(20,20))
+    ax = ax.flatten()
+    for i, ccdnr in enumerate(ccdnrs):
+        sub = table[table['CCDNR'] == ccdnr]
+        xbins = np.arange(sub['RAWX'].min(), sub['RAWX'].max(), 1)  
+        ybins = np.arange(sub['RAWY'].min(), sub['RAWY'].max(), 1) 
+        im, _, _ = np.histogram2d(x=sub['RAWX'], y=sub['RAWY'], bins=[xbins,ybins])
+        ax[i].imshow(im, cmap='hot', origin='lower', interpolation='none', aspect='equal', norm=LogNorm())
+        ax[i].text(5, 5, s=ccdnr, color='white', bbox=dict(facecolor='black', edgecolor='white'))
+    plt.show()
+    return fig

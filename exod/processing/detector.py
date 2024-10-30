@@ -21,6 +21,10 @@ from exod.xmm.event_list import EventList
 
 
 class Detector:
+    """
+    Obsolete detector class that re-implements the method used in Inés Pastor-Marazuela (2020)
+    See: https://arxiv.org/abs/2005.08673
+    """
     def __init__(self, data_cube, wcs, sigma=4):
         self.data_cube = data_cube
         self.wcs = wcs

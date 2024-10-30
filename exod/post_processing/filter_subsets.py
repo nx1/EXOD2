@@ -65,7 +65,7 @@ def get_filters():
                      FilterLcSigmaEclipse('3_sigma_eclipse', min_sigma=3),
                      FilterLcSigmaEclipse('5_sigma_eclipse', min_sigma=5)]
     
-    filters_cmatch = [FilterCmatchSeperation('DR14 < 40"',   max_sep=40, direction='lower',    sep_col='DR14_SEP_ARCSEC'),
+    filters_cmatch = [FilterCmatchSeperation('DR14 < 20"',   max_sep=20, direction='lower',    sep_col='DR14_SEP_ARCSEC'),
                       FilterCmatchSeperation('SIMBAD < 40"', max_sep=40, direction='lower',    sep_col='SIMBAD_SEP_ARCSEC'),
                       FilterCmatchSeperation('DR14 > 40"',   max_sep=40, direction='greater',  sep_col='DR14_SEP_ARCSEC'),
                       FilterCmatchSeperation('SIMBAD > 40"', max_sep=40, direction='greater',  sep_col='SIMBAD_SEP_ARCSEC')]

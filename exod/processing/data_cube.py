@@ -28,6 +28,7 @@ class DataCube:
         return copy.deepcopy(self)
 
     def video(self, savepath=None):
+        """Play each frame of the datacube sequentially in a matplotlib figure."""
         if np.isnan(self.data[:, :, 0]).all():
             logger.info('first frame all nan =no plot')
             return None
@@ -180,12 +181,10 @@ class DataCubeXMM(DataCube):
         Remove the frames with irregular exposures between CCDs.
         
         https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/pnchipgeom.html
-
         https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/uhb/moschipgeom.html
         
         Test Cases: 0165560101, 0765080801, 0116700301, 0765080801, 0872390901, 0116700301
         0201900201, 0724840301, 0743700201
-
         """
         all_masks = {}
         for e in self.event_list.event_lists:
@@ -208,7 +207,7 @@ class DataCubeXMM(DataCube):
 
     def get_bad_ccd_mask(self, event_list, plot=False):
         """
-        Get the frames with irregular CCD exposures.
+        Get the mask for the frames correpsonding with irregular CCD exposures.
 
         Parameters:
             event_list (EventList): EventList object.

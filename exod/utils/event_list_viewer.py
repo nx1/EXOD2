@@ -1,3 +1,4 @@
+from statistics import mode
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -21,7 +22,9 @@ class EventListViewer:
         self.fig, self.ax = plt.subplots()
         self.ax.set_facecolor('black')
         self.image = img 
-        self.img_plot = self.ax.imshow(self.image, aspect='equal', cmap='hot', norm=LogNorm(), interpolation='none', extent=[xmin,xmax,ymin,ymax])
+        self.img_plot = self.ax.imshow(self.image, aspect='equal', cmap='hot', origin='lower',
+                                       norm=LogNorm(), interpolation='none',
+                                       extent=[xmin,xmax,ymin,ymax])
         self.rect_size = 1000
         self.rect = Rectangle((0,0), self.rect_size, self.rect_size, edgecolor='cyan', linewidth=1, fill=False)
         self.ax.add_patch(self.rect)
@@ -37,12 +40,22 @@ class EventListViewer:
         y_size = self.rect.get_height()
         xlo, xhi = x-x_size, x+x_size
         ylo, yhi = y-y_size, y+y_size
-        print(xlo,xhi,ylo,yhi)
         tab = self.tab
         tab_filt = tab[(tab['X'] > xlo) & (tab['X'] < xhi) &
                        (tab['Y'] > ylo) & (tab['Y'] < yhi)]
         print(tab_filt)
+        print(xlo, xhi, ylo, yhi)
+        self.plot_subset_image(tab_filt)
 
+    def plot_subset_image(self, tab_filt):
+        # Plot the highlighted subset in raw detector coordinates.
+        tab_filt = tab_filt[tab_filt['CCDNR'] == mode(tab_filt['CCDNR'])]
+        xbins = np.arange(tab_filt['RAWX'].min(), tab_filt['RAWX'].max(), 1)
+        ybins = np.arange(tab_filt['RAWY'].min(), tab_filt['RAWY'].max(), 1)
+        im, _, _ = np.histogram2d(x=tab_filt['RAWX'], y=tab_filt['RAWY'], bins=[xbins,ybins])
+        plt.figure()
+        plt.imshow(im, aspect='equal', cmap='hot', interpolation='none')
+        plt.show()
     
     def on_mouse_move(self, event):
         if event.inaxes == self.ax:

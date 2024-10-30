@@ -2,7 +2,6 @@
 Main script to run the EXOD pipeline.
 
 This script will run the EXOD pipeline for all the observations in the `data/observations.txt` file.
-
 """
 import random
 import multiprocessing
@@ -10,9 +9,29 @@ import multiprocessing
 from exod.processing.bayesian_pipeline import parameter_grid, Pipeline, combine_results
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import data, data_results, read_observation_ids
+
 import pandas as pd
+import matplotlib.pyplot as plt
+
+from exod.xmm.observation import Observation
+from exod.utils.event_list_viewer import EventListViewer
+
 
 def process_params(params):
+    """
+    Wrapper for handling one set of EXOD parameters provided as a dictionary.
+    A set of parameters is simply a dictionary with the key as the parameter name
+    and the value as the value for the parameter.
+
+    This function is useful for when looping over parameters or wrapping it in a
+    multiprocessing call.
+
+    Args:
+        params (dict): {'obsid':XXXXX, 'size_arcsec':20, ...}
+
+    Returns:
+        res (dict): params with run status added. either 'Run' for good or error for bad.
+    """
     res = params.copy()
     try:
         p = Pipeline(**params)
@@ -26,9 +45,15 @@ def process_params(params):
 
 if __name__ == "__main__":
     obsids = read_observation_ids(data / 'observations.txt')
+    for obsid in obsids:
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=50, min_energy=2.0, max_energy=12.0)
+        p.run()
+        p.load_results()
+        plt.show()
+        #for evt in p.observation.events_processed:
+        #    elv = EventListViewer(evt.data)
+        #    elv.show()
 
-    p = Pipeline(obsid=obsids[0], size_arcsec=20, time_interval=15, min_energy=0.2, max_energy=12)
-    p.run()
 
 
 

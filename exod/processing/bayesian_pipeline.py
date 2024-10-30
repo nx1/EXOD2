@@ -58,27 +58,24 @@ class Pipeline:
         self.max_energy = max_energy
         self.clobber = clobber
         self.precomputed_bayes_limit = precomputed_bayes_limit
+
         self.savedir = None
 
         self.n_regions = None
 
     def generate_runid(self):
-        """Generate a unique runid."""
+        """Generate a unique runid of the form 0765080801_0_50_0.2_12.0"""
         runid = f'{self.obsid}_{self.subset_number}_{self.time_interval}_{self.min_energy}_{self.max_energy}'
         self.runid = runid
         return runid
 
-    def get_savedir(self, subset_number):
+    def set_savedir(self):
         """
-        Create the directory to save results to:
-        /results/0765080801/subset_0/tbin=50_Elo=0.2_Ehi=12.0/
+        Create the directory to save results to.
         """
-        savedir = (self.observation.path_results
-                   / f'subset_{subset_number}'
-                   / f'tbin={self.time_interval}_Elo={self.min_energy}_Ehi={self.max_energy}')
-        logger.info(f'savedir set to: {savedir}')
-        self.savedir = savedir
-        self.subset_number = subset_number
+        self.savedir = self.observation.path_results / self.generate_runid()
+        self.savedir.mkdir(parents=True, exist_ok=True)
+        logger.info(f'savedir set to: {self.savedir}')
         return self.savedir
 
     def pre_process(self):
@@ -96,19 +93,17 @@ class Pipeline:
         for i_subset, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
             self.run_subset(i_subset, subset_overlapping_exposures)
 
-    def run_subset(self, i_subset, subset_overlapping_exposures):
+    def run_subset(self, subset_number, subset_overlapping_exposures):
         """
         Run the pipeline on a subset of overlapping exposures.
 
         Parameters:
-            i_subset (int): The subset number
+            subset_number (int): The observation subset number.
             subset_overlapping_exposures (list of EventList): The list of EventList objects that overlap.
-
         """
-        savedir = self.get_savedir(subset_number=i_subset)
-        savedir.mkdir(parents=True, exist_ok=True)
-
-        runid = self.generate_runid()
+        self.subset_number = subset_number
+        self.set_savedir()
+        self.generate_runid()
 
         # Create Merged EventList
         event_list = EventList.from_event_lists(subset_overlapping_exposures)
@@ -120,7 +115,7 @@ class Pipeline:
         dl.run()
 
         cube_n = dl.data_cube
-        cube_n.video()
+        # cube_n.video()
 
         img = self.observation.images[0]
         img.read(wcs_only=True)
@@ -128,6 +123,20 @@ class Pipeline:
         # Calculate Expectation Cube
         cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
         cube_mask_peaks, cube_mask_eclipses = self.precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)
+
+        # Extract information for each significant data cell (3D pixel)
+        df_alerts = self.extract_alert_info(cube_mask_peaks, cube_mask_eclipses, cube_n)
+        print(df_alerts)
+
+        # Extract the events list for each significant cell
+        for i, r in df_alerts.iterrows():
+            evt = dl.event_list.data
+            evt_subset = evt[(evt['X']    > r['X_lo'])    & (evt['X']    < r['X_hi']) &
+                             (evt['Y']    > r['Y_lo'])    & (evt['Y']    < r['Y_hi']) &
+                             (evt['TIME'] > r['TIME_lo']) & (evt['TIME'] < r['TIME_hi'])]
+            logger.info(r)
+            logger.info(evt_subset)
+            logger.info(f'N_events = {len(evt_subset)}')
 
         image_n       = np.nansum(cube_n.data, axis=2)         # Total Counts.
         image_peak    = np.nansum(cube_mask_peaks, axis=2)     # Each Pixel is the number of peaks in cube_n
@@ -145,62 +154,98 @@ class Pipeline:
         x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
         x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
         unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        for x, y in unique_xy:
-            plot_lc_pixel(cube_mu, cube_n, self.time_interval, x, y)
+        for x_cube, y_cube in unique_xy:
+            plot_lc_pixel(cube_mu, cube_n, self.time_interval, x_cube, y_cube)
 
         # Plot Lightcurves for each region
         if dfs_lcs:
             for df_lc in dfs_lcs:
-                plot_df_lc(df_lc=df_lc, savedir=savedir)
+                plot_df_lc(df_lc=df_lc, savedir=self.savedir)
 
         # Plot Image
-        plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=savedir / 'detection_img.png')
+        plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=self.savedir / 'detection_img.png')
 
         # Save Results
+        self.save_results(dc_info=cube_n.info,
+                          df_alerts=df_alerts,
+                          df_regions=df_regions,
+                          dfs_lcs=dfs_lcs,
+                          df_bti=dl.df_bti,
+                          dl_info=dl.info,
+                          evt_info=event_list.info)
+        # plt.show()
+        # plt.close('all')
+        # plt.clf()
+
+    def extract_alert_info(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
+        """Extract information for each pixel in the datacube that is associated with an alert."""
+        # Get the positions (x,y,t) of the bursts and eclipses
+        peak_positions    = np.argwhere(cube_mask_peaks == 1)
+        eclipse_positions = np.argwhere(cube_mask_eclipses == 1)
+
+        alerts = []
+        for pos in peak_positions:
+            pixel_alert_info = self.extract_pixel_alert_info(cube_n, pos)
+            pixel_alert_info['type'] = 'peak'
+            alerts.append(pixel_alert_info)
+
+        for pos in eclipse_positions:
+            pixel_alert_info = self.extract_pixel_alert_info(cube_n, pos)
+            pixel_alert_info['type'] = 'eclipse'
+            alerts.append(pixel_alert_info)
+
+        df_alerts = pd.DataFrame(alerts)
+        return df_alerts
+
+    def extract_pixel_alert_info(self, cube_n, pixel_xyt_pos):
+        x_cube, y_cube, t_cube = pixel_xyt_pos
+        X    = cube_n.bin_x[x_cube]
+        Y    = cube_n.bin_y[y_cube]
+        TIME = cube_n.bin_t[t_cube]
+
+        X_size, Y_size, TIME_size = cube_n.pixel_size, cube_n.pixel_size, self.time_interval
+
+        alert = {'x_cube'    : x_cube,
+                 'y_cube'    : y_cube,
+                 't_cube'    : t_cube,
+                 'X'         : X,
+                 'Y'         : Y,
+                 'TIME'      : TIME,
+                 'X_size'    : X_size,
+                 'Y_size'    : Y_size,
+                 'TIME_size' : TIME_size,
+                 'X_lo'      : (X - X_size),
+                 'X_hi'      : (X + X_size),
+                 'Y_lo'      : (Y - Y_size),
+                 'Y_hi'      : (Y + Y_size),
+                 'TIME_lo'   : (TIME - TIME_size),
+                 'TIME_hi'   : (TIME + TIME_size)}
+        return alert
+
+    def save_results(self, dc_info, df_alerts, df_regions, dfs_lcs, df_bti, dl_info, evt_info):
         results = {}
         # Collect DataFrames
         if dfs_lcs:
             for i, df_lc in enumerate(dfs_lcs):
                 results[f'lc_{i}'] = df_lc
 
-        results['bti']      = dl.df_bti
-        results['regions']  = df_regions
+        results['bti']     = df_bti
+        results['regions'] = df_regions
+        results['alerts']  = df_alerts
 
         # Collect info
         results['obs_info'] = self.observation.info
-        results['evt_info'] = event_list.info
-        results['dl_info']  = dl.info
-        results['dc_info']  = cube_n.info
+        results['evt_info'] = evt_info
+        results['dl_info']  = dl_info
+        results['dc_info']  = dc_info
         results['run_info'] = self.info
-
         for k, v in results.items():
-            save_result(key=k, value=v, runid=self.runid, savedir=savedir)
-        # plt.show()
-        plt.close('all')
-        plt.clf()
+            save_result(key=k, value=v, runid=self.runid, savedir=self.savedir)
 
-    def load_results(self):
-        """Load results for all observation subsets, returns a list of dictionaries."""
-        total_subsets = len(list(self.observation.path_results.glob('subset_*')))
-        logger.debug(f'Found {total_subsets} subset folders')
-        if total_subsets == 0:
-            logger.debug('No results :(')
-            return None
-
-        all_results = []
-        for i in range(total_subsets):
-            results = self.load_subset_results(i)
-            if results:
-                all_results.append(results)
-                for k, v in results.items():
-                    logger.debug(f'{k}:')
-                    logger.debug(v)
-                    logger.debug('========')
-        return all_results
-
-    def load_subset_results(self, i):
+    def load_subset_results(self, subset_number):
         """Load results for a single observation subset. returns a dictionary."""
-        self.get_savedir(subset_number=i)
+        self.subset_number = subset_number
+        self.set_savedir()
         results = {}
         csv_files = list(self.savedir.glob('*.csv'))
         n_csv_files = len(csv_files)
@@ -213,6 +258,11 @@ class Pipeline:
             else:
                 results[f.stem] = load_df(loadpath=f)
         return results
+
+    def load_results(self):
+        """Load results for all observation subsets, returns a list of dictionaries."""
+        all_results = [self.load_subset_results(i) for i in range(self.total_subsets)]
+        return all_results
 
     @property
     def info(self):
@@ -271,13 +321,16 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
     image_combined[image_peak > 0] = 1
     image_combined[image_eclipse > 0] = 2
     image_combined[(image_peak > 0) & (image_eclipse > 0)] = 3
-    c_0 = 'none'
-    c_peak = 'cyan'
+
+    c_0       = 'none'
+    c_peak    = 'cyan'
     c_eclipse = 'lime'
-    c_both = 'blue'
+    c_both    = 'blue'
     cmap = ListedColormap(colors=[c_0, c_peak, c_eclipse, c_both])
-    norm = BoundaryNorm(boundaries=[0, 1, 2, 3, 4], ncolors=4)
+
+    norm  = BoundaryNorm(boundaries=[0, 1, 2, 3, 4], ncolors=4)
     norm2 = ImageNormalize(stretch=SqrtStretch())
+
     im1 = ax.imshow(image_n.T, cmap=cmap_image(), norm=norm2, interpolation='none', origin='lower')
     ax.imshow(image_combined.T, cmap=cmap, norm=norm, interpolation='none', origin='lower')
     cbar = plt.colorbar(im1, ax=ax, shrink=0.75)
@@ -317,7 +370,7 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
     # plt.show()
 
 
-def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=False):
+def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=True):
     if not plot:
         return None
     cube_mu_xy = cube_mu[x, y]
@@ -433,11 +486,18 @@ def make_df_lc_idx(df_lc):
 
 def combine_results(obsids):
     """
-    Combine all results into a single DataFrame and save to results_combined.
+    Get the results for each of the observations ids and combine them into joint dataframes and save them into
+    their respective paths in exod.utils.path.data_combined.
+
+    Will raise an error if there are already files data_combined, to avoid accidentally deleting data.
 
     Parameters:
         obsids (list): list of observation IDs
     """
+    if any([p.exists() for p in savepaths_combined.values()]):
+        raise FileExistsError(f'There are already some combined files in the combined data path! '
+                              f'Be careful! You dont want to accidentally overwrite these!')
+
     all_results = []
     for params in parameter_grid(obsids=obsids):
         p = Pipeline(**params)
@@ -446,9 +506,10 @@ def combine_results(obsids):
             for r in results_list:
                 all_results.append(r)
 
-    # Combine all DataFrames
+    logger.info('Combining all DataFrames')
     df_bti      = pd.concat([r.get('bti') for r in all_results], axis=0)
     df_regions  = pd.concat([r.get('regions') for r in all_results], axis=0)
+    df_alerts   = pd.concat([r.get('alerts') for r in all_results], axis=0)
     df_lc       = pd.concat([df for r in all_results for key, df in r.items() if key.startswith('lc_')])
     df_run_info = pd.DataFrame([r['run_info'] for r in all_results])
     df_obs_info = pd.DataFrame([r['obs_info'] for r in all_results])
@@ -458,10 +519,10 @@ def combine_results(obsids):
 
     make_df_lc_idx(df_lc)
 
-    # Save all dataframes
-    logger.info('Saving DataFrames...')
+    logger.info('Saving all DataFrames...')
     df_bti.to_csv(savepaths_combined['bti'], index=False)
     df_regions.to_csv(savepaths_combined['regions'], index=False)
+    df_alerts.to_csv(savepaths_combined['alerts'], index=False)
     df_lc.to_hdf(savepaths_combined['lc'], key='df_lc', index=False, mode='w', format='table')
     df_run_info.to_csv(savepaths_combined['run_info'], index=False)
     df_obs_info.to_csv(savepaths_combined['obs_info'], index=False)
@@ -469,9 +530,9 @@ def combine_results(obsids):
     df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
     df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
 
-
     logger.info(df_bti)
     logger.info(df_regions)
+    logger.info(df_alerts)
     logger.info(df_lc)
     logger.info(df_run_info)
     logger.info(df_obs_info)

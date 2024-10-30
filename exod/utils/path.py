@@ -31,23 +31,28 @@ all_paths = {
 }
 
 # TODO Remove merged_with_dr14 from savepaths_combined when finalized!
-savepaths_combined = {'bti'           : data_combined / 'merged_with_dr14' / 'df_bti.csv',
-                      'regions'       : data_combined / 'merged_with_dr14' / 'df_regions.csv',
-                      'regions_unique': data_combined / 'merged_with_dr14' / 'df_regions_unique.csv',
-                      'lc'            : data_combined / 'merged_with_dr14' / 'df_lc.h5',
-                      'lc_idx'        : data_combined / 'merged_with_dr14' / 'df_lc_idx.csv',
-                      'lc_features'   : data_combined / 'merged_with_dr14' / 'df_lc_features.csv',
-                      'run_info'      : data_combined / 'merged_with_dr14' / 'df_run_info.csv',
-                      'obs_info'      : data_combined / 'merged_with_dr14' / 'df_obs_info.csv',
-                      'dl_info'       : data_combined / 'merged_with_dr14' / 'df_dl_info.csv',
-                      'dc_info'       : data_combined / 'merged_with_dr14' / 'df_dc_info.csv',
-                      'evt_info'      : data_combined / 'merged_with_dr14' / 'df_evt_info.csv',
-                      'cmatch_simbad' : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_simbad.csv',
-                      'cmatch_gaia'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gaia.csv',
-                      'cmatch_om'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv',
-                      'cmatch_dr14'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_dr14.csv'}
+savepaths_combined = {'bti'             : data_combined / 'merged_with_dr14' / 'df_bti.csv',
+                      'regions'         : data_combined / 'merged_with_dr14' / 'df_regions.csv',
+                      'alerts'          : data_combined / 'merged_with_dr14' / 'df_alerts.csv',
+                      'regions_unique'  : data_combined / 'merged_with_dr14' / 'df_regions_unique.csv',
+                      'lc'              : data_combined / 'merged_with_dr14' / 'df_lc.h5',
+                      'lc_idx'          : data_combined / 'merged_with_dr14' / 'df_lc_idx.csv',
+                      'lc_features'     : data_combined / 'merged_with_dr14' / 'df_lc_features.csv',
+                      'run_info'        : data_combined / 'merged_with_dr14' / 'df_run_info.csv',
+                      'obs_info'        : data_combined / 'merged_with_dr14' / 'df_obs_info.csv',
+                      'dl_info'         : data_combined / 'merged_with_dr14' / 'df_dl_info.csv',
+                      'dc_info'         : data_combined / 'merged_with_dr14' / 'df_dc_info.csv',
+                      'evt_info'        : data_combined / 'merged_with_dr14' / 'df_evt_info.csv',
+                      'cmatch_simbad'   : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_simbad.csv',
+                      'cmatch_gaia'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gaia.csv',
+                      'cmatch_om'       : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv',
+                      'cmatch_dr14'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_dr14.csv',
+                      'cmatch_glade'    : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gladep.csv',
+                      'exod_cat'        : data_catalogue / 'EXOD_DR1_cat.fits',
+                      'exod_cat_unique' : data_catalogue / 'EXOD_DR1_cat_unique.fits'}
 
 def create_all_paths():
+    """Create all paths if they don't exist."""
     for name, path in all_paths.items():
         os.makedirs(path, exist_ok=True)
 
