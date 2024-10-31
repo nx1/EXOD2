@@ -46,7 +46,7 @@ def process_params(params):
 if __name__ == "__main__":
     obsids = read_observation_ids(data / 'observations.txt')
     for obsid in obsids:
-        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=50, min_energy=2.0, max_energy=12.0)
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, min_energy=2.0, max_energy=12.0)
         p.run()
         p.load_results()
         plt.show()

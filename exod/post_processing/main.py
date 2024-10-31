@@ -27,6 +27,8 @@ def check_results_shape():
             continue
         if 'fits' in path.name:
             continue
+        if 'alerts' in path.name:
+            continue
         print(name, path)
         df = pd.read_csv(path)
         shape = df.shape
@@ -447,8 +449,8 @@ def plot_cmatch_seperations(dfs_cmatch):
         plt.hist(tab['SEP_ARCSEC'], bins=np.linspace(0, 20, 75), histtype='step',
                  label=f'{k} ({N}) {percent:.0f}\\%')
     plt.xlim(0, 20)
-    plt.xlabel('Seperation (arcsec)')
-    plt.ylabel('Count')
+    plt.xlabel('Separation (arcsec)')
+    plt.ylabel('Number of Sources')
     plt.legend(fontsize=8, markerfirst=False)
     plt.tight_layout()
     print(f'Saving to: crossmatch_sep.pdf')

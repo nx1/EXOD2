@@ -137,6 +137,7 @@ class Pipeline:
             logger.info(r)
             logger.info(evt_subset)
             logger.info(f'N_events = {len(evt_subset)}')
+            breakpoint()
 
         image_n       = np.nansum(cube_n.data, axis=2)         # Total Counts.
         image_peak    = np.nansum(cube_mask_peaks, axis=2)     # Each Pixel is the number of peaks in cube_n
