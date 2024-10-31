@@ -47,25 +47,11 @@ def create_iau_srcids(ra_deg, dec_deg, ra_precision=1, dec_precision=0):
         srcids.append(name)
     return srcids
 
-
-class RegionIdentifier:
-    def make_region_identifier_from_runid_label(self, runid, label):
-        key = str((runid, str(label)))
-        return key
-
-    def decode_region_identifier(self, region_identifier):
-        pass
-
-    def decode_runid(self, runid):
-        obsid, label, t_bin, E_lo, E_hi = runid.split('_')
-        return {'obsid' : obsid, 'label' : label, 't_bin' : t_bin, 'E_lo' : E_lo, 'E_hi' : E_hi}
-
-
 class ResultsManager:
     def __init__(self):
         self.load_results()
         self.cluster_regions()
-        self.calc_subsets()
+        # self.calc_subsets()
         self.calc_flags()
         self.df_regions = self.decode_runids(self.df_regions)
         self.get_unique_region_iau_srcids()
@@ -205,7 +191,6 @@ class ResultsManager:
         # print(f'Found {len(region_ids)} lightcurves in {len(df_cmatch_simbad_otype)} unique regions for {otype}')
 
         # lightcurves = self.get_and_plot_lcs_by_idxs(region_ids)
-
         content = {'otype'                  : otype,
                    'df_otype_stats'         : self.df_otype_stats,
                    'df_cmatch_simbad_otype' : df_cmatch_simbad_otype,
