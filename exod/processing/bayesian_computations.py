@@ -106,18 +106,37 @@ def precompute_bayes_limits(threshold_sigma):
     logger.info(f'Saving to {savepath}')
     np.savetxt(savepath, data)
 
-    # plot_bayes_limits(B_eclipse_threshold, B_peak_threshold, range_mu, tab_neclipse, tab_npeak, threshold_sigma)
+
+def plot_bayes_limits():
+    pbl_3 = PrecomputeBayesLimits(3)
+    pbl_5 = PrecomputeBayesLimits(5)
+
+    range_mu  = pbl_3.range_mu
+
+    tab_npeak_3sig = pbl_3.n_peak_threshold(range_mu)
+    tab_neclipse_3sig = pbl_3.n_eclipse_threshold(range_mu)
+
+    tab_npeak = pbl_5.n_peak_threshold(range_mu)
+    tab_neclipse = pbl_5.n_eclipse_threshold(range_mu)
 
 
-def plot_bayes_limits(B_eclipse_threshold, B_peak_threshold, range_mu, tab_neclipse, tab_npeak, threshold_sigma):
     plt.figure(figsize=(4, 4))
-    plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='red')
-    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'N with $B_{{peak}} > 10^{{{B_peak_threshold:.2f}}}$', lw=1.0)
-    plt.plot(range_mu, tab_neclipse, ls='--', c='k', label=f'N with $B_{{eclipse}} > 10^{{{B_eclipse_threshold:.2f}}}$', lw=1.0)
-    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='lime', label='Detection Region')
-    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='lime')
-    plt.fill_between(range_mu, range_mu - 5 * np.sqrt(range_mu), range_mu + 5 * np.sqrt(range_mu), alpha=0.2, label=fr'Naive $5 \sigma$ Region', color='blue')
-    plt.fill_between(range_mu, range_mu - 3 * np.sqrt(range_mu), range_mu + 3 * np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$ Region', color='blue')
+
+    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'5$\sigma$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse, ls=':', c='k', lw=1.0)
+
+    plt.plot(range_mu, tab_npeak_3sig, ls='--', c='k', label=fr'3$\sigma$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse_3sig, ls='--', c='k', lw=1.0)
+
+    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='steelblue', label='Detection Region')
+    plt.fill_between(range_mu, tab_npeak_3sig, 1e6, alpha=0.3, color='steelblue')
+    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='steelblue')
+    plt.fill_between(range_mu, 0, tab_neclipse_3sig, alpha=0.3, color='steelblue')
+
+
+    plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='black')
+    #plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.3, label=fr'Naive $5 \sigma$', color='grey')
+    #plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$', color='grey')
     plt.yscale('log')
     plt.xscale('log')
     plt.title(r'$B_{peak} = \frac{Q(N+1, \mu)}{e^{-\mu} \mu^{N} / N!} \ \  B_{eclipse} = \frac{P(N+1, \mu)}{e^{-\mu} \mu^{N} / N!}$')
@@ -125,14 +144,17 @@ def plot_bayes_limits(B_eclipse_threshold, B_peak_threshold, range_mu, tab_necli
     plt.ylabel(fr'Observed Counts $N$')
     plt.xlim(min(range_mu), max(range_mu))
     plt.ylim(min(range_mu), max(range_mu))
-    plt.yticks([1, 10, 100, 250], labels=[1, 10, 100, 250])
-    plt.xticks([0.01, 0.1, 1, 10, 100, 250], labels=[0.01, 0.1, 1, 10, 100, 250])
-    plt.xlim(0.01, 250)
-    plt.ylim(0.01, 250)
-    plt.legend(loc='lower left', fontsize=8, ncol=2)
-    plt.tight_layout()
-    plt.savefig(data_plots / f'bayesfactorlimits_{threshold_sigma}.pdf')
-    plt.savefig(data_plots / f'bayesfactorlimits_{threshold_sigma}.png')
+    plt.text(0.05, 25, s='Significant Peaks', )
+    plt.text(35, 0.1, s='Significant\nEclipses')
+    #plt.yticks([1, 10, 100, 300], labels=[1, 10, 100, 300])
+    plt.yticks([0.01, 0.1, 1, 10, 100, 300], labels=[0.01, 0.1, 1, 10, 100, 300])
+    plt.xticks([0.1, 1, 10, 100, 300], labels=[ 0.1, 1, 10, 100, 300])
+    plt.xlim(0.01, 300)
+    plt.ylim(0.01, 300)
+    plt.legend(loc='upper left', fontsize=10, ncol=2, columnspacing=0.8)
+    #plt.tight_layout()
+    plt.savefig(data_plots / f'bayesfactorlimits_3_5.pdf')
+    plt.savefig(data_plots / f'bayesfactorlimits_3_5.png')
     plt.show()
 
 
@@ -259,6 +281,32 @@ def sigma_equivalent_B_eclipse(B_eclipse):
 
 
 class PrecomputeBayesLimits:
+    _instances = {}
+
+    def __new__(cls, threshold_sigma):
+        """
+        Creates or retrieves an instance of PrecomputeBayesLimits with a specific threshold.
+
+        This method implements a multiton pattern, where only one instance of
+        PrecomputeBayesLimits exists per unique value of `threshold_sigma`.
+
+        When a new threshold value is requested, a new instance is created and stored in
+        the `_instances` dictionary, keyed by `threshold_sigma`. If an instance with the same `threshold_sigma`
+        already exists, it is returned instead of creating a new one. https://en.wikipedia.org/wiki/Multiton_pattern
+
+        Args:
+            threshold_sigma (int): The significance threshold for the instance.
+
+        Returns:
+            PrecomputeBayesLimits: The existing or newly created instance with  the specified `threshold_sigma`.
+        """
+        if threshold_sigma not in cls._instances:
+            instance = super(PrecomputeBayesLimits, cls).__new__(cls)
+            instance.threshold_sigma = threshold_sigma
+            logger.warning(f'Creating new precomputed PrecomputeBayesLimits() instance threshold_sigma={threshold_sigma}.')
+            cls._instances[threshold_sigma] = instance
+        return cls._instances[threshold_sigma]
+
     def __init__(self, threshold_sigma):
         self.threshold_sigma = threshold_sigma
         self.get_savepath()
@@ -266,6 +314,7 @@ class PrecomputeBayesLimits:
         self.n_peak_threshold = None
         self.n_eclipse_threshold = None
         self.is_loaded = False
+        self.load()
 
     def __repr__(self):
         return f'{self.threshold_sigma}'
@@ -294,11 +343,8 @@ class PrecomputeBayesLimits:
 
 
 if __name__ == "__main__":
-    import scienceplots
-    plt.style.use('science')
-
-    precompute_bayes_limits(threshold_sigma=3)
-    precompute_bayes_limits(threshold_sigma=5)
+    from exod.utils.plotting import use_scienceplots
+    use_scienceplots()
     pre = PrecomputeBayesLimits(threshold_sigma=3)
-    pre.load()
+    plot_bayes_limits()
 

@@ -176,7 +176,7 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_frames_partial_CCDexposure(self, plot=False):
+    def remove_frames_with_partial_ccd_exposure(self, remove_frames=True, plot=False):
         """
         Remove the frames with irregular exposures between CCDs.
         
@@ -185,7 +185,15 @@ class DataCubeXMM(DataCube):
         
         Test Cases: 0165560101, 0765080801, 0116700301, 0765080801, 0872390901, 0116700301
         0201900201, 0724840301, 0743700201
+
+        Args:
+            remove_frames (bool): If True remove the frames.
+            plot (bool): If True plot diagnostics.
         """
+        if not remove_frames:
+            self.bccd_bin_idx_bool = np.full(self.n_t_bins, fill_value=False)
+            return
+
         all_masks = {}
         for e in self.event_list.event_lists:
             bad_ccd_mask = self.get_bad_ccd_mask(event_list=e, plot=plot)
@@ -207,7 +215,7 @@ class DataCubeXMM(DataCube):
 
     def get_bad_ccd_mask(self, event_list, plot=False):
         """
-        Get the mask for the frames correpsonding with irregular CCD exposures.
+        Get the mask for the frames corresponding with irregular CCD exposures.
 
         Parameters:
             event_list (EventList): EventList object.

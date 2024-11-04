@@ -206,6 +206,12 @@ class EventList:
         ccd_bins.append(ccd_bins[-1] + 1)  # Just to get a right edge for the final bin
         return ccd_bins
 
+    def get_events_within_bounds(self, X_lo, X_hi, Y_lo, Y_hi, TIME_lo, TIME_hi):
+        evt_subset = self.data[(self.data['X'] > X_lo)       & (self.data['X'] < X_hi) &
+                               (self.data['Y'] > Y_lo)       & (self.data['Y'] < Y_hi) &
+                               (self.data['TIME'] > TIME_lo) & (self.data['TIME'] < TIME_hi)]
+        return evt_subset
+
     def unload_data(self):
         del(self.data)
         self.is_read = False

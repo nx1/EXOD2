@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binned_statistic_dd
 
-
 class DataLoader:
     """
     DataLoader class to load data from EventList object and create a DataCubeXMM object.
@@ -43,8 +42,7 @@ class DataLoader:
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
         self.create_data_cube()
         self.data_cube.calc_gti_bti_bins(bti=self.bti)
-        if self.remove_partial_ccd_frames:
-            self.data_cube.remove_frames_partial_CCDexposure()
+        self.data_cube.remove_frames_with_partial_ccd_exposure(remove_frames=self.remove_partial_ccd_frames)
         if self.gti_only:
             self.data_cube.mask_bti()
 

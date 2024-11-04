@@ -44,9 +44,11 @@ def process_params(params):
     return res
 
 if __name__ == "__main__":
-    obsids = read_observation_ids(data / 'observations.txt')
+    obsids = read_observation_ids(data / 'observations.txt')#
+    random.shuffle(obsids)
+
     for obsid in obsids:
-        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, min_energy=2.0, max_energy=12.0)
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, min_energy=2.0, max_energy=12.0, remove_partial_ccd_frames=False)
         p.run()
         p.load_results()
         plt.show()
@@ -55,10 +57,6 @@ if __name__ == "__main__":
         #    elv.show()
 
 
-
-
-
-    # random.shuffle(obsids)
 
     # Use Multiprocessing
     # num_processes = 1

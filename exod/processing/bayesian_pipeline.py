@@ -1,6 +1,6 @@
 from exod.utils.logger import logger
 from exod.utils.path import data, read_observation_ids, savepaths_combined
-from exod.utils.util import save_result, load_info, load_df, get_unique_xy
+from exod.utils.util import save_result, load_info, load_df
 from exod.utils.plotting import cmap_image
 from exod.pre_processing.data_loader import DataLoader
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, PrecomputeBayesLimits, B_peak_log, B_eclipse_log
@@ -37,7 +37,7 @@ class Pipeline:
         min_energy (float): Minimum energy in keV.
         max_energy (float): Maximum energy in keV.
         clobber (bool): Overwrite existing files.
-        precomputed_bayes_limit (PrecomputeBayesLimits): Precomputed Bayes Limits.
+        precomputed_bayes_limit (PrecomputeBayesLimits): Precomputed Bayes Limits object.
         savedir (Path): Directory to save results to.
         n_regions (int): Number of regions detected.
     """
@@ -80,7 +80,6 @@ class Pipeline:
 
     def pre_process(self):
         """Pre-process the data."""
-        self.precomputed_bayes_limit.load()
         self.observation.download_events()
         self.observation.filter_events(clobber=self.clobber)
         self.observation.create_images(clobber=self.clobber)
@@ -90,8 +89,8 @@ class Pipeline:
 
     def run(self):
         self.pre_process()
-        for i_subset, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
-            self.run_subset(i_subset, subset_overlapping_exposures)
+        for subset_number, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
+            self.run_subset(subset_number, subset_overlapping_exposures)
 
     def run_subset(self, subset_number, subset_overlapping_exposures):
         """
@@ -125,23 +124,18 @@ class Pipeline:
         cube_mask_peaks, cube_mask_eclipses = self.precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)
 
         # Extract information for each significant data cell (3D pixel)
-        df_alerts = self.extract_alert_info(cube_mask_peaks, cube_mask_eclipses, cube_n)
-        print(df_alerts)
+        df_significant_cells = self.get_significant_cells(cube_mask_peaks, cube_mask_eclipses, cube_n)
+        self.filter_events_from_significant_cells(df_significant_cells, dl.event_list)
+        unique_xy = self.get_significant_pixels_from_cells(df_significant_cells)
 
-        # Extract the events list for each significant cell
-        for i, r in df_alerts.iterrows():
-            evt = dl.event_list.data
-            evt_subset = evt[(evt['X']    > r['X_lo'])    & (evt['X']    < r['X_hi']) &
-                             (evt['Y']    > r['Y_lo'])    & (evt['Y']    < r['Y_hi']) &
-                             (evt['TIME'] > r['TIME_lo']) & (evt['TIME'] < r['TIME_hi'])]
-            logger.info(r)
-            logger.info(evt_subset)
-            logger.info(f'N_events = {len(evt_subset)}')
-            breakpoint()
+        # Plot Lightcurves for each cell.
+        for x_cube, y_cube in unique_xy:
+            plot_pixel_lc(cube_mu, cube_n, x_cube, y_cube, plot=True)
 
-        image_n       = np.nansum(cube_n.data, axis=2)         # Total Counts.
-        image_peak    = np.nansum(cube_mask_peaks, axis=2)     # Each Pixel is the number of peaks in cube_n
-        image_eclipse = np.nansum(cube_mask_eclipses, axis=2)  # Each Pixel is the number of eclipses in cube_n
+        # Get Images.
+        image_n       = np.nansum(cube_n.data, axis=2)                # Total Counts.
+        image_peak    = np.nansum(cube_mask_peaks, axis=2)            # Each Pixel is the number of peaks in cube_n
+        image_eclipse = np.nansum(cube_mask_eclipses, axis=2)         # Each Pixel is the number of eclipses in cube_n
         image_mask_combined = (image_peak > 0) | (image_eclipse > 0)  # Combine peaks and eclipses
 
         df_reg = calc_df_regions(image=image_n, image_mask=image_mask_combined)
@@ -150,13 +144,6 @@ class Pipeline:
         self.n_regions = len(df_regions)
 
         dfs_lcs = get_region_lightcurves(df_regions, cube_n, cube_mu)
-
-        # Plot Lightcurves for each pixel.
-        x_peak, y_peak, t_peak = np.where(cube_mask_peaks)
-        x_eclipse, y_eclipse, t_eclipse = np.where(cube_mask_eclipses)
-        unique_xy = [*(get_unique_xy(x_peak, y_peak)), *(get_unique_xy(x_eclipse, y_eclipse))]
-        for x_cube, y_cube in unique_xy:
-            plot_lc_pixel(cube_mu, cube_n, self.time_interval, x_cube, y_cube)
 
         # Plot Lightcurves for each region
         if dfs_lcs:
@@ -168,7 +155,7 @@ class Pipeline:
 
         # Save Results
         self.save_results(dc_info=cube_n.info,
-                          df_alerts=df_alerts,
+                          df_alerts=df_significant_cells,
                           df_regions=df_regions,
                           dfs_lcs=dfs_lcs,
                           df_bti=dl.df_bti,
@@ -178,8 +165,26 @@ class Pipeline:
         # plt.close('all')
         # plt.clf()
 
-    def extract_alert_info(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
+    def get_significant_pixels_from_cells(self, df_significant_cells):
+        """Extract the unique x,y values (2D Pixels) from the significant (3D) cells."""
+        if len(df_significant_cells) == 0:
+            return []
+        unique_xy = list(df_significant_cells.groupby(['x_cube', 'y_cube']).groups.keys())
+        return unique_xy
+
+    def filter_events_from_significant_cells(self, df_alerts, event_list):
+        """Extract the events in the events list that for each significant cell."""
+        for i, r in df_alerts.iterrows():
+            evt_subset = event_list.get_events_within_bounds(X_lo=r['X_lo'], X_hi=r['X_hi'],
+                                                             Y_lo=r['Y_lo'], Y_hi=r['Y_hi'],
+                                                             TIME_lo=r['TIME_lo'], TIME_hi=r['TIME_hi'])
+            logger.info(r)
+            logger.info(evt_subset)
+            logger.info(f'N_events = {len(evt_subset)}')
+
+    def get_significant_cells(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
         """Extract information for each pixel in the datacube that is associated with an alert."""
+        logger.info('Extracting significant 3D pixels from data cube.')
         # Get the positions (x,y,t) of the bursts and eclipses
         peak_positions    = np.argwhere(cube_mask_peaks == 1)
         eclipse_positions = np.argwhere(cube_mask_eclipses == 1)
@@ -196,6 +201,8 @@ class Pipeline:
             alerts.append(pixel_alert_info)
 
         df_alerts = pd.DataFrame(alerts)
+        logger.info('df_alerts:')
+        logger.info(df_alerts)
         return df_alerts
 
     def extract_pixel_alert_info(self, cube_n, pixel_xyt_pos):
@@ -371,11 +378,13 @@ def plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepat
     # plt.show()
 
 
-def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=True):
+def plot_pixel_lc(cube_mu, cube_n, x, y, plot=True):
+    """Plot the lightcurve for a specific pixel (x,y), shows the three and five sigma error regions."""
     if not plot:
         return None
     cube_mu_xy = cube_mu[x, y]
     cube_data_xy = cube_n.data[x, y]
+    time_interval = cube_n.time_interval
 
     # Plot lightcurves
     lw = 1.0
@@ -383,12 +392,12 @@ def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=True):
     time_axis  = frame_axis * time_interval   # Zero'ed Time
     time_axis2 = cube_n.bin_t[:-1]            # Observation Time
 
-    mu_3sig, n_peak_3sig, n_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
-    mu_5sig, n_peak_5sig, n_eclipse_5sig = load_precomputed_bayes_limits(threshold_sigma=5)
+    pbl_3_sig = PrecomputeBayesLimits(threshold_sigma=3)
+    pbl_5_sig = PrecomputeBayesLimits(threshold_sigma=5)
 
     fig, ax = plt.subplots(2, 1, figsize=(15, 5), gridspec_kw={'height_ratios': [10, 1]}, sharex=True)
-    ax[0].fill_between(time_axis, n_eclipse_5sig(cube_mu_xy), n_peak_5sig(cube_mu_xy), alpha=0.3, facecolor='blue', label=r'5 $\sigma$')
-    ax[0].fill_between(time_axis, n_eclipse_3sig(cube_mu_xy), n_peak_3sig(cube_mu_xy), alpha=0.5, facecolor='blue', label=r'3 $\sigma$')
+    ax[0].fill_between(time_axis, pbl_5_sig.n_eclipse_threshold(cube_mu_xy), pbl_5_sig.n_peak_threshold(cube_mu_xy), alpha=0.3, facecolor='steelblue', label=r'5 $\sigma$')
+    ax[0].fill_between(time_axis, pbl_3_sig.n_eclipse_threshold(cube_mu_xy), pbl_3_sig.n_peak_threshold(cube_mu_xy), alpha=0.5, facecolor='steelblue', label=r'3 $\sigma$')
     ax[0].step(time_axis, cube_data_xy, color='black', where='mid', lw=lw, label=r'Observed ($n$)')
     ax[0].step(time_axis, cube_mu_xy, color='red', where='mid', lw=lw, label=r'Expected ($\mu$)')
     ax[1].step(time_axis, cube_mu_xy, color='red', where='mid', lw=lw, label=r'Expected ($\mu$)')
@@ -398,6 +407,7 @@ def plot_lc_pixel(cube_mu, cube_n, time_interval, x, y, plot=True):
     ax[0].legend()
     ax[1].set_xlabel("Time (s)")
     ax[0].set_ylabel("Counts")
+    ax[1].set_ylabel("bkg")
     ax[0].set_ylim(0)
     ax[0].set_xlim(np.min(time_axis), np.max(time_axis))
     plt.subplots_adjust(hspace=0)
@@ -469,6 +479,7 @@ def parameter_grid(obsids):
         del(params['energy_ranges'])
         yield params
 
+
 def make_df_lc_idx(df_lc):
     """
     Calculate the start and end indexs of each of the lightcurves.
@@ -484,6 +495,7 @@ def make_df_lc_idx(df_lc):
     df_start_stop = df_start_stop.sort_values('start')
     df_start_stop.to_csv(savepaths_combined['lc_idx'])
     logger.info(f'Saved df_lc_idx to {savepaths_combined["lc_idx"]}')
+
 
 def combine_results(obsids):
     """

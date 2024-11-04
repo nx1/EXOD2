@@ -36,9 +36,7 @@ def load_df(loadpath):
 
 
 def save_result(key, value, runid, savedir):
-    """
-    Save a label/value pair to a .csv file.
-    """
+    """Save a label/value pair to a .csv file."""
     if isinstance(value, pd.DataFrame):
         # Append the runid to the dataframe if it is not there
         if 'runid' not in value.columns:
@@ -50,13 +48,3 @@ def save_result(key, value, runid, savedir):
         save_info(dictionary=value, savepath=savedir / f'{key}.csv')
     else:
         logger.warning(f'{key} {value} is not a dict or df!!')
-
-
-def get_unique_xy(x, y):
-    """Get the unique pairs of two lists."""
-    unique_xy = set()  # Set to store unique pairs
-    for x, y in zip(x, y):
-        unique_xy.add((x, y))
-    return unique_xy
-
-
