@@ -48,7 +48,8 @@ if __name__ == "__main__":
     random.shuffle(obsids)
 
     for obsid in obsids:
-        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, min_energy=2.0, max_energy=12.0, remove_partial_ccd_frames=False)
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, remove_partial_ccd_frames=False, min_energy=2.0,
+                     max_energy=12.0)
         p.run()
         p.load_results()
         plt.show()

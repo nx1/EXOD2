@@ -317,7 +317,7 @@ class PrecomputeBayesLimits:
         self.load()
 
     def __repr__(self):
-        return f'{self.threshold_sigma}'
+        return f'PrecomputeBayesLimits(threshold_sigma={self.threshold_sigma})'
 
     def get_savepath(self):
         self.savepath = path.utils / f'bayesfactorlimits_{self.threshold_sigma}.txt'

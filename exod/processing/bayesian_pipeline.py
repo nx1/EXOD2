@@ -41,9 +41,8 @@ class Pipeline:
         savedir (Path): Directory to save results to.
         n_regions (int): Number of regions detected.
     """
-    def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False,
-                 remove_partial_ccd_frames=True, min_energy=0.2,
-                 max_energy=10.0, clobber=False, precomputed_bayes_limit=PrecomputeBayesLimits(threshold_sigma=3)):
+    def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False, remove_partial_ccd_frames=True,
+                 min_energy=0.2, max_energy=10.0, clobber=False, threshold_sigma=3):
         self.runid = None
         self.obsid = obsid
         self.observation = Observation(obsid)
@@ -57,7 +56,8 @@ class Pipeline:
         self.min_energy = min_energy
         self.max_energy = max_energy
         self.clobber = clobber
-        self.precomputed_bayes_limit = precomputed_bayes_limit
+        self.threshold_sigma = threshold_sigma
+        self.precomputed_bayes_limit = PrecomputeBayesLimits(threshold_sigma)
 
         self.savedir = None
 
@@ -286,7 +286,7 @@ class Pipeline:
             'min_energy'                : self.min_energy,
             'max_energy'                : self.max_energy,
             'clobber'                   : self.clobber,
-            'precomputed_bayes_limit'   : self.precomputed_bayes_limit,
+            'threshold_sigma'           : self.threshold_sigma,
             'savedir'                   : self.savedir,
             'n_regions'                 : self.n_regions,
         }
@@ -465,7 +465,7 @@ def parameter_grid(obsids):
         'remove_partial_ccd_frames' : [True],
         'energy_ranges'             : [[0.2, 2.0], [2.0, 12.0], [0.2, 12.0]],
         'clobber'                   : [False],
-        'precomputed_bayes_limit'   : [PrecomputeBayesLimits(threshold_sigma=3)],
+        'threshold_sigma'           : [3],
     }
     parameter_combinations = list(itertools.product(*parameter_grid.values()))
     logger.info(f'{len(parameter_combinations)} parameter combinations\n'
