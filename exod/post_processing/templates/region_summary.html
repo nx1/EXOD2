@@ -76,7 +76,7 @@
                         <td class="text-end">{{ row['N_events'] }}</td>
                         <td class="text-end">{{ row['mean_rate'] }}</td>
                         <td><a href="{{ url_for('observation_page', obsid=row['obsid']) }}">☺</a></td>
-                        <td><a href="{{ url_for('plot_detection_images', obsid=obsid) }}">☹</a></td>
+                        <td><a href="{{ url_for('plot_detection_images', obsid=row['obsid']) }}">☺</</a></td>
                     </tr>
                     {% endfor %}
                     </tbody>

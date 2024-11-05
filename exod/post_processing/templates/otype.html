@@ -33,6 +33,7 @@
                             <th>RA</th>
                             <th>Dec</th>
                             <th>Sep ('')</th>
+                            <th># Ref</th>
                             <th>SIMBAD</th>
                             <th>ESASKY</th>
                             <th>Unique Region</th>
@@ -46,6 +47,7 @@
                             <td>{{ '%0.4f' | format(row['ra_deg'] | float) }}</td>
                             <td>{{ '%0.4f' | format(row['dec_deg'] | float) }}</td>
                             <td>{{ '%0.2f' | format(row['SEP_ARCSEC'] | float) }}</td>
+                            <td>{{ '%0.0f' | format(row['nbref'] | float) }}</td>
                             <td><a href="https://simbad.cds.unistra.fr/simbad/sim-basic?Ident={{row['ra_deg']}} {{row['dec_deg']}}">SIMBAD</a></td>
                             <td><a href="https://sky.esa.int/esasky/?target={{row['ra_deg']}} {{row['dec_deg']}}&hips=XMM-Newton+EPIC+color&fov=0&cooframe=J2000&sci=true&lang=en">ESASKY</a></td>
                             <td><a href="/region/{{ i }}">{{i}}</a></td>
