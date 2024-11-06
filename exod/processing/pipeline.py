@@ -1,10 +1,10 @@
+from exod.processing.bti import get_bti, get_gti_threshold
 from exod.utils.logger import logger
 from exod.utils.path import data, read_observation_ids, savepaths_combined
 from exod.utils.util import save_result, load_info, load_df
 from exod.utils.plotting import cmap_image
-from exod.pre_processing.data_loader import DataLoader
-from exod.processing.bayesian_computations import load_precomputed_bayes_limits, PrecomputeBayesLimits, B_peak_log, B_eclipse_log
-from exod.processing.data_cube import extract_lc
+from exod.processing.bayesian_computations import PrecomputeBayesLimits, B_peak_log, B_eclipse_log
+from exod.processing.data_cube import extract_lc, DataCubeXMM
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 from exod.xmm.event_list import EventList
@@ -24,12 +24,8 @@ class Pipeline:
     """
     Pipeline to process a single XMM-Newton observation and find variable sources.
 
-    Attributes:
-        runid (str): Unique identifier for the run.
+        Attributes:
         obsid (str): Observation ID.
-        observation (Observation): Observation object.
-        subset_number (int): The subset number.
-        total_subsets (int): Total number of subsets.
         size_arcsec (float): Size of the binned pixels in arcseconds.
         time_interval (int): Time interval in seconds.
         gti_only (bool): Use only Good Time Intervals.
@@ -37,18 +33,22 @@ class Pipeline:
         min_energy (float): Minimum energy in keV.
         max_energy (float): Maximum energy in keV.
         clobber (bool): Overwrite existing files.
+        threshold_sigma (float): Sigma threshold for variability detection.
         precomputed_bayes_limit (PrecomputeBayesLimits): Precomputed Bayes Limits object.
-        savedir (Path): Directory to save results to.
+        observation (Observation): Observation object.
+        
+        runid (str): Unique identifier for the run.
+        event_list (list): List of events for the observation.
+        subset_number (int): The subset number.
+        total_subsets (int): Total number of subsets.
+        gti_threshold (float): Threshold for Good Time Intervals.
         n_regions (int): Number of regions detected.
+        
+        savedir (Path): Directory to save results to.
     """
     def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False, remove_partial_ccd_frames=True,
                  min_energy=0.2, max_energy=10.0, clobber=False, threshold_sigma=3):
-        self.runid = None
         self.obsid = obsid
-        self.observation = Observation(obsid)
-        self.subset_number = None
-        self.total_subsets = None
-
         self.size_arcsec = size_arcsec
         self.time_interval = time_interval
         self.gti_only = gti_only
@@ -58,10 +58,17 @@ class Pipeline:
         self.clobber = clobber
         self.threshold_sigma = threshold_sigma
         self.precomputed_bayes_limit = PrecomputeBayesLimits(threshold_sigma)
+        self.observation = Observation(obsid)
+
+        self.runid = None
+        self.event_list = None
+        self.subset_number = None
+        self.total_subsets = None
+        self.gti_threshold = None
+        self.n_regions = None
 
         self.savedir = None
 
-        self.n_regions = None
 
     def generate_runid(self):
         """Generate a unique runid of the form 0765080801_0_50_0.2_12.0"""
@@ -103,17 +110,16 @@ class Pipeline:
         self.subset_number = subset_number
         self.set_savedir()
         self.generate_runid()
+        self.event_list = EventList.from_event_lists(subset_overlapping_exposures)
+        self.calculate_bti()  # This needs to be called first as the next step filters the eventlist.
+        self.event_list.filter_by_energy(self.min_energy, self.max_energy)
+        self.create_data_cube()
+        self.data_cube.calc_gti_bti_bins(bti=self.bti)
+        self.data_cube.remove_frames_with_partial_ccd_exposure(remove_frames=self.remove_partial_ccd_frames)
+        if self.gti_only:
+            self.data_cube.mask_bti()
 
-        # Create Merged EventList
-        event_list = EventList.from_event_lists(subset_overlapping_exposures)
-
-        # Run Data Loader
-        dl = DataLoader(event_list=event_list, time_interval=self.time_interval, size_arcsec=self.size_arcsec,
-                        gti_only=self.gti_only, min_energy=self.min_energy, max_energy=self.max_energy,
-                        remove_partial_ccd_frames=self.remove_partial_ccd_frames)
-        dl.run()
-
-        cube_n = dl.data_cube
+        cube_n = self.data_cube
         # cube_n.video()
 
         img = self.observation.images[0]
@@ -125,7 +131,7 @@ class Pipeline:
 
         # Extract information for each significant data cell (3D pixel)
         df_significant_cells = self.get_significant_cells(cube_mask_peaks, cube_mask_eclipses, cube_n)
-        self.filter_events_from_significant_cells(df_significant_cells, dl.event_list)
+        self.filter_events_from_significant_cells(df_significant_cells, self.event_list)
         unique_xy = self.get_significant_pixels_from_cells(df_significant_cells)
 
         # Plot Lightcurves for each cell.
@@ -139,6 +145,7 @@ class Pipeline:
         image_mask_combined = (image_peak > 0) | (image_eclipse > 0)  # Combine peaks and eclipses
 
         df_reg = calc_df_regions(image=image_n, image_mask=image_mask_combined)
+        df_reg['detid'] = self.runid + '_' + df_reg['label'].astype('str') # Create detection id from runid_label
         df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_reg, wcs=img.wcs)
         df_regions = pd.concat([df_reg, df_sky], axis=1).reset_index(drop=True)
         self.n_regions = len(df_regions)
@@ -154,16 +161,34 @@ class Pipeline:
         plot_detection_image(df_regions, image_eclipse, image_n, image_peak, savepath=self.savedir / 'detection_img.png')
 
         # Save Results
-        self.save_results(dc_info=cube_n.info,
-                          df_alerts=df_significant_cells,
-                          df_regions=df_regions,
-                          dfs_lcs=dfs_lcs,
-                          df_bti=dl.df_bti,
-                          dl_info=dl.info,
-                          evt_info=event_list.info)
+        self.save_results(dc_info=cube_n.info, df_alerts=df_significant_cells, df_regions=df_regions, dfs_lcs=dfs_lcs,
+                          df_bti=self.df_bti, evt_info=self.event_list.info)
         # plt.show()
         # plt.close('all')
         # plt.clf()
+
+    def calculate_bti(self):
+        self.gti_threshold = get_gti_threshold(self.event_list.N_event_lists)
+        self.t_bin_he, self.lc_he = self.event_list.get_high_energy_lc(self.time_interval)
+        self.bti = get_bti(time=self.t_bin_he, data=self.lc_he, threshold=self.gti_threshold)
+        self.df_bti = pd.DataFrame(self.bti)
+
+
+    def create_data_cube(self):
+        logger.info('Creating Data Cube...')
+        data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
+        self.data_cube = data_cube
+        return data_cube
+
+    def multiply_time_interval(self, n_factor):
+        logger.info(f'Rebinning the cube with longer timebins by factor {n_factor}...')
+        self.data_cube.multiply_time_interval(n_factor)
+        self.time_interval = self.data_cube.time_interval
+        self.calculate_bti()
+        self.data_cube.calc_gti_bti_bins(bti=self.bti)
+
+
+
 
     def get_significant_pixels_from_cells(self, df_significant_cells):
         """Extract the unique x,y values (2D Pixels) from the significant (3D) cells."""
@@ -230,7 +255,7 @@ class Pipeline:
                  'TIME_hi'   : (TIME + TIME_size)}
         return alert
 
-    def save_results(self, dc_info, df_alerts, df_regions, dfs_lcs, df_bti, dl_info, evt_info):
+    def save_results(self, dc_info, df_alerts, df_regions, dfs_lcs, df_bti, evt_info):
         results = {}
         # Collect DataFrames
         if dfs_lcs:
@@ -244,7 +269,6 @@ class Pipeline:
         # Collect info
         results['obs_info'] = self.observation.info
         results['evt_info'] = evt_info
-        results['dl_info']  = dl_info
         results['dc_info']  = dc_info
         results['run_info'] = self.info
         for k, v in results.items():
@@ -282,6 +306,7 @@ class Pipeline:
             'size_arcsec'               : self.size_arcsec,
             'time_interval'             : self.time_interval,
             'gti_only'                  : self.gti_only,
+            'gti_threshold'             : self.gti_threshold,
             'remove_partial_ccd_frames' : self.remove_partial_ccd_frames,
             'min_energy'                : self.min_energy,
             'max_energy'                : self.max_energy,
@@ -526,7 +551,6 @@ def combine_results(obsids):
     df_lc       = pd.concat([df for r in all_results for key, df in r.items() if key.startswith('lc_')])
     df_run_info = pd.DataFrame([r['run_info'] for r in all_results])
     df_obs_info = pd.DataFrame([r['obs_info'] for r in all_results])
-    df_dl_info  = pd.DataFrame([r['dl_info'] for r in all_results])
     df_dc_info  = pd.DataFrame([r['dc_info'] for r in all_results])
     df_evt_info = pd.DataFrame([r['evt_info'] for r in all_results])
 
@@ -539,7 +563,6 @@ def combine_results(obsids):
     df_lc.to_hdf(savepaths_combined['lc'], key='df_lc', index=False, mode='w', format='table')
     df_run_info.to_csv(savepaths_combined['run_info'], index=False)
     df_obs_info.to_csv(savepaths_combined['obs_info'], index=False)
-    df_dl_info.to_csv(savepaths_combined['dl_info'], index=False)
     df_dc_info.to_csv(savepaths_combined['dc_info'], index=False)
     df_evt_info.to_csv(savepaths_combined['evt_info'], index=False)
 
@@ -549,7 +572,6 @@ def combine_results(obsids):
     logger.info(df_lc)
     logger.info(df_run_info)
     logger.info(df_obs_info)
-    logger.info(df_dl_info)
     logger.info(df_dc_info)
     logger.info(df_evt_info)
 

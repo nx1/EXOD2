@@ -1,4 +1,4 @@
-from exod.pre_processing.data_loader import DataLoader
+from exod.processing.pipeline import DataLoader
 from exod.processing.background_inference import calc_cube_mu
 from exod.utils.path import data_processed
 from exod.processing.bayesian_computations import B_peak_log, sigma_equivalent

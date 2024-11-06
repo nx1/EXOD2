@@ -13,7 +13,8 @@ import exod.post_processing.simbad_stats as simbad_stats
 from exod.processing.bayesian_computations import get_bayes_thresholds
 from exod.utils.path import savepaths_combined, data_plots, data_util
 from exod.utils.plotting import use_scienceplots, plot_aitoff, plot_aitoff_density
-from exod.post_processing.extract_lc_features import extract_lc_features, calc_df_lc_feat_filter_flags
+from exod.post_processing.extract_lc_features import extract_lc_features, calc_df_lc_feat_filter_flags, \
+    print_df_lc_feat_filter_flag_stats
 from exod.post_processing.cluster_regions import ClusterRegions
 from exod.utils.simbad_classes import simbad_classifier
 
@@ -408,6 +409,7 @@ def print_significant_bins_stats(df_lc_feat):
 def process_lc_features(clobber=True):
     df_lc_features = extract_lc_features(clobber=clobber)
     df_lc_features = calc_df_lc_feat_filter_flags(df_lc_features)
+    print_df_lc_feat_filter_flag_stats(df_lc_features)
     print_number_of_regions_breakdown(df_lc_features)
     print_n_lcs_by_peaks(df_lc_features, sigma=3)
     print_n_lcs_by_peaks(df_lc_features, sigma=5)

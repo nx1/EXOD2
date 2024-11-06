@@ -140,7 +140,6 @@ def get_overlapping_eventlist_subsets(event_lists):
     have been multiple seperate observations. This function will return
     all the overlapping subsets. e.g. for 2 subsets this will return: [[],[]]
     """
-
     def intervals_overlap(I1, I2):
         return I1[0] <= I2[1] and I1[1] >= I2[0]
 

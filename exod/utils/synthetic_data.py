@@ -235,7 +235,8 @@ def check_synthetic_peak_counts_diff(obsid):
 
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
-    from exod.pre_processing.data_loader import DataLoader
+    from exod.processing.pipeline import DataLoader
+
     obsid = '0831790701'
     observation = Observation(obsid)
     observation.get_files()

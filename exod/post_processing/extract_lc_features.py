@@ -54,6 +54,7 @@ def largest_peak_info(df_lc):
     return n_max_idx, n_max_last_bin, n_max_first_bin, n_max_isolated_flare
 
 def count_significant_bins(df_lc):
+    """Count the total number of significant bins across all the lightcurves."""
     # The following are obtained from bayesian_computations import get_bayes_thresholds
     B_peak_3_sig    = 5.94096891658419
     B_peak_5_sig    = 13.278830271385576
@@ -75,6 +76,7 @@ def count_significant_bins(df_lc):
     return res
 
 def calc_features(df_lc, key):
+    """Calculate Features for a single lightcurve."""
     parts    = key.strip("()").split(", ")
     parts    = [part.strip("'") for part in parts]
     runid    = parts[0]
@@ -152,6 +154,7 @@ def calc_features(df_lc, key):
 
 
 def extract_lc_features(clobber=True):
+    """Loop over all lightcurves and extract features."""
     if not clobber:
         if savepaths_combined['lc_features'].exists():
             logger.info(f'Light curve features already exist at {savepaths_combined["lc_features"]}. Skipping...')
@@ -173,7 +176,6 @@ def extract_lc_features(clobber=True):
 def calc_df_lc_feat_filter_flags(df_lc_feat):
     """Calculate the quality flags for the lightcurves in the sample."""
     print('Calculating Light Curve Feature Filter Flags...')
-    print('-----------------------------------------------')
     # Filter flag for regions that have less than 5 counts maximum in 5 second binning
     df_lc_feat['filt_tbin_5_n_l_5'] = (df_lc_feat['runid'].str.contains('_5_')) & (df_lc_feat['n_max'] < 5)
 
@@ -187,25 +189,32 @@ def calc_df_lc_feat_filter_flags(df_lc_feat):
     # Filter flag for excluded obsids
     df_lc_feat['obsid'] = df_lc_feat['runid'].str.extract(r'(\d{10})')
     df_lc_feat['filt_exclude_obsid'] = df_lc_feat['obsid'].isin(obsids_to_exclude)
-
-    print_df_lc_feat_filter_flag_stats(df_lc_feat)
-   
     return df_lc_feat
 
 def print_df_lc_feat_filter_flag_stats(df_lc_feat):
+    """Print a summary of the lightcurve quality flags."""
+    print('Lightcurve Feature Flags Statistics:')
+    print('------------------------------------')
     flag_cols = ['n_max_isolated_flare', 'n_max_first_bin', 'n_max_last_bin', 'filt_tbin_5_n_l_5', 'filt_5sig', 'filt_exclude_obsid', 'filt_g_20_detections']
-
     df_lc_feat_5_sig = df_lc_feat[df_lc_feat['filt_5sig']]
-
     N = len(df_lc_feat)
     for col in flag_cols:
         num = len(df_lc_feat[df_lc_feat[col] == True])
-        print(f'{col:<20} : {num} / {N:,} ({num/N*100:.2f}%) | 5sig: {len(df_lc_feat_5_sig[df_lc_feat_5_sig[col] == True])} / {len(df_lc_feat_5_sig):,} ({len(df_lc_feat_5_sig[df_lc_feat_5_sig[col] == True]) / len(df_lc_feat_5_sig) * 100:.2f}%)')
+        percentage = num / N * 100
+        count_5sig = len(df_lc_feat_5_sig[df_lc_feat_5_sig[col] == True])
+        total_5sig = len(df_lc_feat_5_sig)
+        percentage_5sig = count_5sig / total_5sig * 100
+
+        col_formatted = f'{col:<20}'
+        num_formatted = f'{num:<5} / {N} ({percentage:.2f}%)'
+        five_sig_formatted = f'5sig: {count_5sig:<5} / {total_5sig} ({percentage_5sig:.2f}%)'
+        print(f'{col_formatted} : {num_formatted:<22} | {five_sig_formatted}')
 
     print(f'n_exluded_obsids     : {len(obsids_to_exclude):,}')
-    print('-----------------------------------------------')
+    print('------------------------------------')
 
 
 if __name__ == "__main__":
-    extract_lc_features(clobber=False)
-
+    df_lc_feat = extract_lc_features(clobber=False)
+    calc_df_lc_feat_filter_flags(df_lc_feat)
+    print_df_lc_feat_filter_flag_stats(df_lc_feat)

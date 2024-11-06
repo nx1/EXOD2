@@ -1,11 +1,10 @@
-from exod.pre_processing.bti import plot_bti
-from exod.pre_processing.event_filtering import filter_obsid_events, create_obsid_images
+from exod.processing.bti import plot_bti
 from exod.processing.coordinates import get_regions_sky_position
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
 from exod.processing.coordinates import calc_df_regions
 from exod.xmm.observation import Observation
-from exod.pre_processing.data_loader import DataLoader
+from exod.processing.pipeline import DataLoader
 
 import numpy as np
 import pandas as pd
@@ -13,7 +12,7 @@ from astropy.convolution import convolve
 from astropy.visualization import ImageNormalize, SqrtStretch
 from matplotlib import pyplot as plt, patches as patches
 from scipy.stats import kstest, poisson
-from skimage.measure import label, regionprops, regionprops_table
+from skimage.measure import label, regionprops
 from scipy.optimize import minimize_scalar
 
 from exod.utils.util import save_df, save_info

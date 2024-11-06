@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 from exod.utils.path import savepaths_combined
 from exod.utils.plotting import plot_event_list_ccds
 from exod.xmm.observation import Observation
-from exod.post_processing.crossmatch_runs import get_run_subset_keys
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
 from exod.post_processing.hot_regions import rotate_regions_to_detector_coords, calc_hot_region_flags, hot_regions
 from exod.post_processing.util import calc_detid_column
@@ -46,6 +45,7 @@ def create_iau_srcids(ra_deg, dec_deg, ra_precision=1, dec_precision=0):
         name = f"EXOD J{ra}{dec}"
         srcids.append(name)
     return srcids
+
 
 class ResultsManager:
     def __init__(self):
@@ -232,7 +232,6 @@ class ResultsManager:
             unique_regions.append(res)
         content = {'unique_regions' : unique_regions}
         return content
-
 
     def get_lc_by_idx(self, idx):
         lc_idxs = self.df_lc_idx.iloc[idx]

@@ -9,7 +9,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from exod.utils.path import data_plots
-from exod.pre_processing.data_loader import DataLoader
+from exod.processing.pipeline import DataLoader
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.background_inference import calc_cube_mu

@@ -76,7 +76,6 @@ def plot_bti(time, data, threshold, bti, savepath=None):
     plt.ylabel(r'Window Count Rate $\mathrm{ct\ s^{{-1}}}$')
     plt.legend()
 
-
     if savepath:
         logger.info(f'saving bti plot to: {savepath}')
         plt.savefig(savepath)
@@ -123,3 +122,10 @@ def get_bti_bin_idx_bool(bti_bin_idx, bin_t):
     arr = np.arange(len(bin_t))
     bti_bin_idx_bool = np.isin(arr, bti_bin_idx)
     return bti_bin_idx_bool
+
+
+def get_gti_threshold(N_event_lists):
+    thresholds = {1 : 0.5,
+                  2 : 1.0,
+                  3 : 1.5}
+    return thresholds[N_event_lists]

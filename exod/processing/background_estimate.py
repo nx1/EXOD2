@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from exod.xmm.observation import Observation
-from exod.pre_processing.data_loader import DataLoader
+from exod.processing.pipeline import DataLoader
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
 from scipy.stats import poisson
@@ -263,7 +263,7 @@ if __name__=="__main__":
                     max_energy=12.0, remove_partial_ccd_frames=False)
     dl.run()
 
-    lc_HE, time_HE = dl.get_high_energy_lc()
+    lc_HE, time_HE = dl.get_high_energy_lc(dl.time_interval)
     lc_HE = lc_HE[:-1]
     cube  = dl.data_cube.data
 

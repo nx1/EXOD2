@@ -78,8 +78,11 @@ class EventList:
     @classmethod
     def from_event_lists(cls, event_lists):
         """
-        Create a merged EventList from a list of existing ones.
-        event_lists = [EventList, EventList, EventList]
+        Create a merged event list from a list of existing ones.
+        Args:
+            event_lists (list): list of EventList() objects.
+        Returns:
+            event_list (EventList): New merged eventlist object.
         """
         # EventList Object to return
         event_list = cls.__new__(cls) # Create the object without calling .__init__()
@@ -149,6 +152,8 @@ class EventList:
         if (self.instrument in ('EMOS1','EMOS2')) and (self.submode!='PrimeFullWindow'):
             logger.info('Removing central CCD of MOS because NOT in PrimeFullWindow')
             self.data = self.data[~(self.data['CCDNR'] == 1)]
+            if len(self.data) == 0:
+                raise ValueError(f'No data in EventList after removing central MOS events!')
 
     def remove_bad_rows(self):
         if self.instrument == 'EPN':
@@ -158,9 +163,7 @@ class EventList:
                                   ~((self.data['CCDNR'] == 10) & (self.data['RAWX'] == 28))]
 
     def remove_hot_pixels(self):
-        """
-        Remove hot pixels from the event list data.
-        """
+        """Remove hot pixels from the event list data."""
         hot_pixels = {'EPN': data_util / 'hotpix_PN.csv',
                       'EMOS1': data_util / 'hotpix_M1.csv',
                       'EMOS2': data_util / 'hotpix_M2.csv'}
@@ -211,6 +214,22 @@ class EventList:
                                (self.data['Y'] > Y_lo)       & (self.data['Y'] < Y_hi) &
                                (self.data['TIME'] > TIME_lo) & (self.data['TIME'] < TIME_hi)]
         return evt_subset
+
+    def get_high_energy_lc(self, time_interval):
+        min_energy_he = 10.0     # minimum extraction energy for High Energy Background events
+        max_energy_he = 12.0     # maximum extraction energy for High Energy Background events
+        time_interval_gti = min(time_interval, 100) #100  # Window Size to use for GTI extraction
+        data = self.data
+        time_min = self.time_min
+        time_max = self.time_max
+        logger.info(f'min_energy_he = {min_energy_he} max_energy_he = {max_energy_he} time_interval_gti = {time_interval_gti}')
+        data_he = np.array(data['TIME'][(data['PI'] > min_energy_he * 1000) & (data['PI'] < max_energy_he * 1000)])
+
+        t_bin_he = np.arange(time_min, time_max, time_interval_gti)
+        lc_he = np.histogram(data_he, bins=t_bin_he)[0] / time_interval_gti  # Divide by the bin size to get in ct/s
+        return t_bin_he, lc_he
+
+
 
     def unload_data(self):
         del(self.data)

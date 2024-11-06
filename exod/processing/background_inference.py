@@ -272,7 +272,7 @@ def calc_cube_mu(data_cube, wcs):
 
 if __name__=="__main__":
     from exod.utils.path import data
-    from exod.pre_processing.data_loader import DataLoader
+    from exod.processing.pipeline import DataLoader
     from exod.xmm.event_list import EventList
     from exod.utils.path import read_observation_ids
 

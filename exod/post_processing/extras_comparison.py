@@ -33,6 +33,9 @@ if __name__ == "__main__":
             df_regions_matches    = df_regions_overlapping.iloc[tab_cmatch_matches['IDX_ORIGINAL']]
             df_regions_no_matches = df_regions_overlapping.iloc[tab_cmatch_no_matches['IDX_ORIGINAL']]
 
+            N_exod_obsids   = len(np.unique(tab_extras['OBS_ID']))
+            N_extras_obsids = df['obsid'].nunique() 
+
             N_exod_sources_in_overlapping_obsids   = len(np.unique(df_regions_overlapping['cluster_label']))
             N_extras_sources_in_overlapping_obsids = len(np.unique(tab_extras_overlapping['SRCID']))
 
@@ -48,6 +51,8 @@ if __name__ == "__main__":
             perc_extras_sources_without_cmatch = (N_extras_sources_without_cmatch / N_extras_sources_in_overlapping_obsids) * 100
 
             print(f'Combination: exod={k} extras={k2}')
+            print(f'Number of EXOD observations                       = {N_exod_obsids:,}')
+            print(f'Number of ExtraS observations                     = {N_extras_obsids:,}')
             print(f'Number of overlapping obsids                      = {len(obsid_overlapping):,}')
             print(f'Number of exod sources in overlapping obsids      = {N_exod_sources_in_overlapping_obsids:,}')
             print(f'Number of extras sources in overlapping obsids    = {N_extras_sources_in_overlapping_obsids:,}')

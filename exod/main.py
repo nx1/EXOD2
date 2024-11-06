@@ -6,7 +6,7 @@ This script will run the EXOD pipeline for all the observations in the `data/obs
 import random
 import multiprocessing
 
-from exod.processing.bayesian_pipeline import parameter_grid, Pipeline, combine_results
+from exod.processing.pipeline import parameter_grid, Pipeline, combine_results
 from exod.utils.logger import logger, get_current_date_string
 from exod.utils.path import data, data_results, read_observation_ids
 
@@ -48,16 +48,13 @@ if __name__ == "__main__":
     random.shuffle(obsids)
 
     for obsid in obsids:
-        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, remove_partial_ccd_frames=False, min_energy=2.0,
-                     max_energy=12.0)
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, remove_partial_ccd_frames=False, min_energy=2.0, max_energy=12.0)
         p.run()
-        p.load_results()
+        # p.load_results()
         plt.show()
         #for evt in p.observation.events_processed:
         #    elv = EventListViewer(evt.data)
         #    elv.show()
-
-
 
     # Use Multiprocessing
     # num_processes = 1

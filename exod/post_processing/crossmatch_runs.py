@@ -8,6 +8,7 @@ import astropy.units as u
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
 
+from exod.post_processing.results_manager import ResultsManager
 from exod.utils.path import data_combined, data_plots
 from exod.utils.logger import logger
 
@@ -81,6 +82,7 @@ def crossmatch_simulation_subsets(dfs_subsets):
         df = pd.DataFrame(res)
         dfs_subset_crossmatch[k1] = df
     return dfs_subset_crossmatch
+
 
 def calc_subset_stats(dfs_subsets):
     all_res = []
@@ -199,7 +201,7 @@ def plot_crossmatch_confusion_matrix(df_subset_cmatch_fraction, n_regions_sim):
     ax.set_xlabel('Crossmatch A')
     ax.set_ylabel('Crossmatch B')
     plt.tight_layout()
-    logger.info('Saving Crossmatch Confusion Matrix...')
+    logger.info(f'Saving Crossmatch Confusion Matrix to: crossmatch_confusion_matrix.png...')
     plt.savefig(data_plots / 'crossmatch_confusion_matrix.png')
     plt.savefig(data_plots / 'crossmatch_confusion_matrix.pdf')
     plt.show()
@@ -215,8 +217,8 @@ def print_crossmatch_fraction(dfs_subset_crossmatch):
 
 
 def main():
-    df_region_path = data_combined / '30_4_2024/df_regions.csv'
-    df_regions = pd.read_csv(df_region_path)
+    rm = ResultsManager()
+    df_regions = rm.df_regions
 
     dfs_subsets = split_subsets(df_regions=df_regions)
 

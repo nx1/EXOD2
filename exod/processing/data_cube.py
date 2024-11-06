@@ -1,6 +1,6 @@
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image, plot_frame_masks
-from exod.pre_processing.bti import get_bti_bin_idx, get_bti_bin_idx_bool
+from exod.processing.bti import get_bti_bin_idx, get_bti_bin_idx_bool
 
 import copy
 import numpy as np
@@ -127,6 +127,7 @@ class DataCubeXMM(DataCube):
         sample = data['X'], data['Y'], data['TIME']
         bins = [self.bin_x, self.bin_y, self.bin_t]
         cube, bin_edges, bin_number = binned_statistic_dd(sample=sample, values=None, statistic='count', bins=bins)
+        cube = cube.astype(np.int32)
         return cube
 
     def crop_data_cube(self):
@@ -168,7 +169,7 @@ class DataCubeXMM(DataCube):
     def mask_bti(self):
         logger.info('Masking bad frames from Data Cube (setting to nan)')
         img_shape = (self.shape[0], self.shape[1], 1)
-        img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float64)
+        img_nan = np.full(shape=img_shape, fill_value=np.nan, dtype=np.float32)
         self.data[:, :, self.bti_bin_idx] = img_nan
 
     def remove_bti_frames(self):

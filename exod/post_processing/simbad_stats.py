@@ -88,9 +88,9 @@ def load_dfs():
 
 
     print(f'Calculating otype statistics, using sumtotals:')
-    print(f'Number of objects in DR14                    =  {n_dr14:,}')
-    print(f'Number of objects in DR14 with SC_VAR_FLAG=1 =  {n_dr14_transient:,}')
-    print(f'Number of objects in EXOD_CAT                =  {n_exod_cat:,}')
+    print(f'Number of objects in DR14                        =  {n_dr14:,}')
+    print(f'Number of objects in DR14 with SC_VAR_FLAG=1     =  {n_dr14_transient:,}')
+    print(f'Number of objects in EXOD_CAT                    =  {n_exod_cat:,}')
     print(f'Number of objects in EXOD_CAT with SC_VAR_FLAG=1 =  {n_exod_cat_dr14_transient:,}')
     print(f'Number of objects in EXOD_CAT with SC_VAR_FLAG=0 =  {n_exod_cat_dr14_not_transient:,}')
     df_dr14                        = process_table(tab_dr14,                        sumtotal=n_dr14)
@@ -266,15 +266,8 @@ def main():
     print('\n\n')
     print('OTYPE statistics (counts, percentages):')
     print('=======================================')
-    col_order = ['otype_long',
-            'EXOD FULL',
-            'DR14 & SC_VAR_FLAG=1',
-            'DR14',
-            'EXOD & SC_VAR_FLAG=0',
-            'EXOD & SC_VAR_FLAG=1',
-            'SIMBAD']
+    col_order = ['otype_long', 'EXOD FULL', 'DR14 & SC_VAR_FLAG=1', 'DR14', 'EXOD & SC_VAR_FLAG=0', 'EXOD & SC_VAR_FLAG=1', 'SIMBAD']
     print(df_combined[col_order])
-
 
     dfs = read_simbad_stats()
     return dfs
