@@ -1,3 +1,4 @@
+from exod.processing.data_cube import DataCubeXMM
 from exod.utils.logger import logger
 from exod.utils.plotting import compare_images
 from exod.xmm.observation import Observation
@@ -272,7 +273,6 @@ def calc_cube_mu(data_cube, wcs):
 
 if __name__=="__main__":
     from exod.utils.path import data
-    from exod.processing.pipeline import DataLoader
     from exod.xmm.event_list import EventList
     from exod.utils.path import read_observation_ids
 
@@ -297,10 +297,7 @@ if __name__=="__main__":
                 event_list = EventList.from_event_lists(subset_overlapping_exposures)
                 # event_list = observation.events_processed_pn[0]
                 # event_list.read()
-                dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec,
-                                gti_only=gti_only, min_energy=min_energy, max_energy=max_energy)
-                dl.run()
-                data_cube = dl.data_cube
+                data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=time_interval)
                 estimated_cube = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)
         except Exception as e:
             logger.warning(e)
