@@ -12,6 +12,14 @@
 
 ![template_creation.png](plots/template_creation.png)
 
+## Tornado_burst_spec.png
+
+![Tornado_burst_spec.png](plots/Tornado_burst_spec.png)
+
+## tornado_burst_lc_lccorr.png
+
+![tornado_burst_lc_lccorr.png](plots/tornado_burst_lc_lccorr.png)
+
 ## hot_regions_5s.png
 
 ![hot_regions_5s.png](plots/hot_regions_5s.png)
@@ -39,6 +47,10 @@
 ## bayes_successrate_timebinning2.png
 
 ![bayes_successrate_timebinning2.png](plots/bayes_successrate_timebinning2.png)
+
+## otype_seperations.png
+
+![otype_seperations.png](plots/otype_seperations.png)
 
 ## bayesfactorlimits_3.png
 
@@ -68,6 +80,10 @@
 
 ![B_eclipse.png](plots/B_eclipse.png)
 
+## athena_exod.png
+
+![athena_exod.png](plots/athena_exod.png)
+
 ## cluster_radius_n_sources.png
 
 ![cluster_radius_n_sources.png](plots/cluster_radius_n_sources.png)
@@ -76,6 +92,10 @@
 
 ![B_values_3d.png](plots/B_values_3d.png)
 
+## spatial_dist_0.2_2.0.png
+
+![spatial_dist_0.2_2.0.png](plots/spatial_dist_0.2_2.0.png)
+
 ## check_estimate_success1.png
 
 ![check_estimate_success1.png](plots/check_estimate_success1.png)
@@ -83,6 +103,14 @@
 ## Significance_plot.png
 
 ![Significance_plot.png](plots/Significance_plot.png)
+
+## tornado_spec_nofit.png
+
+![tornado_spec_nofit.png](plots/tornado_spec_nofit.png)
+
+## tornado_burst_lc.png
+
+![tornado_burst_lc.png](plots/tornado_burst_lc.png)
 
 ## source_against_n_counts_filter.png
 
@@ -95,6 +123,10 @@
 ## Flux_comparison.png
 
 ![Flux_comparison.png](plots/Flux_comparison.png)
+
+## spatial_dist_2.0_12.0.png
+
+![spatial_dist_2.0_12.0.png](plots/spatial_dist_2.0_12.0.png)
 
 ## bayes_rate_estimate.png
 
@@ -176,6 +208,10 @@
 
 ![unique_regions_aitoff.png](plots/unique_regions_aitoff.png)
 
+## benchmarking_side_by_side.png
+
+![benchmarking_side_by_side.png](plots/benchmarking_side_by_side.png)
+
 ## HD_200560_lc_10s.png
 
 ![HD_200560_lc_10s.png](plots/HD_200560_lc_10s.png)
@@ -196,6 +232,10 @@
 
 ![mean_observed_count_rate.png](plots/mean_observed_count_rate.png)
 
+## hydra_A_spec_lc.png
+
+![hydra_A_spec_lc.png](plots/hydra_A_spec_lc.png)
+
 ## data_cube_frame_with_inset_and_box.png
 
 ![data_cube_frame_with_inset_and_box.png](plots/data_cube_frame_with_inset_and_box.png)
@@ -208,9 +248,17 @@
 
 ![total_lc_counts_hist_small_n.png](plots/total_lc_counts_hist_small_n.png)
 
+## exod_runs_vs_date.png
+
+![exod_runs_vs_date.png](plots/exod_runs_vs_date.png)
+
 ## bayes_successrate_timebinning1.png
 
 ![bayes_successrate_timebinning1.png](plots/bayes_successrate_timebinning1.png)
+
+## dr14_cts_hist.png
+
+![dr14_cts_hist.png](plots/dr14_cts_hist.png)
 
 ## SIMBAD_seperations.png
 
