@@ -26,15 +26,6 @@ This will run over all the obsids specified in
 and perform the transient search, the output is then saved in
 `/data/results/obsid/`
 
-## XMM Observation
-::: exod.xmm.observation
-## XMM Event List
-::: exod.xmm.event_list
-## Data Loader 
-::: exod.pre_processing.data_loader
-## Data Cube
-::: exod.processing.data_cube
-
-## Full Module Listing (Unsorted)
+## Full Module Listing
 ::: exod
 
