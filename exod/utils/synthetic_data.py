@@ -1,5 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+from exod.processing.data_cube import DataCubeXMM
+from exod.xmm.event_list import EventList
 
 
 def create_fake_burst(data_cube, x_pos, y_pos, time_peak_fraction, width_time, amplitude):
@@ -208,11 +212,7 @@ def check_synthetic_peak_counts_diff(obsid):
 
     tab_amplitude=[0.5,2,5,10]
     for timebin in tqdm(timebins):
-        dl = DataLoader(event_list=event_list, time_interval=timebin, size_arcsec=size_arcsec, gti_only=False,
-                        min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=False)
-        dl.run()
-
-        data_cube = dl.data_cube
+        data_cube = DataCubeXMM(event_list=event_list, size_arcsec=size_arcsec, time_interval=timebin)
         cube = data_cube.data
         rejected = data_cube.bti_bin_idx
         print('Creating copy of datacube (takes a second)...')
@@ -234,7 +234,6 @@ def check_synthetic_peak_counts_diff(obsid):
 
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
-    from exod.processing.data_cube import DataCubeXMM
 
     obsid = '0831790701'
     observation = Observation(obsid)

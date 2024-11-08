@@ -1,4 +1,3 @@
-from exod.post_processing.plot_detection_images import plot_images
 from exod.post_processing.results_manager import ResultsManager
 from exod.utils.path import data
 from exod.post_processing.ds9 import view_obs_images

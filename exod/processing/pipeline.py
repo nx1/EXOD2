@@ -16,6 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib import colors
 import pandas as pd
 from astropy.visualization import ImageNormalize, SqrtStretch
 
@@ -38,7 +39,8 @@ class Pipeline:
         observation (Observation): Observation object.
         
         runid (str): Unique identifier for the run.
-        event_list (list): List of events for the observation.
+        event_list (EventList): EventList() object.
+        data_cube (XMMDataCube): XMMDataCube() object containing the number of photons in each cell.
         subset_number (int): The subset number.
         total_subsets (int): Total number of subsets.
         gti_threshold (float): Threshold for Good Time Intervals.
@@ -62,13 +64,13 @@ class Pipeline:
 
         self.runid = None
         self.event_list = None
+        self.data_cube = None
         self.subset_number = None
         self.total_subsets = None
         self.gti_threshold = None
         self.n_regions = None
 
         self.savedir = None
-
 
     def generate_runid(self):
         """Generate a unique runid of the form 0765080801_0_50_0.2_12.0"""
@@ -110,12 +112,16 @@ class Pipeline:
         self.subset_number = subset_number
         self.set_savedir()
         self.generate_runid()
+
+        # Create the merged eventlist, calculate the bad time intervals then filter the eventlist.
         self.event_list = EventList.from_event_lists(subset_overlapping_exposures)
         self.calculate_bti()  # This needs to be called first as the next step filters the eventlist.
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
-        self.create_data_cube()
+
+        # Create the data cube
+        self.data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
         self.data_cube.calc_gti_bti_bins(bti=self.bti)
-        self.data_cube.remove_frames_with_partial_ccd_exposure(remove_frames=self.remove_partial_ccd_frames)
+        self.data_cube.mask_frames_with_partial_ccd_exposure(mask_frames=self.remove_partial_ccd_frames)
         if self.gti_only:
             self.data_cube.mask_bti()
 
@@ -168,17 +174,11 @@ class Pipeline:
         # plt.clf()
 
     def calculate_bti(self):
+        """Calculate the bad time intervals (BTI) based upon the lightcurve from the eventlist and the threshold."""
         self.gti_threshold = get_gti_threshold(self.event_list.N_event_lists)
-        self.t_bin_he, self.lc_he = self.event_list.get_high_energy_lc(self.time_interval)
-        self.bti = get_bti(time=self.t_bin_he, data=self.lc_he, threshold=self.gti_threshold)
+        t_bin_he, lc_he = self.event_list.get_high_energy_lc(self.time_interval)
+        self.bti = get_bti(time=t_bin_he, data=lc_he, threshold=self.gti_threshold)
         self.df_bti = pd.DataFrame(self.bti)
-
-
-    def create_data_cube(self):
-        logger.info('Creating Data Cube...')
-        data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
-        self.data_cube = data_cube
-        return data_cube
 
     def multiply_time_interval(self, n_factor):
         logger.info(f'Rebinning the cube with longer timebins by factor {n_factor}...')
@@ -186,9 +186,6 @@ class Pipeline:
         self.time_interval = self.data_cube.time_interval
         self.calculate_bti()
         self.data_cube.calc_gti_bti_bins(bti=self.bti)
-
-
-
 
     def get_significant_pixels_from_cells(self, df_significant_cells):
         """Extract the unique x,y values (2D Pixels) from the significant (3D) cells."""
@@ -198,7 +195,7 @@ class Pipeline:
         return unique_xy
 
     def filter_events_from_significant_cells(self, df_alerts, event_list):
-        """Extract the events in the events list that for each significant cell."""
+        """Extract the events in the events list for each significant cell."""
         for i, r in df_alerts.iterrows():
             evt_subset = event_list.get_events_within_bounds(X_lo=r['X_lo'], X_hi=r['X_hi'],
                                                              Y_lo=r['Y_lo'], Y_hi=r['Y_hi'],
@@ -206,6 +203,41 @@ class Pipeline:
             logger.info(r)
             logger.info(evt_subset)
             logger.info(f'N_events = {len(evt_subset)}')
+
+            # Create an image of the significant cell.
+            for instrument in np.unique(evt_subset['INSTRUMENT']):
+                sub = evt_subset[evt_subset['INSTRUMENT'] == instrument]
+                rawx = sub['RAWX']
+                rawy = sub['RAWY']
+                xbins = np.arange(rawx.min(), rawx.max()+1, 1)
+                ybins = np.arange(rawy.min(), rawy.max()+1, 1)
+
+                print(sub)
+                print(xbins)
+                print(ybins)
+                try:
+                    hist, xedges, yedges = np.histogram2d(rawx, rawy, bins=(xbins, ybins))
+
+                    n = int(hist.max()) + 1
+                    cmap = plt.get_cmap('hot', n)
+                    boundaries = np.arange(-0.5, n + 0.5, 1)
+                    norm = colors.BoundaryNorm(boundaries, ncolors=n)
+
+                    plt.figure()
+                    plt.title(f'{instrument} {r.to_dict()}')
+                    plt.imshow(hist.T, origin="lower", aspect="equal", cmap=cmap, norm=norm,
+                               extent=(xedges[0], xedges[-1], yedges[0], yedges[-1]), interpolation='none')
+                    plt.colorbar(shrink=0.5)
+                    plt.xlabel("RAWX")
+                    plt.ylabel("RAWY")
+                    plt.subplots_adjust(left=0, right=0, top=0, bottom=0)
+                except Exception as e:
+                    print(f'Could not do {i} {e}')
+
+
+
+
+
 
     def get_significant_cells(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
         """Extract information for each pixel in the datacube that is associated with an alert."""
@@ -574,6 +606,7 @@ def combine_results(obsids):
     logger.info(df_obs_info)
     logger.info(df_dc_info)
     logger.info(df_evt_info)
+
 
 if __name__=="__main__":
     obsids = read_observation_ids(data / 'observations.txt')

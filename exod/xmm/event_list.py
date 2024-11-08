@@ -64,6 +64,8 @@ class EventList:
         self.time_min   = np.min(self.data['TIME'])
         self.time_max   = np.max(self.data['TIME'])
 
+        self.data['INSTRUMENT'] = self.instrument
+
         # self.check_submode()
         if remove_bad_rows:
             self.remove_bad_rows()
@@ -174,7 +176,7 @@ class EventList:
             logger.info(f'No Hot Pixels found for {self.instrument}')
             return None
         self.data = setdiff(table1=self.data, table2=tab_hotpix, keys=['CCDNR', 'RAWX', 'RAWY'])
-        logger.info(f'Removed Hot Pixels {self.instrument} | Pre: {pre} Post: {self.N_events} (-{pre - self.N_events})')
+        logger.info(f'Removed Hot Pixels {self.instrument:<5} | Pre: {pre:,} Post: {self.N_events:,} (-{pre - self.N_events:,})')
 
 
     def remove_borders(self):
@@ -260,7 +262,7 @@ class EventList:
             'mean_rate'     : self.mean_rate
             }
         for k, v in info.items():
-            logger.info(f'{k:>10} : {v}')
+            logger.info(f'{k:>14} : {v}')
         return info
 
 if __name__ == "__main__":

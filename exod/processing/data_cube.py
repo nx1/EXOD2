@@ -177,7 +177,7 @@ class DataCubeXMM(DataCube):
         data_non_nan = self.data[:, :, ~self.bti_bin_idx_bool[:-1]]
         return data_non_nan
 
-    def remove_frames_with_partial_ccd_exposure(self, remove_frames=True, plot=False):
+    def mask_frames_with_partial_ccd_exposure(self, mask_frames=True, plot=False):
         """
         Remove the frames with irregular exposures between CCDs.
         
@@ -188,10 +188,10 @@ class DataCubeXMM(DataCube):
         0201900201, 0724840301, 0743700201
 
         Args:
-            remove_frames (bool): If True remove the frames.
+            mask_frames (bool): If True mask the frames.
             plot (bool): If True plot diagnostics.
         """
-        if not remove_frames:
+        if not mask_frames:
             self.bccd_bin_idx_bool = np.full(self.n_t_bins, fill_value=False)
             return
 
@@ -205,7 +205,7 @@ class DataCubeXMM(DataCube):
             self.bccd_bin_idx_bool = np.any(list(all_masks.values()), axis=0)
             self.bccd_bin_idx      = np.where(self.bccd_bin_idx_bool)[0]
 
-            # Remove from the data cube and update the relative frame exposures.
+            # Mask from the data cube and update the relative frame exposures.
             self.data = np.where(self.bccd_bin_idx_bool, np.empty(self.data.shape) * np.nan, self.data)
             self.relative_frame_exposures = np.where(self.bccd_bin_idx_bool, 0, self.relative_frame_exposures)
 
@@ -294,7 +294,7 @@ class DataCubeXMM(DataCube):
     def multiply_time_interval(self, n_factor):
         """
         Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
-        #TODO the BTI need to be re-computed as well, at the DataLoader level most likely
+        #TODO the BTI need to be re-computed as well
         """
 
         self.time_interval = n_factor*self.time_interval

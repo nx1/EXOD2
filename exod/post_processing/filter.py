@@ -166,7 +166,22 @@ class FilterLcSigmaPeakOrEclipse(FilterBase):
 
     def apply(self, df_lc_stats):
         self.df = df_lc_stats
-        mask = (self.df['sigma_max_B_eclipse'] > self.min_sigma) | (self.df['sigma_max_B_peak'] > self.min_sigma)
+        mask = (self.df['sigma_max_B_eclipse'] >= self.min_sigma) | (self.df['sigma_max_B_peak'] >= self.min_sigma)
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
+class FilterLc5sig(FilterBase):
+    def __init__(self):
+        name = '5_Sigma'
+        super().__init__(name)
+
+    def get_parameters(self):
+        return {}
+
+    def apply(self, df_lc_stats):
+        self.df = df_lc_stats
+        mask = (df_lc_stats['B_peak_log_max'] > 13.2) | (df_lc_stats['B_eclipse_log_max'] > 12.38)
         self.df_filtered = self.df[mask]
         self.df_removed  = self.df[~mask]
         return self.df_filtered

@@ -85,7 +85,8 @@ def get_filters_param_grid():
                     FilterRegTimeBin(name='t_bin_50',  t_bin=50),
                     FilterRegTimeBin(name='t_bin_200', t_bin=200)]
 
-    filters_sigma = [FilterLcSigmaPeakOrEclipse('5_sigma', min_sigma=5)]
+    #filters_sigma = [FilterLcSigmaPeakOrEclipse('5_sigma', min_sigma=5)]
+    filters_sigma = [FilterLc5sig()]
     filters = [filters_sigma, filters_energy, filters_time]
     return filters
 
@@ -101,13 +102,25 @@ if __name__ == "__main__":
     print(len(df_lc_features), len(df_cmatch_xmm), len(df_cmatch_simbad), len(df_regions))
     df_regions['sigma_max_B_peak']    = df_lc_features['sigma_max_B_peak']
     df_regions['sigma_max_B_eclipse'] = df_lc_features['sigma_max_B_eclipse']
+    df_regions['B_peak_log_max']      = df_lc_features['B_peak_log_max']
+    df_regions['B_eclipse_log_max']   = df_lc_features['B_eclipse_log_max']
     df_regions['DR14_SEP_ARCSEC']     = df_regions['cluster_label'].map(df_cmatch_xmm['SEP_ARCSEC'])
     df_regions['SIMBAD_SEP_ARCSEC']   = df_regions['cluster_label'].map(df_cmatch_simbad['SEP_ARCSEC'])
     df_regions['SC_VAR_FLAG']         = df_regions['cluster_label'].map(df_cmatch_xmm['SC_VAR_FLAG'])
 
-    filters = get_filters()
-    #filters = get_filters_param_grid()
+    # Print Numbers of sources for parameter grid filters.
+    filters = get_filters_param_grid()
+    valid_combinations = generate_valid_combinations(*filters)
+    sm = SubsetManager()
+    sm.add_subsets([Subset(f, df_regions) for f in valid_combinations])
+    sm.calc_all()
 
+    for s in sm.subsets:
+        print(f'{s.name!s:<50} | N_reg: {s.n_reg:<7} | N_unique: {s.n_unique:<7}')
+        
+    """
+    # Print number of sources for all filters.
+    filters = get_filters()
     valid_combinations = generate_valid_combinations(*filters)
     sm = SubsetManager()
     sm.add_subsets([Subset(f, df_regions) for f in valid_combinations])
@@ -115,3 +128,4 @@ if __name__ == "__main__":
 
     for s in sm.subsets:
         print(f'{s.name!s:<70} | N_reg: {s.n_reg:<7} | N_unique: {s.n_unique:<7}')
+    """

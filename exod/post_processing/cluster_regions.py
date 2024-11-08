@@ -95,8 +95,9 @@ class ClusterRegions:
         region_num_to_cluster_num (dict): Maps the region number to the cluster number (unique region number).
         df_regions_unique (pd.DataFrame): DataFrame containing the unique regions.
         n_clusters (int): Number of unique regions.
+        save (bool): If True, save the clustered regions to a file.
     """
-    def __init__(self, df_regions, clustering_radius=20 * u.arcsec):
+    def __init__(self, df_regions, clustering_radius=20 * u.arcsec, save=False):
         self.df_regions = df_regions
         self.clustering_radius = clustering_radius
 
@@ -109,6 +110,7 @@ class ClusterRegions:
         self.region_num_to_cluster_num = {}     # Maps the region number to the cluster number (unique region number)
         self.df_regions_unique = pd.DataFrame() # DataFrame containing the unique regions
         self.n_clusters = 0                     # Number of unique regions
+        self.save = save
 
         self.run()
 
@@ -195,9 +197,10 @@ class ClusterRegions:
         self.region_num_to_cluster_num = {reg:cluster for reg, cluster in zip(self.df_regions.index, self.cluster_labels)}
 
     def save_unique_regions_table(self):
-        logger.info(f'Saving unique regions table to {savepaths_combined["regions_unique"]}')
-        tab_regions_unique = Table.from_pandas(self.df_regions_unique[['ra_deg', 'dec_deg']])
-        tab_regions_unique.write(savepaths_combined['regions_unique'], overwrite=True)
+        if self.save:
+            logger.info(f'Saving unique regions table to {savepaths_combined["regions_unique"]}')
+            tab_regions_unique = Table.from_pandas(self.df_regions_unique[['ra_deg', 'dec_deg']])
+            tab_regions_unique.write(savepaths_combined['regions_unique'], overwrite=True)
 
     def run(self):
         self.cluster_regions()

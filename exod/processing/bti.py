@@ -3,7 +3,7 @@ Functions to calculate bad time intervals (BTI) for a given lightcurve.
 
 BTIs are defined as time intervals where average count rate the 10.0-12.0 keV energy band
 exceeds a certain threshold. This threshold is usually set to 0.5 ct/s.
-However when combining multiple lightcurves, the threshold can be set to 1.5 ct/s.
+However, when combining multiple lightcurves, the threshold can be set to 1.5 ct/s.
 """
 import numpy as np
 from matplotlib import pyplot as plt
@@ -125,7 +125,4 @@ def get_bti_bin_idx_bool(bti_bin_idx, bin_t):
 
 
 def get_gti_threshold(N_event_lists):
-    thresholds = {1 : 0.5,
-                  2 : 1.0,
-                  3 : 1.5}
-    return thresholds[N_event_lists]
+    return 0.5 * N_event_lists

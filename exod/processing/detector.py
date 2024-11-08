@@ -1,10 +1,10 @@
-from exod.processing.bti import plot_bti
+from exod.processing.bti import plot_bti, get_gti_threshold, get_bti
 from exod.processing.coordinates import get_regions_sky_position
+from exod.processing.data_cube import DataCubeXMM
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
 from exod.processing.coordinates import calc_df_regions
 from exod.xmm.observation import Observation
-from exod.processing.pipeline import DataLoader
 
 import numpy as np
 import pandas as pd
@@ -62,7 +62,7 @@ class Detector:
         """
         Calculate the variability image from a data cube.
         """
-        logger.info('Computing Variability')
+        logger.info('Computing variability...')
         image_max = np.nanmax(self.data_cube.data, axis=2)
         image_std = np.nanstd(self.data_cube.data, axis=2)
         image_mean = np.nanmean(self.data_cube.data, axis=2)
@@ -305,8 +305,7 @@ args = {'obsid': obsid,
         'remove_partial_ccd_frames': False,
         'clobber': False}
 """
-def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
-                 gti_only=False, gti_threshold=1.5, min_energy=0.5,
+def run_pipeline(obsid, time_interval=1000, size_arcsec=10, gti_only=False, min_energy=0.5,
                  max_energy=12.0, remove_partial_ccd_frames=False, sigma=5, clobber=False):
 
     # Create the Observation class
@@ -315,44 +314,47 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10,
     observation.create_images(clobber=clobber)
     observation.get_files()
 
-    # Get the eventslist & image to use
-    # event_list = observation.events_processed_pn[0]
-    # event_list.read()
-
     observation.get_events_overlapping_subsets()
     event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+
+    gti_threshold = get_gti_threshold(event_list.N_event_lists)
+    t_bin_he, lc_he = event_list.get_high_energy_lc(time_interval)
+    bti = get_bti(time=t_bin_he, data=lc_he, threshold=gti_threshold)
+    df_bti = pd.DataFrame(bti)
+
+    t_bin_he, lc_he = event_list.get_high_energy_lc(time_interval=time_interval)
+
+    event_list.filter_by_energy(min_energy=min_energy, max_energy=max_energy)
 
     img = observation.images[0]
     img.read(wcs_only=True)
 
-    # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list, time_interval=time_interval, size_arcsec=size_arcsec, gti_only=gti_only,
-                    min_energy=min_energy, max_energy=max_energy, remove_partial_ccd_frames=remove_partial_ccd_frames)
-    dl.run()
-
     # Create Data Cube
-    # dl.data_cube.plot_cube_statistics()
-    dl.data_cube.video(savedir=None)
+    data_cube = DataCubeXMM(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval)
+    data_cube.mask_frames_with_partial_ccd_exposure(mask_frames=remove_partial_ccd_frames)
+    data_cube.video(savedir=None)
+
+    if gti_only:
+        data_cube.mask_bti()
 
     # Detection
-    detector = Detector(data_cube=dl.data_cube, wcs=img.wcs, sigma=sigma)
+    detector = Detector(data_cube=data_cube, wcs=img.wcs, sigma=sigma)
     detector.run()
 
     # detector.plot_3d_image(detector.image_var)
     detector.plot_region_lightcurves(savedir=None) # savedir=observation.path_results
-    plot_bti(time=dl.t_bin_he[:-1], data=dl.lc_he, threshold=dl.gti_threshold, bti=dl.bti, savepath=observation.path_results / 'bti_plot.png')
+    plot_bti(time=t_bin_he[:-1], data=lc_he, threshold=gti_threshold, bti=bti, savepath=observation.path_results / 'bti_plot.png')
     plot_image_with_regions(image=detector.image_var, df_regions=detector.df_regions, cbar_label='Variability Score',
                             savepath=observation.path_results / 'image_var.png')
 
     # Save Results
-    save_df(df=dl.df_bti, savepath=observation.path_results / 'bti.csv')
+    save_df(df=df_bti, savepath=observation.path_results / 'bti.csv')
     save_df(df=detector.df_lcs, savepath=observation.path_results / 'lcs.csv')
     save_df(df=detector.df_regions, savepath=observation.path_results / 'regions.csv')
 
     save_info(dictionary=observation.info, savepath=observation.path_results / 'obs_info.csv')
     save_info(dictionary=event_list.info, savepath=observation.path_results / 'evt_info.csv')
-    save_info(dictionary=dl.info, savepath=observation.path_results / 'dl_info.csv')
-    save_info(dictionary=dl.data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
+    save_info(dictionary=data_cube.info, savepath=observation.path_results / 'data_cube_info.csv')
     save_info(dictionary=detector.info, savepath=observation.path_results / 'detector_info.csv')
 
     plt.show()
@@ -364,9 +366,8 @@ if __name__ == "__main__":
     evt.read()
     img = obs.images[0]
     img.read(wcs_only=True)
-    dl = DataLoader(evt)
-    dl.run()
-    detector = Detector(data_cube=dl.data_cube, wcs=img.wcs)
+    data_cube = DataCubeXMM(event_list=evt, size_arcsec=20, time_interval=50)
+    detector = Detector(data_cube=data_cube, wcs=img.wcs)
     detector.run()
     detector_info = detector.info
-
+    plt.show()

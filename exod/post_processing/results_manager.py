@@ -51,7 +51,7 @@ class ResultsManager:
     def __init__(self):
         self.load_results()
         self.cluster_regions()
-        # self.calc_subsets()
+        self.calc_subsets()
         self.calc_flags()
         self.df_regions = self.decode_runids(self.df_regions)
         self.get_unique_region_iau_srcids()

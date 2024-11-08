@@ -1,4 +1,3 @@
-from exod.processing.pipeline import DataLoader
 from exod.processing.background_inference import calc_cube_mu
 from exod.utils.path import data_processed
 from exod.processing.bayesian_computations import B_peak_log, sigma_equivalent
@@ -204,30 +203,3 @@ if __name__ == "__main__":
     observation = Observation('0654800101')
     observation.get_files()
     observation.get_events_overlapping_subsets()
-
-    for i_subset, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
-        event_list = EventList.from_event_lists(subset_overlapping_exposures)
-        dl = DataLoader(event_list=event_list, time_interval=500, size_arcsec=20, gti_only=False, min_energy=0.2,
-                        max_energy=10.0, remove_partial_ccd_frames=True)
-        dl.run()
-
-        img = observation.images[0]
-        img.read(wcs_only=True)
-        
-        cube_n  = dl.data_cube
-        cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
-
-        cube_sigma = calc_sigma_cube(cube_n=cube_n.data, cube_mu=cube_mu)
-        s_vec = np.vectorize(sigma_equivalent)
-        cube_sigma1 = s_vec(n=cube_n.data, mu=cube_mu)
-
-        stacked_array = np.dstack((cube_n.data, cube_mu)).reshape(-1,2)
-
-        def sigma(n_mu):
-            n  = n_mu[0]
-            mu = n_mu[1]
-            return sigma_equivalent(n=n, mu=mu)
-
-        res = np.apply_along_axis(sigma, stacked_array.reshape(-1,2))
-        res2 = res.reshape(shape=cube_n.shape)
-
