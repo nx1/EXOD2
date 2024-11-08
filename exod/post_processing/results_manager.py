@@ -1,13 +1,10 @@
-import base64
-import io
-
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from matplotlib import pyplot as plt
 
 from exod.utils.path import savepaths_combined
-from exod.utils.plotting import plot_event_list_ccds
+from exod.utils.plotting import plot_event_list_ccds, fig2data_url
 from exod.xmm.observation import Observation
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
 from exod.post_processing.hot_regions import rotate_regions_to_detector_coords, calc_hot_region_flags, hot_regions
@@ -27,10 +24,7 @@ def plot_lc(df_lc, label):
     ax.legend(loc='upper left')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0, wspace=0)
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-    lightcurve_data_url = base64.b64encode(buf.read()).decode('ascii')
+    lightcurve_data_url = fig2data_url(fig)
     plt.close(fig)
     return lightcurve_data_url
 
@@ -324,12 +318,8 @@ class ResultsManager:
         fig.subplots_adjust(hspace=0.0, wspace=0)
 
         ax[0].set_xlim(0, df_lc['t0_shifted'].max())
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
-        lightcurve_data_url = base64.b64encode(buf.read()).decode('ascii')
+        lightcurve_data_url = fig2data_url(fig)
         plt.close(fig)
-
         return lightcurve_data_url
 
     def get_observation_summary(self, obsid):
@@ -360,10 +350,7 @@ class ResultsManager:
             print(f'Plotting ccds for {evt}')
             evt.read()
             fig = plot_event_list_ccds(evt.data)
-            buf = io.BytesIO()
-            fig.savefig(buf, format='png')
-            buf.seek(0)
-            data_url = base64.b64encode(buf.read()).decode('ascii')
+            data_url = fig2data_url(fig)
             images.append(data_url)
 
         content = {'images': images}

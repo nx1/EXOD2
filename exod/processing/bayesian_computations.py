@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 
 from scipy.interpolate import interp1d
 from scipy.optimize import root_scalar
@@ -9,7 +8,6 @@ from tqdm import tqdm
 
 from exod.utils import path as path
 from exod.utils.logger import logger
-from exod.utils.path import data_plots
 
 
 def B_peak(n, mu):
@@ -105,57 +103,6 @@ def precompute_bayes_limits(threshold_sigma):
     savepath = path.utils / f'bayesfactorlimits_{threshold_sigma}.txt'
     logger.info(f'Saving to {savepath}')
     np.savetxt(savepath, data)
-
-
-def plot_bayes_limits():
-    pbl_3 = PrecomputeBayesLimits(3)
-    pbl_5 = PrecomputeBayesLimits(5)
-
-    range_mu  = pbl_3.range_mu
-
-    tab_npeak_3sig = pbl_3.n_peak_threshold(range_mu)
-    tab_neclipse_3sig = pbl_3.n_eclipse_threshold(range_mu)
-
-    tab_npeak = pbl_5.n_peak_threshold(range_mu)
-    tab_neclipse = pbl_5.n_eclipse_threshold(range_mu)
-
-
-    plt.figure(figsize=(4, 4))
-
-    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'5$\sigma$', lw=1.0)
-    plt.plot(range_mu, tab_neclipse, ls=':', c='k', lw=1.0)
-
-    plt.plot(range_mu, tab_npeak_3sig, ls='--', c='k', label=fr'3$\sigma$', lw=1.0)
-    plt.plot(range_mu, tab_neclipse_3sig, ls='--', c='k', lw=1.0)
-
-    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='steelblue', label='Detection Region')
-    plt.fill_between(range_mu, tab_npeak_3sig, 1e6, alpha=0.3, color='steelblue')
-    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='steelblue')
-    plt.fill_between(range_mu, 0, tab_neclipse_3sig, alpha=0.3, color='steelblue')
-
-
-    plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='black')
-    #plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.3, label=fr'Naive $5 \sigma$', color='grey')
-    #plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$', color='grey')
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.title(r'$B_{peak} = \frac{Q(N+1, \mu)}{e^{-\mu} \mu^{N} / N!} \ \  B_{eclipse} = \frac{P(N+1, \mu)}{e^{-\mu} \mu^{N} / N!}$')
-    plt.xlabel(fr'Expected Counts $\mu$')
-    plt.ylabel(fr'Observed Counts $N$')
-    plt.xlim(min(range_mu), max(range_mu))
-    plt.ylim(min(range_mu), max(range_mu))
-    plt.text(0.05, 25, s='Significant Peaks', )
-    plt.text(35, 0.1, s='Significant\nEclipses')
-    #plt.yticks([1, 10, 100, 300], labels=[1, 10, 100, 300])
-    plt.yticks([0.01, 0.1, 1, 10, 100, 300], labels=[0.01, 0.1, 1, 10, 100, 300])
-    plt.xticks([0.1, 1, 10, 100, 300], labels=[ 0.1, 1, 10, 100, 300])
-    plt.xlim(0.01, 300)
-    plt.ylim(0.01, 300)
-    plt.legend(loc='upper left', fontsize=10, ncol=2, columnspacing=0.8)
-    #plt.tight_layout()
-    plt.savefig(data_plots / f'bayesfactorlimits_3_5.pdf')
-    plt.savefig(data_plots / f'bayesfactorlimits_3_5.png')
-    plt.show()
 
 
 def get_cube_masks_peak_and_eclipse(cube_n, cube_mu, threshold_sigma):
@@ -343,8 +290,6 @@ class PrecomputeBayesLimits:
 
 
 if __name__ == "__main__":
-    from exod.utils.plotting import use_scienceplots
-    use_scienceplots()
     pre = PrecomputeBayesLimits(threshold_sigma=3)
-    plot_bayes_limits()
+    pre = PrecomputeBayesLimits(threshold_sigma=5)
 

@@ -1,3 +1,6 @@
+import base64
+import io
+
 import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt, pyplot
@@ -293,3 +296,12 @@ def plot_event_list_ccds(table):
         ax[i].text(5, 5, s=ccdnr, color='white', bbox=dict(facecolor='black', edgecolor='white'))
     plt.show()
     return fig
+
+
+def fig2data_url(fig):
+    """Convert a matplotlib Figure() to a base64 png data url (for use in a html <img> tag)"""
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    data_url = base64.b64encode(buf.read()).decode('ascii')
+    return data_url

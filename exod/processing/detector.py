@@ -73,7 +73,7 @@ class Detector:
         """
         Convolve the variability image with a box kernel.
         """
-        logger.info('Convolving Variability')
+        logger.info('Convolving variability...')
         kernel = np.ones((box_size, box_size)) / box_size ** 2
         image_var_conv = convolve(self.image_var, kernel)
 
@@ -281,7 +281,7 @@ def plot_image_with_regions(image, df_regions, cbar_label=None, savepath=None):
 def calc_ks_poission(lc):
     """
     Calculate the KS Probability assuming the lightcurve was
-    created from a possion distribution with the mean of the lightcurve.
+    created from a Poisson distribution with the mean of the lightcurve.
     """
     #logger.info("Calculating KS Probability, assuming a Poission Distribution")
     lc_mean = mean_of_poisson = np.nanmean(lc)

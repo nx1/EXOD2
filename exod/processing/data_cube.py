@@ -292,23 +292,25 @@ class DataCubeXMM(DataCube):
         return bccd_bin_idx_bool
 
     def multiply_time_interval(self, n_factor):
-        """
-        Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales.
-        #TODO the BTI need to be re-computed as well
-        """
-
+        """Used to increase the time_interval by a factor of n_factor, in order to quickly scan different timescales."""
         self.time_interval = n_factor*self.time_interval
         self.bin_t = self.calc_time_bins()
 
-        #Update the data cube
-        # np.split(X, np.arange(N, len(X), N)) allows to cut X in chunks of size N (plus the remaining bit)
-        datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2) #Splits in groups of n_factor along the time axis
-        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0)) #Nansum each group along the time axis, and makes it into a cube again
+        # allows to cut X in chunks of size N (plus the remaining bit)
+        # np.split(X, np.arange(N, len(X), N))
 
-        #Update the relative exposures of each frame
-        frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor)) #Splits in groups of n_factor along the time axis
+        # Splits in groups of n_factor along the time axis
+        datacube_twoframegroups = np.split(self.data, np.arange(n_factor, self.shape[2], n_factor), axis=2)
+
+        # Nansum each group along the time axis, and makes it into a cube again
+        self.data = np.transpose([np.nansum(frame_grp, axis=2) for frame_grp in datacube_twoframegroups], (1,2,0))
+
+        # Update the relative exposures of each frame
+        # Splits in groups of n_factor along the time axis
+        frame_exposures_twoframegroups = np.split(self.relative_frame_exposures, np.arange(n_factor, self.shape[2], n_factor))
+
+        # Update relative frame exposures and shape.
         self.relative_frame_exposures = np.array([np.sum(exp_frame_grp) for exp_frame_grp in frame_exposures_twoframegroups])
-
         self.shape = self.data.shape
 
 
@@ -332,10 +334,9 @@ class DataCubeXMM(DataCube):
             logger.info(f'{k:>13} : {v}')
         return info
 
+
 def extract_lc(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
-    """
-    Extract a lightcurve from a data cube by summing through a bounding box.
-    """
+    """Extract a lightcurve from a data cube by summing through a bounding box."""
     data = data_cube[xlo:xhi, ylo:yhi]
     lc = np.nansum(data, axis=(0, 1), dtype=dtype)
     return lc
@@ -347,6 +348,3 @@ if __name__ == "__main__":
     print(np.sum(data_cube.data, axis=(0, 1)))
     data_cube.video()
     print(data_cube)
-
-
-

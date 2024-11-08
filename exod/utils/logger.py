@@ -15,11 +15,13 @@ class CustomFormatter(logging.Formatter):
     fmt1 = '%(asctime)s - %(levelname)s - %(filename)s:%(funcName)s - %(message)s'
     fmt2 = '%(levelname)s - %(asctime)s - %(message)s'
     fmt3 = '%(message)s'
+    fmt4 = '%(levelname)s - %(filename)s:%(funcName)s - %(message)s'
     format = fmt3
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,
         logging.INFO:  light_blue + format + reset,
+        # logging.INFO:  format + reset,       # If you want white log messages uncomment this
         logging.WARNING: yellow + format + reset,
         logging.ERROR: red + format + reset,
         logging.CRITICAL: bold_red + format + reset

@@ -15,7 +15,8 @@ from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.bayesian_computations import load_precomputed_bayes_limits, get_cube_masks_peak_and_eclipse, \
-    B_peak_log, B_eclipse_log, get_bayes_thresholds, sigma_equivalent_B_peak, sigma_equivalent_B_eclipse
+    B_peak_log, B_eclipse_log, get_bayes_thresholds, sigma_equivalent_B_peak, sigma_equivalent_B_eclipse, \
+    PrecomputeBayesLimits
 from exod.post_processing.estimate_variability_properties import peak_count_estimate, eclipse_count_estimate
 from exod.utils.synthetic_data import create_fake_burst, create_fake_onebin_burst, create_multiple_fake_eclipses
 import cmasher as cmr
@@ -193,22 +194,25 @@ def check_eclipse_estimate_success():
     plt.show()
 
 
-def plot_some_n_bayes():
-    range_n = np.arange(10)
-    range_mu = np.geomspace(1e-3, 1e3, 500)
-    plt.figure()
-    colors = cmr.take_cmap_colors('cmr.ocean',N=len(range_n),cmap_range=(0,0.7))
-    for c,n in zip(colors,range_n):
-        bayes_peak = [B_peak_log(n=n, mu=mu) for mu in range_mu]#[bayes_factor_peak(mu, n) for mu in range_mu]
-        bayes_eclipse = [B_eclipse_log(n=n, mu=mu) for mu in range_mu]
-        plt.plot(range_mu, bayes_peak, label=n, c=c)
-        plt.plot(range_mu, bayes_eclipse, c=c)
+def plot_mu_vs_bayes_factor_for_diff_n():
+    range_n = [0,1,2,3,5,10,20,50,100]
+    range_mu = np.geomspace(start=1e-3, stop=1e3, num=500)
+
+    plt.figure(figsize=(5, 5))
+    colors = cmr.take_cmap_colors(cmap='winter', N=len(range_n), cmap_range=(0, 1.0))
+    for c, n in zip(colors, range_n):
+        B_peak = [B_peak_log(n=n, mu=mu) for mu in range_mu]
+        B_eclipse = [B_eclipse_log(n=n, mu=mu) for mu in range_mu]
+        plt.plot(range_mu, B_peak, label=rf'N={n}', c=c)
+        plt.plot(range_mu, B_eclipse, c=c)
     plt.axhline(y=5, ls='--', lw=1.0, c="k", label="5")
     plt.ylim(0.001, 1000)
     plt.legend()
-    plt.xlabel("Mu")
-    plt.ylabel("P(Peak|Data)/P(No Peak|Data)")
+    plt.xlabel(r"Expectation Value $\mu$")
+    plt.ylabel(r"Bayes Factor (B)")
     plt.loglog()
+    plt.xlim(1e-3, 1e3)
+    plt.ylim(1e-3, 1e3)
     plt.savefig(data_plots / 'plot_some_n_bayes.png')
     plt.savefig(data_plots / 'plot_some_n_bayes.pdf')
     plt.show()
@@ -230,37 +234,6 @@ def bayes_test_on_data(cube, expected, threshold):
     eclipse =  cube<maximum_for_eclipse(np.where(expected>0, expected, np.nan))
     return peaks, eclipse
 
-
-def accepted_n_values():
-    """
-    Testing function, showing the accepted counts for a range of mu.
-    Similar to the pre-compute function
-    """
-    range_n = np.arange(10)
-    range_mu = np.geomspace(1e-3, 1e3, 5000)
-    tab_npeak, tab_neclipse = [],[]
-    for mu in tqdm(range_mu):
-        range_n_peak = np.arange(max(10*mu, 100))
-        B_peak = B_peak_log(n=range_n_peak, mu=mu)
-        tab_npeak.append(range_n_peak[B_peak>5.94][0])
-
-        range_n_eclipse = np.arange(2*int(mu)+1)
-        B_eclipse = B_eclipse_log(n=range_n_eclipse, mu=mu)
-        tab_neclipse.append(range_n_eclipse[B_eclipse<5.70][0])
-    plt.figure()
-    plt.plot(range_mu, range_mu)
-    plt.plot(range_mu, range_mu-6*np.sqrt(range_mu), ls='--',c='k')
-    plt.plot(range_mu, range_mu+6*np.sqrt(range_mu), ls='--',c='k')
-
-    plt.fill_between(range_mu,tab_neclipse, tab_npeak,alpha=0.5)
-    plt.loglog()
-    plt.xlabel(r"$\mu$")
-    plt.ylabel("Range of accepted # photons")
-    plt.savefig(data_plots / 'accepted_n_values.png')
-    plt.savefig(data_plots / 'accepted_n_values.pdf')
-    plt.show()
-# accepted_n_values()
-
 def bayes_rate_estimate(obsid='0886121001'):
     gti_threshold = 0.5
     min_energy    = 0.2
@@ -276,7 +249,6 @@ def bayes_rate_estimate(obsid='0886121001'):
 
     img = observation.images[0]
     img.read(wcs_only=True)
-
 
     range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
 
@@ -897,21 +869,74 @@ def plot_B_factor_vs_sigma():
     plt.savefig(data_plots / 'B_factor_vs_sigma.pdf')
     plt.show()
 
+
+def plot_bayes_limits():
+    pbl_3 = PrecomputeBayesLimits(3)
+    pbl_5 = PrecomputeBayesLimits(5)
+
+    range_mu  = pbl_3.range_mu
+
+    tab_npeak_3sig = pbl_3.n_peak_threshold(range_mu)
+    tab_neclipse_3sig = pbl_3.n_eclipse_threshold(range_mu)
+
+    tab_npeak = pbl_5.n_peak_threshold(range_mu)
+    tab_neclipse = pbl_5.n_eclipse_threshold(range_mu)
+
+
+    plt.figure(figsize=(4, 4))
+
+    plt.plot(range_mu, tab_npeak, ls=':', c='k', label=fr'5$\sigma$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse, ls=':', c='k', lw=1.0)
+
+    plt.plot(range_mu, tab_npeak_3sig, ls='--', c='k', label=fr'3$\sigma$', lw=1.0)
+    plt.plot(range_mu, tab_neclipse_3sig, ls='--', c='k', lw=1.0)
+
+    plt.fill_between(range_mu, tab_npeak, 1e6, alpha=0.5, color='steelblue', label='Detection Region')
+    plt.fill_between(range_mu, tab_npeak_3sig, 1e6, alpha=0.3, color='steelblue')
+    plt.fill_between(range_mu, 0, tab_neclipse, alpha=0.5, color='steelblue')
+    plt.fill_between(range_mu, 0, tab_neclipse_3sig, alpha=0.3, color='steelblue')
+
+
+    plt.plot(range_mu, range_mu, label=r'$N=\mu$', color='black')
+    #plt.fill_between(range_mu, range_mu-5*np.sqrt(range_mu), range_mu+5*np.sqrt(range_mu), alpha=0.3, label=fr'Naive $5 \sigma$', color='grey')
+    #plt.fill_between(range_mu, range_mu-3*np.sqrt(range_mu), range_mu+3*np.sqrt(range_mu), alpha=0.5, label=fr'Naive $3 \sigma$', color='grey')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.title(r'$B_{peak} = \frac{Q(N+1, \mu)}{e^{-\mu} \mu^{N} / N!} \ \  B_{eclipse} = \frac{P(N+1, \mu)}{e^{-\mu} \mu^{N} / N!}$')
+    plt.xlabel(fr'Expected Counts $\mu$')
+    plt.ylabel(fr'Observed Counts $N$')
+    plt.xlim(min(range_mu), max(range_mu))
+    plt.ylim(min(range_mu), max(range_mu))
+    plt.text(0.05, 25, s='Significant Peaks', )
+    plt.text(35, 0.1, s='Significant\nEclipses')
+    #plt.yticks([1, 10, 100, 300], labels=[1, 10, 100, 300])
+    plt.yticks([0.01, 0.1, 1, 10, 100, 300], labels=[0.01, 0.1, 1, 10, 100, 300])
+    plt.xticks([0.1, 1, 10, 100, 300], labels=[ 0.1, 1, 10, 100, 300])
+    plt.xlim(0.01, 300)
+    plt.ylim(0.01, 300)
+    plt.legend(loc='upper left', fontsize=10, ncol=2, columnspacing=0.8)
+    #plt.tight_layout()
+    plt.savefig(data_plots / f'bayesfactorlimits_3_5.pdf')
+    plt.savefig(data_plots / f'bayesfactorlimits_3_5.png')
+    plt.show()
+
 if __name__ == "__main__":
     from exod.utils.plotting import use_scienceplots
     from exod.utils.path import data_processed
     use_scienceplots()
+    plot_bayes_limits()
     plot_B_peak()
     plot_B_eclipse()
+    plot_mu_vs_bayes_factor_for_diff_n()
     plot_B_factor_vs_sigma()
     plot_B_values_3d()
     check_estimate_success()
     check_eclipse_estimate_success()
-    plot_some_n_bayes()
     # test_bayes_on_false_cube(size=100)
-    accepted_n_values()
     bayes_rate_estimate()
     bayes_successrate_spacebinning()
     bayes_successrate_timebinning()
     bayes_eclipse_successrate_depth()
     print(bayes_false_positive_rate_timebinning(tab_obsids=os.listdir(data_processed)[:50]))
+
+

@@ -234,11 +234,6 @@ class Pipeline:
                 except Exception as e:
                     print(f'Could not do {i} {e}')
 
-
-
-
-
-
     def get_significant_cells(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
         """Extract information for each pixel in the datacube that is associated with an alert."""
         logger.info('Extracting significant 3D pixels from data cube.')
