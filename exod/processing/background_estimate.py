@@ -2,8 +2,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+
+from exod.processing.data_cube import DataCubeXMM
 from exod.xmm.observation import Observation
-from exod.processing.pipeline import DataLoader
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
 from scipy.stats import poisson
@@ -250,26 +251,27 @@ def calibrate_result_amplitude(tab_amplitude, cube_raw, time_interval,time_peak_
     ax2.loglog()
     plt.savefig(savedir / f"Calibration_peak.png")
 
+
+
+
 if __name__=="__main__":
     obsid = '0831790701'
+    time_interval = 100
+
     observation = Observation(obsid)
     observation.get_files()
     savedir = observation.path_processed
     event_list = observation.events_processed_pn[0]
     event_list.read()
 
-    # Initialize the Data Loader
-    dl = DataLoader(event_list=event_list, time_interval=100, size_arcsec=10, gti_only=True, min_energy=0.5,
-                    max_energy=12.0, remove_partial_ccd_frames=False)
-    dl.run()
-
-    lc_HE, time_HE = dl.get_high_energy_lc(dl.time_interval)
+    lc_HE, time_HE = event_list.get_high_energy_lc(time_interval)
     lc_HE = lc_HE[:-1]
-    cube  = dl.data_cube.data
 
-    background_images_new, background_withsource_new = compute_background_two_templates(cube, lc_HE, dl.time_interval)
-    background_images, background_withsource = compute_background(cube)
-    maxi_value = np.max(np.sum(cube, axis=(0,1))) / (cube.shape[0] * cube.shape[1])
+    data_cube = DataCubeXMM(event_list, size_arcsec=10, time_interval=time_interval)
+
+    background_images_new, background_withsource_new = compute_background_two_templates(data_cube.data, lc_HE, time_interval)
+    background_images, background_withsource = compute_background(data_cube.data)
+    maxi_value = np.max(np.sum(data_cube.data, axis=(0, 1))) / (data_cube.data.shape[0] * data_cube.data.shape[1])
     print(background_images_new)
     print(background_images_new)
     print(maxi_value)
@@ -277,7 +279,7 @@ if __name__=="__main__":
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15,5))
         ax1.imshow(background_withsource[:,:,i].T, origin='lower', interpolation='none')
         ax2.imshow(background_withsource_new[:, :, i].T, origin='lower', interpolation='none')
-        ax3.imshow(cube[:,:,i].T, origin='lower', interpolation='none')
+        ax3.imshow(data_cube.data[:, :, i].T, origin='lower', interpolation='none')
         ax1.set_title("Expected image (old)")
         ax2.set_title("Expected image (new)")
         ax3.set_title("True image")
