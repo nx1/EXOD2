@@ -1,6 +1,5 @@
-from exod.utils.logger import logger
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 
 def create_fake_burst(data_cube, x_pos, y_pos, time_peak_fraction, width_time, amplitude):
@@ -235,7 +234,7 @@ def check_synthetic_peak_counts_diff(obsid):
 
 if __name__ == "__main__":
     from exod.xmm.observation import Observation
-    from exod.processing.pipeline import DataLoader
+    from exod.processing.data_cube import DataCubeXMM
 
     obsid = '0831790701'
     observation = Observation(obsid)
@@ -243,12 +242,7 @@ if __name__ == "__main__":
     savedir = observation.path_processed
     event_list = observation.events_processed_pn[0]
     event_list.read()
-
-    dl = DataLoader(event_list=event_list, time_interval=100, size_arcsec=20, gti_only=True, min_energy=0.5,
-                    max_energy=12.0, remove_partial_ccd_frames=False)
-    dl.run()
-
-    data_cube = dl.data_cube
+    data_cube = DataCubeXMM(event_list, size_arcsec=20, time_interval=100)
 
     create_fake_burst(data_cube, 10, 10, 0.5, 100, 1000)
     create_fake_onebin_burst(data_cube, 10, 10, 0.5, 1000)
