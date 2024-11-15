@@ -209,12 +209,9 @@ class Pipeline:
                 sub = evt_subset[evt_subset['INSTRUMENT'] == instrument]
                 rawx = sub['RAWX']
                 rawy = sub['RAWY']
-                xbins = np.arange(rawx.min(), rawx.max()+1, 1)
-                ybins = np.arange(rawy.min(), rawy.max()+1, 1)
+                xbins = np.arange(rawx.min()-1, rawx.max()+1, 1)
+                ybins = np.arange(rawy.min()-1, rawy.max()+1, 1)
 
-                print(sub)
-                print(xbins)
-                print(ybins)
                 try:
                     hist, xedges, yedges = np.histogram2d(rawx, rawy, bins=(xbins, ybins))
 
@@ -224,7 +221,7 @@ class Pipeline:
                     norm = colors.BoundaryNorm(boundaries, ncolors=n)
 
                     plt.figure()
-                    plt.title(f'{instrument} {r.to_dict()}')
+                    plt.title(f'{instrument} ({r['x_cube']},{r['y_cube']},{r['t_cube']})')
                     plt.imshow(hist.T, origin="lower", aspect="equal", cmap=cmap, norm=norm,
                                extent=(xedges[0], xedges[-1], yedges[0], yedges[-1]), interpolation='none')
                     plt.colorbar(shrink=0.5)
@@ -264,6 +261,9 @@ class Pipeline:
         TIME = cube_n.bin_t[t_cube]
 
         X_size, Y_size, TIME_size = cube_n.pixel_size, cube_n.pixel_size, self.time_interval
+
+        t_depth   = 2
+        TIME_size = t_depth * TIME_size
 
         alert = {'x_cube'    : x_cube,
                  'y_cube'    : y_cube,

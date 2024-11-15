@@ -45,10 +45,10 @@ def process_params(params):
 
 if __name__ == "__main__":
     obsids = read_observation_ids(data / 'observations.txt')#
-    random.shuffle(obsids)
+    # random.shuffle(obsids)
 
     for obsid in obsids:
-        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=5, remove_partial_ccd_frames=False, min_energy=0.5, max_energy=10.0)
+        p = Pipeline(obsid=obsid, size_arcsec=20, time_interval=50, remove_partial_ccd_frames=True, min_energy=0.2, max_energy=12.0)
         p.run()
         # p.load_results()
         plt.show()

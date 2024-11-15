@@ -225,6 +225,7 @@ class ResultsManager:
                    }
             unique_regions.append(res)
         content = {'unique_regions' : unique_regions}
+        breakpoint()
         return content
 
     def get_lc_by_idx(self, idx):

@@ -544,6 +544,19 @@ def print_cmatch_numbers(dfs_cmatch):
     print('=====================================================')
     print('\n\n')
 
+def print_chime_frb_counts():
+    df_chime = Table.read('../data/util/chimefrbcat1.fits').to_pandas()
+    df_cmatch_chime = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/merged_with_dr14/df_regions_unique_cmatch_chime.csv')
+
+    n_chime_rows = len(df_chime)
+    n_unique_chime_sources = df_chime['tns_name'].nunique()
+    n_unique_regions = df_cmatch_chime['region_num'].nunique()
+    n_unique_chime_names = df_cmatch_chime['tns_name'].nunique()
+
+    print(f'Number of rows in CHIME catalogue           = {n_chime_rows}')
+    print(f'Number of unique sources in CHIME catalogue = {n_unique_chime_sources}')
+    print(f'Number of unique EXOD Regions               = {n_unique_regions}')
+    print(f'Number of unique CHIME/FRB sources          = {n_unique_chime_names}')
 
 
 def print_xmm_dr14_cmatch_stats(df_cmatch_xmm_dr14):
@@ -632,6 +645,7 @@ def main(clobber=True):
     process_run_info()
     process_regions(clobber=clobber)
     process_lc_features(clobber=clobber)
+    print_chime_frb_counts()
     make_exod_catalogues()
     simbad_stats.main()
     plt.show()

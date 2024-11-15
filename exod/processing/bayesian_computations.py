@@ -250,7 +250,7 @@ class PrecomputeBayesLimits:
         if threshold_sigma not in cls._instances:
             instance = super(PrecomputeBayesLimits, cls).__new__(cls)
             instance.threshold_sigma = threshold_sigma
-            logger.warning(f'Creating new precomputed PrecomputeBayesLimits() instance threshold_sigma={threshold_sigma}.')
+            logger.warning(f'Creating new PrecomputeBayesLimits() instance threshold_sigma={threshold_sigma}.')
             cls._instances[threshold_sigma] = instance
         return cls._instances[threshold_sigma]
 
