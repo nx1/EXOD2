@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from exod.processing.data_cube import DataCubeXMM
+from exod.processing.pipeline import Pipeline
 from exod.utils.path import data_plots
 from exod.xmm.observation import Observation
 from exod.xmm.event_list import EventList
@@ -35,6 +36,7 @@ def check_estimate_success():
     fig, ax = plt.subplots(2,1, sharex=True, gridspec_kw={'height_ratios' : [3, 1]})
     colors = cmr.take_cmap_colors(cmap='cmr.ocean', N=3, cmap_range=(0, 0.7))
     all_res = []
+
     for peak, color in zip((0.5, 2.5, 10), colors):
         tab_up, tab_mid, tab_low = [], [], []
         tab_N = []
@@ -418,28 +420,111 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
     plt.xscale('log')
     plt.show()
 
-def bayes_successrate_timebinning(tab_obsids=['0886121001']):
-    from tqdm import tqdm
+
+def bayes_successrate_timebinning2(tab_obsids=['0886121001']):
     size_arcsec = 20
     min_energy = 0.2
     max_energy = 12.0
 
-    n_timebins = 3
-    n_amplitude = 15
-    n_draws = 5
-    timebins = (5,50,200)#np.geomspace(10,1000, n_timebins)
+    n_amplitude = 15  # Number of amplitude bins
+    n_draws = 10
+    timebins = [500, 1000, 5000]
+    n_timebins = len(timebins)
+
+    # Load precomputed Bayesian limits
+    range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
+
+    all_res = []
+
+    for obsidx, obsid in enumerate(tab_obsids):
+
+        observation = Observation(obsid)
+        observation.get_files()
+        observation.get_events_overlapping_subsets()
+
+        event_list = EventList.from_event_lists(observation.events_overlapping_subsets[0])
+        event_list.read()
+
+        img = observation.images[0]
+        img.read(wcs_only=True)
+
+        for timebin in timebins:
+            p = Pipeline(obsid, time_interval=timebin)
+            p.run()
+
+            data_cube = p.data_cube
+            rejected = data_cube.bti_bin_idx
+
+            data_cube2 = data_cube.copy()
+            tab_amplitude = np.geomspace(0.5 / timebin, 100 / timebin, n_amplitude)
+
+            for amplitude in tab_amplitude:
+                res = {
+                    "obsid": obsid,
+                    "timebin": timebin,
+                    "amplitude": amplitude,
+                    "draws_bti": 0,
+                    "draws_gti": 0,
+                    "caught_bti": 0,
+                    "caught_gti": 0,
+                }
+
+                for trial in range(n_draws):
+                    x_pos, y_pos = (np.random.randint(5, data_cube.shape[0] - 5),
+                                    np.random.randint(5, data_cube.shape[1] - 5))
+                    time_fraction = np.random.random()
+
+                    # Inject synthetic burst
+                    data_cube2.data = data_cube.data + create_fake_onebin_burst(
+                        data_cube=data_cube,
+                        x_pos=x_pos,
+                        y_pos=y_pos,
+                        time_peak_fraction=time_fraction,
+                        amplitude=amplitude * timebin,
+                    )
+
+                    cube_mu = calc_cube_mu(data_cube=data_cube2, wcs=img.wcs)
+                    cube_with_peak = data_cube2.data
+                    cube_mu = np.where(cube_mu > 0, cube_mu, np.nan)
+                    peaks = cube_with_peak > minimum_for_peak(cube_mu)
+
+                    # Check detection based on GTI/BTI
+                    if int(time_fraction * data_cube.shape[2]) in rejected:
+                        res["draws_bti"] += 1
+                        if np.max(peaks[x_pos, y_pos]) > 0:
+                            res["caught_bti"] += 1
+                    else:
+                        res["draws_gti"] += 1
+                        if np.max(peaks[x_pos, y_pos]) > 0:
+                            res["caught_gti"] += 1
+
+                # Save results for current (timebin, amplitude) configuration
+                all_res.append(res)
+    return all_res
+
+
+
+def bayes_successrate_timebinning(tab_obsids=['0886121001']):
+    size_arcsec = 20
+    min_energy = 0.2
+    max_energy = 12.0
+
+    n_amplitude = 15 # Number of amplitude bins
+    n_draws     = 10
+    timebins    = [500, 1000, 5000] #np.geomspace(10,1000, n_timebins)
+    n_timebins  = len(timebins)
+
     all_timebin_results = []
-    tab_all_amplitudes=[]
+    tab_all_amplitudes = []
     range_mu, minimum_for_peak, maximum_for_eclipse = load_precomputed_bayes_limits(threshold_sigma=3)
     range_mu_3sig, minimum_for_peak_3sig, maximum_for_eclipse_3sig = load_precomputed_bayes_limits(threshold_sigma=3)
-    tab_drawn_gti = np.zeros((len(tab_obsids), n_timebins,n_amplitude))
-    tab_drawn_bti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
-    tab_seen_gti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
-    tab_seen_bti = np.zeros((len(tab_obsids),n_timebins,n_amplitude))
+    tab_drawn_gti = np.zeros((len(tab_obsids), n_timebins, n_amplitude))
+    tab_drawn_bti = np.zeros((len(tab_obsids), n_timebins, n_amplitude))
+    tab_seen_gti  = np.zeros((len(tab_obsids), n_timebins, n_amplitude))
+    tab_seen_bti  = np.zeros((len(tab_obsids), n_timebins, n_amplitude))
 
-    pbar=tqdm(total=len(tab_obsids))
+    pbar = tqdm(total=len(tab_obsids))
     for obsidx, obsid in enumerate(tab_obsids):
-        try:
             observation = Observation(obsid)
             observation.get_files()
             observation.get_events_overlapping_subsets()
@@ -455,7 +540,7 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
                 rejected = data_cube.bti_bin_idx
                 print('Creating copy of datacube (takes a second)...')
                 data_cube2 = data_cube.copy()
-                tab_amplitude = np.geomspace(.5/ timebin, 100 / timebin, n_amplitude)
+                tab_amplitude = np.geomspace(0.5 / timebin, 100 / timebin, n_amplitude)
                 tab_all_amplitudes.append(tab_amplitude)
                 for ind_ampl, amplitude in enumerate(tab_amplitude):
                     nbr_caught_gti = 0
@@ -470,10 +555,11 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
                               f'n_draws_bti = {n_draws_bti} '
                               f'n_draws_gti = {n_draws_gti}')
 
-                        x_pos, y_pos = np.random.randint(5,data_cube.shape[0]-5), np.random.randint(5,data_cube.shape[1]-5)
+                        x_pos, y_pos = np.random.randint(5, data_cube.shape[0]-5), np.random.randint(5,data_cube.shape[1]-5)
                         time_fraction = np.random.random()
                         # cube_with_peak = cube + create_fake_burst(dl.data_cube, x_pos, y_pos, time_peak_fraction=time_fraction, width_time=timebin/2, amplitude=amplitude)
-                        data_cube2.data = data_cube.data + create_fake_onebin_burst(data_cube=data_cube, x_pos=x_pos,
+                        data_cube2.data = data_cube.data + create_fake_onebin_burst(data_cube=data_cube,
+                                                                                    x_pos=x_pos,
                                                                                     y_pos=y_pos,
                                                                                     time_peak_fraction=time_fraction,
                                                                                     amplitude=amplitude*timebin)
@@ -481,7 +567,9 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
                         cube_with_peak = data_cube2.data
                         cube_mu = np.where(cube_mu > 0, cube_mu, np.nan)
                         peaks = cube_with_peak > minimum_for_peak(cube_mu)
+
                         # peaks_3sig = cube_with_peak>minimum_for_peak_3sig(cube_mu)
+
                         if int(time_fraction*data_cube.shape[2]) in rejected:
                             n_draws_bti+=1
                             if np.max(peaks[x_pos, y_pos]) > 0:
@@ -494,10 +582,6 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
                     tab_drawn_gti[obsidx, ind_timebin, ind_ampl]=n_draws_gti
                     tab_seen_bti[obsidx, ind_timebin, ind_ampl]=nbr_caught_bti
                     tab_seen_gti[obsidx, ind_timebin, ind_ampl]=nbr_caught_gti
-        except:
-            pass
-        pbar.update(1)
-    pbar.close()
 
     # print(tab_seen_gti[0,0],tab_seen_gti[1,0],tab_seen_gti[2,0])
 
@@ -526,7 +610,7 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
         # the one with a synthetic peak. Most likely from geometric PSF configuration ?
         p1 = ax1.plot(tab_amplitude * 1.5,total_ratios, color=color, label=f'{int(timebin)}s')
         ax1.fill_between(tab_amplitude * 1.5, total_ratios-err_total_ratios, total_ratios+err_total_ratios, color=color, alpha=0.2)
-        p2 = plt.fill(np.NaN, np.NaN, color=color, alpha=0.2)
+        p2 = plt.fill(np.nan, np.nan, color=color, alpha=0.2)
         legend_plots.append((p2[0], p1[0]))
         legend_labels.append(f'{int(timebin)}s')
 
@@ -586,13 +670,12 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
     plt.xlabel(r'Peak amplitude (counts s$^{-1}$)')
     from matplotlib.lines import Line2D
     c=Line2D([], [], linestyle='')
-    d,=plt.plot(np.NaN, np.NaN, color='gray', label='Total',lw=2)
-    e,=plt.plot(np.NaN, np.NaN, color='gray',  ls="--", label='GTI',lw=2)
-    f,=plt.plot(np.NaN, np.NaN, color='gray',  ls=":", label='BTI',lw=2)
+    d,=plt.plot(np.nan, np.nan, color='gray', label='Total',lw=2)
+    e,=plt.plot(np.nan, np.nan, color='gray',  ls="--", label='GTI',lw=2)
+    f,=plt.plot(np.nan, np.nan, color='gray',  ls=":", label='BTI',lw=2)
     plots+=[c,d,e,f]
     plt.xscale("log")
-    plt.legend(plots,  ['5s', '50s', '200s', '', 'Total','GTI','BTI'],
-               labelspacing=.3)
+    plt.legend(plots,  ['5s', '50s', '200s', '', 'Total','GTI','BTI'], labelspacing=.3)
 
     # plt.figure()
     # for index, timebin, tab_amplitude, color in zip(range(len(timebins)), timebins, tab_all_amplitudes, colors):
@@ -923,20 +1006,20 @@ def plot_bayes_limits():
 if __name__ == "__main__":
     from exod.utils.plotting import use_scienceplots
     from exod.utils.path import data_processed
-    use_scienceplots()
-    plot_bayes_limits()
-    plot_B_peak()
-    plot_B_eclipse()
-    plot_mu_vs_bayes_factor_for_diff_n()
-    plot_B_factor_vs_sigma()
-    plot_B_values_3d()
-    check_estimate_success()
-    check_eclipse_estimate_success()
+    #use_scienceplots()
+    #plot_bayes_limits()
+    #plot_B_peak()
+    #plot_B_eclipse()
+    #plot_mu_vs_bayes_factor_for_diff_n()
+    #plot_B_factor_vs_sigma()
+    #plot_B_values_3d()
+    #check_estimate_success()
+    #check_eclipse_estimate_success()
     # test_bayes_on_false_cube(size=100)
-    bayes_rate_estimate()
-    bayes_successrate_spacebinning()
-    bayes_successrate_timebinning()
-    bayes_eclipse_successrate_depth()
-    print(bayes_false_positive_rate_timebinning(tab_obsids=os.listdir(data_processed)[:50]))
+    #bayes_rate_estimate()
+    #bayes_successrate_spacebinning()
+    bayes_successrate_timebinning2()
+    #bayes_eclipse_successrate_depth()
+    # print(bayes_false_positive_rate_timebinning(tab_obsids=os.listdir(data_processed)[:50]))
 
 

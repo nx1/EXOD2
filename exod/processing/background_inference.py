@@ -1,3 +1,4 @@
+from exod.processing.bti import get_gti_threshold, get_bti
 from exod.processing.data_cube import DataCubeXMM
 from exod.utils.logger import logger
 from exod.utils.plotting import compare_images
@@ -287,19 +288,20 @@ if __name__=="__main__":
         min_energy = 0.2
         max_energy = 12.0
 
-        try:
-            observation = Observation(obsid)
-            observation.get_files()
-            observation.get_events_overlapping_subsets()
-            img = observation.images[0]
-            img.read(wcs_only=True)
-            for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
-                event_list = EventList.from_event_lists(subset_overlapping_exposures)
-                # event_list = observation.events_processed_pn[0]
-                # event_list.read()
-                data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=time_interval)
-                estimated_cube = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)
-        except Exception as e:
-            logger.warning(e)
+        observation = Observation(obsid)
+        observation.get_files()
+        observation.get_events_overlapping_subsets()
+        img = observation.images[0]
+        img.read(wcs_only=True)
+        for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
+            event_list = EventList.from_event_lists(subset_overlapping_exposures)
+            # event_list = observation.events_processed_pn[0]
+            # event_list.read()
+            data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=time_interval)
 
+            t_bin_he, lc_he = event_list.get_high_energy_lc(time_interval)
+            bti = get_bti(time=t_bin_he, data=lc_he, threshold=get_gti_threshold(event_list.N_event_lists))
 
+            data_cube.calc_gti_bti_bins(bti=bti)
+            data_cube.mask_bti()
+            estimated_cube = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)

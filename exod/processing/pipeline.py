@@ -126,7 +126,7 @@ class Pipeline:
             self.data_cube.mask_bti()
 
         cube_n = self.data_cube
-        # cube_n.video()
+        cube_n.video()
 
         img = self.observation.images[0]
         img.read(wcs_only=True)
@@ -203,7 +203,10 @@ class Pipeline:
             logger.info(r)
             logger.info(evt_subset)
             logger.info(f'N_events = {len(evt_subset)}')
+            if len(evt_subset) == 4:
+                input()
 
+            """
             # Create an image of the significant cell.
             for instrument in np.unique(evt_subset['INSTRUMENT']):
                 sub = evt_subset[evt_subset['INSTRUMENT'] == instrument]
@@ -230,6 +233,7 @@ class Pipeline:
                     plt.subplots_adjust(left=0, right=0, top=0, bottom=0)
                 except Exception as e:
                     print(f'Could not do {i} {e}')
+            """
 
     def get_significant_cells(self, cube_mask_peaks, cube_mask_eclipses, cube_n):
         """Extract information for each pixel in the datacube that is associated with an alert."""
