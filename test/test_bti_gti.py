@@ -1,4 +1,4 @@
-from exod.pre_processing.bti import get_bti, get_bti_bin_idx, plot_bti
+from exod.processing.bti import get_bti, get_bti_bin_idx, plot_bti
 from numpy import sin, cos, exp
 import numpy as np
 
