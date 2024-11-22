@@ -7,7 +7,7 @@
     {% for reg in content['unique_regions'] %}
     unique_region_id = <a href="{{url_for('region_summary', region_id=reg['unique_region_id'])}}">{{ reg['unique_region_id'] }}</a><br>
         CHIME FRB Counterparts ({{reg['n_chime_matches']}}):<br>
-        <table>
+        <table class='table table-sm table-hover' border="1">
             <thead>
                 <tr>
                     <th>tns_name</th>

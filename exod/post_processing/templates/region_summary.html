@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% import "render_lightcurves.html" as render_lightcurves %}
+{% block title %}
+{{ content['region_id'] }} Region | EXOD
+{% endblock %}
 {% block content %}
 <head>
     <style>
