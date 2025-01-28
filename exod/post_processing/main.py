@@ -44,11 +44,10 @@ def check_results_shape():
 
 
 def print_event_info(df_evt):
-    print(f'Total exposure processed    = {df_evt['exposure'].sum():,.0f} s')
-    print(f'Total events processed      = {df_evt['N_events'].sum():,.0f}')
-    print(f'Mean events per observation = {df_evt['N_events'].mean():,.0f} - {df_evt['N_events'].quantile(0.16):,} + {df_evt['N_events'].quantile(0.84):,} (16th/84th Percentiles)')
-    print(f'Mean observation count rate = {df_evt['mean_rate'].mean():.2f} - {df_evt['mean_rate'].quantile(0.16):.2f} + {df_evt['mean_rate'].quantile(0.84):.2f} ct/s')
-    print(f'Mean Exposure Time          = {df_evt['exposure'].mean():,.0f} - {df_evt['exposure'].quantile(0.16):,.0f} + {df_evt['exposure'].quantile(0.84):,.0f} s')
+    print(f"Total events processed      = {df_evt['N_events'].sum():,.0f}")
+    print(f"Mean events per observation = {df_evt['N_events'].mean():,.0f} - {df_evt['N_events'].quantile(0.16):,} + {df_evt['N_events'].quantile(0.84):,} (16th/84th Percentiles)")
+    print(f"Mean observation count rate = {df_evt['mean_rate'].mean():.2f} - {df_evt['mean_rate'].quantile(0.16):.2f} + {df_evt['mean_rate'].quantile(0.84):.2f} ct/s")
+    print(f"Mean Exposure Time          = {df_evt['exposure'].mean():,.0f} - {df_evt['exposure'].quantile(0.16):,.0f} + {df_evt['exposure'].quantile(0.84):,.0f} s")
     print('\n')
 
     print('Instrument Distribution:')
@@ -111,12 +110,12 @@ def process_data_cube_info():
     df_dc['gti_exposure'] = df_dc['n_gti_bin'] * df_dc['time_interval']
     df_dc['bti_exposure'] = df_dc['n_bti_bin'] * df_dc['time_interval']
 
-    print(f'Total Data Cells    = {df_dc['total_values'].sum():,}')
-    print(f'Total GTI Bins      = {df_dc['n_gti_bin'].sum():,}')
-    print(f'Total BTI Bins      = {df_dc['n_bti_bin'].sum():,}')
-    print(f'Total GTI exposure  = {df_dc['gti_exposure'].sum():,}')
-    print(f'Total BTI exposure  = {df_dc['bti_exposure'].sum():,}')
-    print(f'Total GTI/BTI ratio = {df_dc['gti_exposure'].sum() / df_dc['bti_exposure'].sum():.2f}')
+    print(f"Total Data Cells    = {df_dc['total_values'].sum():,}")
+    print(f"Total GTI Bins      = {df_dc['n_gti_bin'].sum():,}")
+    print(f"Total BTI Bins      = {df_dc['n_bti_bin'].sum():,}")
+    print(f"Total GTI exposure  = {df_dc['gti_exposure'].sum():,}")
+    print(f"Total BTI exposure  = {df_dc['bti_exposure'].sum():,}")
+    print(f"Total GTI/BTI ratio = {df_dc['gti_exposure'].sum() / df_dc['bti_exposure'].sum():.2f}")
     print('-----------------------------------\n\n')
 
 
@@ -126,8 +125,8 @@ def process_run_info():
     df_run_info = pd.read_csv(savepaths_combined['run_info'], dtype={'obsid':'str'})
     vc = df_run_info['n_regions'].value_counts(normalize=True) * 100
 
-    print(f'Total Runs         = {len(df_run_info['obsid']):,}')
-    print(f'Total Observations = {df_run_info['obsid'].nunique():,}\n')
+    print(f"Total Runs         = {len(df_run_info['obsid']):,}")
+    print(f"Total Observations = {df_run_info['obsid'].nunique():,}\n")
     print('Number of Regions per Run:')
     print(vc[vc.index < 11])
     print('\n')
@@ -398,10 +397,10 @@ def print_significant_bins_stats(df_lc_feat):
 
     print('Significant Bins Statistics:')
     print('----------------------------')
-    print(f'Total Number of 3 sigma peak bins    = {n_peak_3sig_tot :,} / {len_tot :,} ({perc_3_sig_peak:.2f}%) (gti = {df_lc_feat['n_3_sig_peak_bins_gti'].sum():,} ({perc_3_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_peak_bins_bti'].sum():,} ({perc_3_sig_peak_bti:.2f}%))')
-    print(f'Total Number of 3 sigma eclipse bins = {n_eclipse_3sig_tot:,} / {len_tot:,} ({perc_3_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_3_sig_eclipse_bins_gti'].sum():,} ({perc_3_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_eclipse_bins_bti'].sum():,} ({perc_3_sig_eclipse_bti:.2f}%))')
-    print(f'Total Number of 5 sigma peak bins    = {n_peak_5sig_tot:,} / {len_tot:,} ({perc_5_sig_peak:.2f}%) (gti = {df_lc_feat['n_5_sig_peak_bins_gti'].sum():,} ({perc_5_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_peak_bins_bti'].sum():,} ({perc_5_sig_peak_bti:.2f}%))')
-    print(f'Total Number of 5 sigma eclipse bins = {n_eclipse_5sig_tot:,} / {len_tot:,} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum():,} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum():,} ({perc_5_sig_eclipse_bti:.2f}%))')
+    print(f"Total Number of 3 sigma peak bins    = {n_peak_3sig_tot :,} / {len_tot :,} ({perc_3_sig_peak:.2f}%) (gti = {df_lc_feat['n_3_sig_peak_bins_gti'].sum():,} ({perc_3_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_peak_bins_bti'].sum():,} ({perc_3_sig_peak_bti:.2f}%))")
+    print(f"Total Number of 3 sigma eclipse bins = {n_eclipse_3sig_tot:,} / {len_tot:,} ({perc_3_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_3_sig_eclipse_bins_gti'].sum():,} ({perc_3_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_3_sig_eclipse_bins_bti'].sum():,} ({perc_3_sig_eclipse_bti:.2f}%))")
+    print(f"Total Number of 5 sigma peak bins    = {n_peak_5sig_tot:,} / {len_tot:,} ({perc_5_sig_peak:.2f}%) (gti = {df_lc_feat['n_5_sig_peak_bins_gti'].sum():,} ({perc_5_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_peak_bins_bti'].sum():,} ({perc_5_sig_peak_bti:.2f}%))")
+    print(f"Total Number of 5 sigma eclipse bins = {n_eclipse_5sig_tot:,} / {len_tot:,} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum():,} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum():,} ({perc_5_sig_eclipse_bti:.2f}%))")
     print('----------------------------\n\n')
 
 
