@@ -11,7 +11,7 @@ from astropy import units as u
 import pandas as pd
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
-from astroquery.simbad.core import BlankResponseWarning
+from astroquery.exceptions import BlankResponseWarning
 from astroquery.xmatch import XMatch
 
 from exod.processing.coordinates import calc_ra_offset, calc_dec_offset
