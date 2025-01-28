@@ -76,29 +76,29 @@ def crossmatch_dr14_slim(df_region, clobber=True):
     """Crossmatch regions with the 4XMM DR14 slim catalogue."""
     logger.info('Crossmatching with 4XMM DR14 slim catalogue')
     if not clobber and savepaths_combined['cmatch_dr14'].exists():
-        logger.info(f'{savepaths_combined['cmatch_dr14']} already exists and clobber=False, loading from files')
+        logger.info(f"{savepaths_combined['cmatch_dr14']} already exists and clobber=False, loading from files")
         return Table.read(savepaths_combined['cmatch_dr14'])
     else:
         logger.info('Some crossmatch files are missing. Recreating...')
 
     fits_path = data_util / '4xmmdr14slim_240411.fits'
     tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
-    logger.info(f'Saving XMM DR14 crossmatch to {savepaths_combined['cmatch_dr14']}')
+    logger.info(f"Saving XMM DR14 crossmatch to {savepaths_combined['cmatch_dr14']}")
     tab_xmm_cmatch.write(savepaths_combined['cmatch_dr14'], format='csv', overwrite=True)
     return tab_xmm_cmatch
 
 def crossmatch_glade(df_region, clobber=True):
     """Crossmatch regions with GLADE+ catalogue, (converted to fits using topcat)"""
-    logger.info('Crossmatching with GLADEP slim catalogue (can take a second)')
+    logger.info("Crossmatching with GLADEP slim catalogue (can take a second)")
     if not clobber and savepaths_combined['cmatch_glade'].exists():
-        logger.info(f'{savepaths_combined['cmatch_glade']} already exists and clobber=False, loading from files')
+        logger.info(f"{savepaths_combined['cmatch_glade']} already exists and clobber=False, loading from files")
         return Table.read(savepaths_combined['cmatch_glade'])
     else:
         logger.info('Some crossmatch files are missing. Recreating...')
 
     fits_path = data_util / 'GLADEP.fits'
     tab_glade_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='RA', dec_col='Dec')
-    logger.info(f'Saving GLADE crossmatch to {savepaths_combined['cmatch_glade']}')
+    logger.info(f"Saving GLADE crossmatch to {savepaths_combined['cmatch_glade']}")
     tab_glade_cmatch.write(savepaths_combined['cmatch_glade'], format='csv', overwrite=True)
     return tab_glade_cmatch
 
