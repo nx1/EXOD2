@@ -48,6 +48,7 @@ savepaths_combined = {'bti'             : data_combined / 'merged_with_dr14' / '
                       'cmatch_om'       : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_om.csv',
                       'cmatch_dr14'     : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_dr14.csv',
                       'cmatch_glade'    : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_gladep.csv',
+                      'cmatch_chime'    : data_combined / 'merged_with_dr14' / 'df_regions_unique_cmatch_chime.csv',
                       'exod_cat'        : data_catalogue / 'EXOD_DR1_cat.fits',
                       'exod_cat_unique' : data_catalogue / 'EXOD_DR1_cat_unique.fits'}
 

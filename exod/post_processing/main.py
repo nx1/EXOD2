@@ -544,8 +544,8 @@ def print_cmatch_numbers(dfs_cmatch):
     print('\n\n')
 
 def print_chime_frb_counts():
-    df_chime = Table.read('../data/util/chimefrbcat1.fits').to_pandas()
-    df_cmatch_chime = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/merged_with_dr14/df_regions_unique_cmatch_chime.csv')
+    df_chime = Table.read(data_util / 'chimefrbcat1.fits').to_pandas()
+    df_cmatch_chime = pd.read_csv(savepaths_combined['cmatch_chime'])
 
     n_chime_rows = len(df_chime)
     n_unique_chime_sources = df_chime['tns_name'].nunique()
