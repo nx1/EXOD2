@@ -183,7 +183,7 @@ def print_n_lcs_by_peaks(df_lc_features, sigma=3):
     print(f'Number of Lightcurves with only Eclipses = {n_eclipse_only:,} / {len(df_lc_features):,} ({100*n_eclipse_only/len(df_lc_features):.2f}%)')
     print(f'Number of Lightcurves with both          = {n_peak_and_eclipses:,} / {len(df_lc_features):,} ({100*n_peak_and_eclipses/len(df_lc_features):.2f}%)')
     print(f'Number of Lightcurves with neither       = {n_neither:,} / {len(df_lc_features):,} ({100*n_neither/len(df_lc_features):.2f}%)')
-    print('The reason for some lightcurves having neither is because the threshold value was calculated over each pixel of the data cube, however this B values were then re-calculated for the extracted lightcurves')
+    print('The reason for some lightcurves having neither (at 3sig) is because the threshold value was calculated over each pixel of the data cube, however this B values were then re-calculated for the extracted lightcurves')
     print('---------------------------------------------------\n')
     assert n_peaks_only + n_eclipse_only + n_peak_and_eclipses + n_neither == len(df_lc_features)
 
@@ -373,6 +373,36 @@ def plot_n_regions_against_n_max_filter(df_lc_feat):
 
 
 def print_significant_bins_stats(df_lc_feat):
+    df_lc_feat['has_3_sig_gti_peak'] = df_lc_feat['n_3_sig_peak_bins_gti'] > 0
+    df_lc_feat['has_5_sig_gti_peak'] = df_lc_feat['n_5_sig_peak_bins_gti'] > 0
+    df_lc_feat['has_3_sig_bti_peak'] = df_lc_feat['n_3_sig_peak_bins_bti'] > 0
+    df_lc_feat['has_5_sig_bti_peak'] = df_lc_feat['n_5_sig_peak_bins_bti'] > 0
+
+    df_lc_feat['has_3_sig_gti_eclipse'] = df_lc_feat['n_3_sig_eclipse_bins_gti'] > 0
+    df_lc_feat['has_5_sig_gti_eclipse'] = df_lc_feat['n_5_sig_eclipse_bins_gti'] > 0
+    df_lc_feat['has_3_sig_bti_eclipse'] = df_lc_feat['n_3_sig_eclipse_bins_bti'] > 0
+    df_lc_feat['has_5_sig_bti_eclipse'] = df_lc_feat['n_5_sig_eclipse_bins_bti'] > 0
+
+    n_3_sig_gti_peak_detections = df_lc_feat['has_3_sig_gti_peak'].sum()
+    n_5_sig_gti_peak_detections = df_lc_feat['has_5_sig_gti_peak'].sum()
+    n_3_sig_bti_peak_detections = df_lc_feat['has_3_sig_bti_peak'].sum()
+    n_5_sig_bti_peak_detections = df_lc_feat['has_5_sig_bti_peak'].sum()
+
+    n_3_sig_gti_eclipse_detections = df_lc_feat['has_3_sig_gti_eclipse'].sum()
+    n_5_sig_gti_eclipse_detections = df_lc_feat['has_5_sig_gti_eclipse'].sum()
+    n_3_sig_bti_eclipse_detections = df_lc_feat['has_3_sig_bti_eclipse'].sum()
+    n_5_sig_bti_eclipse_detections = df_lc_feat['has_5_sig_bti_eclipse'].sum()
+
+
+    print('Fraction of GTI to BTI detections')
+    print('---------------------------------')
+    print(f'Number of regions with GTI peak detections:    {n_3_sig_gti_peak_detections:,} (3sig) {n_5_sig_gti_peak_detections:,} (5sig)')
+    print(f'Number of regions with BTI peak detections:    {n_3_sig_bti_peak_detections:,} (3sig) {n_5_sig_bti_peak_detections:,} (5sig)')
+    print(f'Number of regions with GTI eclipse detections: {n_3_sig_gti_eclipse_detections:,} (3sig) {n_5_sig_gti_eclipse_detections:,} (5sig)')
+    print(f'Number of regions with BTI eclipse detections: {n_3_sig_bti_eclipse_detections:,} (3sig) {n_5_sig_bti_eclipse_detections:,} (5sig)')
+    # print(f'Number of regions with GTI & BTI detections: {} (3sig) {} (5sig)')
+    print('---------------------------------')
+
 
     len_tot            = df_lc_feat['len'].sum()
     n_peak_3sig_tot    = df_lc_feat['n_3_sig_peak_bins'].sum()
@@ -402,6 +432,7 @@ def print_significant_bins_stats(df_lc_feat):
     print(f"Total Number of 5 sigma peak bins    = {n_peak_5sig_tot:,} / {len_tot:,} ({perc_5_sig_peak:.2f}%) (gti = {df_lc_feat['n_5_sig_peak_bins_gti'].sum():,} ({perc_5_sig_peak_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_peak_bins_bti'].sum():,} ({perc_5_sig_peak_bti:.2f}%))")
     print(f"Total Number of 5 sigma eclipse bins = {n_eclipse_5sig_tot:,} / {len_tot:,} ({perc_5_sig_eclipse:.2f}%) (gti = {df_lc_feat['n_5_sig_eclipse_bins_gti'].sum():,} ({perc_5_sig_eclipse_gti:.2f}%)) (bti = {df_lc_feat['n_5_sig_eclipse_bins_bti'].sum():,} ({perc_5_sig_eclipse_bti:.2f}%))")
     print('----------------------------\n\n')
+    input()
 
 
 
@@ -444,7 +475,10 @@ def plot_xmm_dr14_flux_comparison(tab_xmm_cmatch):
 
 def plot_cmatch_seperations(dfs_cmatch):
     plt.figure()
-    for k, tab in dfs_cmatch.items():
+    # for k, tab in dfs_cmatch.items():
+    # Plot the labels in same order as plot.
+    for k in ['GAIA DR3', 'XMM OM', 'XMM DR14', 'SIMBAD', 'GLADE+']:
+        tab = dfs_cmatch[k]
         N = len(tab[tab['SEP_ARCSEC'] < 20])
         percent = N / len(tab) * 100
         plt.hist(tab['SEP_ARCSEC'], bins=np.linspace(0, 20, 75), histtype='step',
@@ -637,6 +671,9 @@ def process_regions(clobber=True):
 def main(clobber=True):
     print('EXOD POST PROCESSING')
     print('====================')
+    import matplotlib.pyplot as plt
+    import scienceplots
+    plt.style.use('science')
     use_scienceplots()
     check_results_shape()
     process_evt_info()

@@ -3,7 +3,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from matplotlib import pyplot as plt
 
-from exod.utils.path import savepaths_combined
+from exod.utils.path import savepaths_combined, data_combined
 from exod.utils.plotting import plot_event_list_ccds, fig2data_url
 from exod.xmm.observation import Observation
 from exod.post_processing.extract_lc_features import calc_df_lc_feat_filter_flags
@@ -45,7 +45,7 @@ class ResultsManager:
     def __init__(self):
         self.load_results()
         self.cluster_regions()
-        # self.calc_subsets()
+        self.calc_subsets()
         self.calc_flags()
         self.df_regions = self.decode_runids(self.df_regions)
         self.get_unique_region_iau_srcids()
@@ -57,16 +57,16 @@ class ResultsManager:
         self.df_cmatch_gaia   = pd.read_csv(savepaths_combined['cmatch_gaia'])
         self.df_cmatch_glade  = pd.read_csv(savepaths_combined['cmatch_glade'])
         self.df_cmatch_xmm    = pd.read_csv(savepaths_combined['cmatch_dr14'])
-        self.df_cmatch_chime  = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/merged_with_dr14/df_regions_unique_cmatch_chime.csv')
+        self.df_cmatch_chime  = pd.read_csv(savepaths_combined['cmatch_chime'])
         self.df_dc            = pd.read_csv(savepaths_combined['dc_info'])
         self.df_evt           = pd.read_csv(savepaths_combined['evt_info'], index_col='obsid', dtype={'obsid':str})
         self.df_obs           = pd.read_csv(savepaths_combined['obs_info'], dtype={'obsid':str}, low_memory=False)
         self.df_run           = pd.read_csv(savepaths_combined['run_info'], index_col='obsid', dtype={'obsid':str})
-        self.df_sim           = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/merged_with_dr14/EXOD_simlist.csv', dtype={'obsid':str})
+        self.df_sim           = pd.read_csv(data_combined / 'merged_with_dr14/EXOD_simlist.csv', dtype={'obsid':str})
         self.df_lc_idx        = pd.read_csv(savepaths_combined['lc_idx'], index_col='Unnamed: 0')
         self.df_lc_features   = pd.read_csv(savepaths_combined['lc_features'], dtype={'obsid':str})
         self.df_regions       = pd.read_csv(savepaths_combined['regions'])
-        self.df_otype_stats   = pd.read_csv('/home/nkhan/EXOD2/data/results_combined/simbad_stats/EXOD FULL_otype_stats.csv')
+        self.df_otype_stats   = pd.read_csv(data_combined / 'simbad_stats/EXOD FULL_otype_stats.csv')
         #self.df_lc            = pd.read_csv(savepaths_combined['lc'], dtype={'obsid':str})
         self.df_regions_rotated = rotate_regions_to_detector_coords(self.df_regions, clobber=False)
 
