@@ -69,10 +69,12 @@ def get_filters():
                       FilterCmatchSeperation('SIMBAD < 40"', max_sep=40, direction='lower',    sep_col='SIMBAD_SEP_ARCSEC'),
                       FilterCmatchSeperation('DR14 > 40"',   max_sep=40, direction='greater',  sep_col='DR14_SEP_ARCSEC'),
                       FilterCmatchSeperation('SIMBAD > 40"', max_sep=40, direction='greater',  sep_col='SIMBAD_SEP_ARCSEC')]
+    
+    filters_bti    = [FilterLcBTIPeak('3 Sigma BTI Peak 2 bins min', peak_or_eclipse='peak', sigma=3, bti_or_gti='bti', min_bins=2)]
 
     filters_var_flag = [FilterCmatchDR14Variable('SC_VAR_FLAG=False')]
     
-    filters = [filters_energy, filters_time, filters_sigma, filters_cmatch, filters_var_flag]
+    filters = [filters_energy, filters_time, filters_sigma, filters_cmatch, filters_var_flag, filters_bti]
     return filters
 
 
