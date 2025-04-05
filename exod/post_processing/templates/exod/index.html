@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXOD (XMM-Newton X-ray Outburst Detector)</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="container">
+<h1>EXOD (XMM-Newton X-ray Outburst Detector)</h1>
+<h2>Introduction</h2>
+<p>
+EXOD is an algorithm designed for the detection of rapid X-ray transients in
+photon counting data. 
+</p>
+
+<p>
+The EXOD catalogue was compiled from 15,105 XMM-Newton observations spanning from 2001-08-19 to 2023-11-16.
+</p>
+
+<p>
+The data on this website contains the results from the output of EXOD over 3 different time binnings:
+
+5s, 50s, 200s and 3 different energy bands 0.2-2.0 keV (soft) 2.0 - 12.0 keV (hard) and 0.2 - 12.0 keV (full).
+</p>
+
+<p>
+<b>Please note that due to the dynamic nature of the loading of data on this website, some pages my
+take a while to load, please be patient.</b>
+</p>
+    
+<p>
+If you use the EXOD catalogue in your research and publish results, please
+acknowledge the catalogue and cite the relevant paper:
+</p>
+    
+<blockquote>
+<p><em>This research has made use of data from the EXOD source catalogue (Khan et al. 2024)</em></p>
+</blockquote>
+
+<h2>External Links</h2>
+<ul>
+<li><a href="https://github.com/nx1/EXOD2">EXOD on GitHub</a>
+<li><a href="https://exod2.readthedocs.io/en/latest/">EXOD Documentation</a>
+<li><a href="http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR14/4XMM_DR14.html">4XMM-DR14</a>
+<li><a href="https://xcatdb.unistra.fr/4xmmdr14/index.html">XCAT-DB at the SSC institute, Observatoire Astronomique, Strasbourg</a>
+<li><a href="http://nxsa.esac.esa.int/nxsa-web/#search">XSA at ESA's XMM-Newton SOC</a>
+<li><a href="http://xmm-catalog.irap.omp.eu/">The IRAP catalogue server </a>
+<li><a href="http://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3browse.pl">Browse at HEASARC NASA GSFC</a>
+</ul>
+
+<h2>FITS Catalogues</h2>
+<table class='table table-hover'>
+    <thead>
+        <tr>
+            <th>Product Name</th>
+            <th>File Name</th>
+            <th>Size (MB)</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>exod_cat</td>
+            <td><a href="data/EXOD_DR1_cat.fits" download="EXOD_DR1_cat.fits" type="application/octet-stream">EXOD_DR1_cat.fits</a></td>
+            <td>13.1</td>
+            <td>EXOD DR1 catalog of detections</td>
+        </tr>
+        <tr>
+            <td>exod_cat_unique</td>
+            <td><a href="data/EXOD_DR1_cat_unique.fits" download="EXOD_DR1_cat_unique.fits" type="application/octet-stream">EXOD_DR1_cat_unique.fits</a></td>
+            <td>13.7</td>
+            <td>Unique sources from EXOD DR1 catalog</td>
+        </tr>
+    </tbody>
+</table>
+
+
+<!-- This is a block comment in HTML 
+<h2>Additional Data Products</h2>
+<table class='table table-hover'>
+    <thead>
+        <tr>
+            <th>Product Name</th>
+            <th>File Name</th>
+            <th>Size (MB)</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>bti</td>               <td>df_bti.csv</td>               <td>424.7</td>   <td>Bad Time intervals</td></tr>
+        <tr><td>regions</td>           <td>df_regions.csv</td>           <td>13.1</td>    <td>Detected source regions in the dataset</td></tr>
+        <tr><td>regions_unique</td>    <td>df_regions_unique.csv</td>    <td>1.1</td>     <td>Unique source regions after merging duplicates</td></tr>
+        <tr><td>lc</td>                <td>df_lc.h5</td>                 <td>29541.9</td> <td>Light curves for detected sources (Available on Request)</td></tr>
+        <tr><td>lc_idx</td>            <td>df_lc_idx.csv</td>            <td>3.3</td>     <td>Index mapping for light curve data (Available on Request)</td></tr>
+        <tr><td>lc_features</td>       <td>df_lc_features.csv</td>       <td>24.6</td>    <td>Extracted features from light curves</td></tr>
+        <tr><td>run_info</td>          <td>df_run_info.csv</td>          <td>18.7</td>    <td>Metadata for pipeline runs</td></tr>
+        <tr><td>obs_info</td>          <td>df_obs_info.csv</td>          <td>50.7</td>    <td>Observation metadata</td></tr>
+        <tr><td>dl_info</td>           <td>df_dl_info.csv</td>           <td>20.9</td>    <td>EXOD Data Loader metadata</td></tr>
+        <tr><td>dc_info</td>           <td>df_dc_info.csv</td>           <td>31.8</td>    <td>Data Cube metadata</td></tr>
+        <tr><td>evt_info</td>          <td>df_evt_info.csv</td>          <td>38.2</td>    <td>Event List for metadata</td></tr>
+    </tbody>
+</table>
+
+<h2>SIMBAD Crossmatch Object Type Statistics</h2>
+<table class='table table-hover'>
+    <thead>
+        <tr>
+            <th>File Name</th>
+            <th>Size (KB)</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>DR14_otype_stats.csv</td>                                  <td>9.0</td>  <td>Otype counts for 4XMM-DR14</td></tr>
+        <tr><td>DR14 & SC_VAR_FLAG=1_otype_stats.csv</td>                  <td>5.4</td>  <td>Otype counts for 4XMM-DR14 objects with SC_VAR_FLAG=1</td></tr>
+        <tr><td>DR14 & SIMBAD_otype_stats.csv</td>                         <td>8.1</td>  <td>Cross-matched object types from DR14 and SIMBAD</td></tr>
+        <tr><td>DR14 & SIMBAD & TRANSIENT_otype_stats.csv</td>             <td>4.9</td>  <td>DR14 & SIMBAD sources classified as transient</td></tr>
+        <tr><td>DR14 & TRANSIENT_otype_stats.csv</td>                      <td>4.9</td>  <td>DR14 sources classified as transient</td></tr>
+        <tr><td>EXOD & NOT TRANSIENT (DR14)_otype_stats.csv</td>           <td>6.9</td>  <td>EXOD sources not classified as transient in DR14</td></tr>
+        <tr><td>EXOD & SC_VAR_FLAG=0_otype_stats.csv</td>                  <td>6.3</td>  <td>EXOD objects with SC_VAR_FLAG=0</td></tr>
+        <tr><td>EXOD & SC_VAR_FLAG=1_otype_stats.csv</td>                  <td>4.7</td>  <td>EXOD objects with SC_VAR_FLAG=1</td></tr>
+        <tr><td>EXOD & TRANSIENT (DR14)_otype_stats.csv</td>               <td>4.7</td>  <td>EXOD sources classified as transient in DR14</td></tr>
+        <tr><td>EXOD FULL_otype_stats.csv</td>                             <td>7.3</td>  <td>Full classification statistics for EXOD</td></tr>
+        <tr><td>SIMBAD_otype_stats.csv</td>                                <td>11.1</td> <td>Object type statistics from SIMBAD</td></tr>
+        <tr><td>n_subtypes_vs_data_subset.csv</td>                         <td>1.7</td>  <td>Number of subtypes across data subsets</td></tr>
+        <tr><td>n_subtypes_vs_data_subset_pivot.csv</td>                   <td>0.37</td> <td>Pivoted version of the subtypes vs data subset table</td></tr>
+        <tr><td>otype_stats_count.csv</td>                                 <td>7.8</td>  <td>Counts of object types across datasets</td></tr>
+        <tr><td>otype_stats_perc.csv</td>                                  <td>7.4</td>  <td>Percentage distribution of object types</td></tr>
+    </tbody>
+</table>
+-->
+
+
+
+<h2>Questions and Queries</h2>
+For further questions, please contact Norman Khan or Erwan Quintin.
+
+<h2>Acknowledgements</h2>
+This project has received funding from the European
+Union’s Horizon 2020 research and innovation programme under grant agreement
+number 101004168, the XMM2ATHENA project.
+
+This research has made use of data obtained from the 4XMM XMM-Newton serendipitous source catalogue compiled by the 10 institutes of
+the XMM-Newton Survey Science Centre selected by ESA. This research has
+also made use of the SIMBAD database, operated at CDS, Strasbourg, France.
+<hr>
+<p>Last Updated: 17-October-2024</p>
+
+
+
+</div>
+</body>
+</html>
+
+
+
