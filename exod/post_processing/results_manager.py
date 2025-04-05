@@ -77,11 +77,13 @@ class ResultsManager:
         self.cr = cr
 
     def calc_subsets(self):
-        self.df_regions['sigma_max_B_peak']    = self.df_lc_features['sigma_max_B_peak']
-        self.df_regions['sigma_max_B_eclipse'] = self.df_lc_features['sigma_max_B_eclipse']
-        self.df_regions['DR14_SEP_ARCSEC']     = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SEP_ARCSEC'])
-        self.df_regions['SIMBAD_SEP_ARCSEC']   = self.df_regions['cluster_label'].map(self.df_cmatch_simbad['SEP_ARCSEC'])
-        self.df_regions['SC_VAR_FLAG']   = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SC_VAR_FLAG'])
+        self.df_regions['sigma_max_B_peak']      = self.df_lc_features['sigma_max_B_peak']
+        self.df_regions['sigma_max_B_eclipse']   = self.df_lc_features['sigma_max_B_eclipse']
+        self.df_regions['n_3_sig_peak_bins_bti'] = self.df_lc_features['n_3_sig_peak_bins_bti']
+        self.df_regions['n_5_sig_peak_bins_bti'] = self.df_lc_features['n_5_sig_peak_bins_bti']
+        self.df_regions['DR14_SEP_ARCSEC']       = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SEP_ARCSEC'])
+        self.df_regions['SIMBAD_SEP_ARCSEC']     = self.df_regions['cluster_label'].map(self.df_cmatch_simbad['SEP_ARCSEC'])
+        self.df_regions['SC_VAR_FLAG']           = self.df_regions['cluster_label'].map(self.df_cmatch_xmm['SC_VAR_FLAG'])
 
         filters = get_filters()
         valid_combinations = generate_valid_combinations(*filters)
