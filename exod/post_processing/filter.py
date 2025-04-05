@@ -250,6 +250,28 @@ class FilterLcLength(FilterBase):
         self.df_removed  = self.df[~mask]
         return self.df_filtered
 
+class FilterLcBTIPeak(FilterBase):
+    def __init__(self, name, peak_or_eclipse='peak', sigma=5, bti_or_gti='bti', min_bins=1):
+        super().__init__(name)
+        self.peak_or_eclipse = peak_or_eclipse 
+        self.sigma           = sigma
+        self.bti_or_gti      = bti_or_gti
+        self.min_bins        = min_bins
+
+    def get_parameters(self):
+        return {'peak_or_eclipse' : self.peak_or_eclipse,
+                'sigma'           : self.sigma,
+                'bti_or_gti'      : self.bti_or_gti,
+                'min_bins'        : self.min_bins}
+
+    def apply(self, df_lc_stats):
+        self.df = df_lc_stats
+        k = f'n_{self.sigma}_sig_{self.peak_or_eclipse}_bins_{self.bti_or_gti}'
+        mask = df_lc_stats[k] >= self.min_bins
+        self.df_filtered = self.df[mask]
+        self.df_removed  = self.df[~mask]
+        return self.df_filtered
+
 
 class FilterCmatchSeperation(FilterBase):
     def __init__(self, name, max_sep, direction='lower', sep_col='SEP_ARCSEC'):
@@ -289,7 +311,6 @@ class FilterCmatchDR14Variable(FilterBase):
         self.df_filtered = self.df[mask]
         self.df_removed = self.df[~mask]
         return self.df_filtered
-
 
 def generate_combinations_with_one_or_none(filters):
     """
