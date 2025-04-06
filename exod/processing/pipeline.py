@@ -1,14 +1,16 @@
+from exod.pre_processing.event_filtering import sas_is_installed
 from exod.processing.bti import get_bti, get_gti_threshold
 from exod.utils.logger import logger
 from exod.utils.path import data, read_observation_ids, savepaths_combined
 from exod.utils.util import save_result, load_info, load_df
 from exod.utils.plotting import cmap_image
 from exod.processing.bayesian_computations import PrecomputeBayesLimits, B_peak_log, B_eclipse_log
-from exod.processing.data_cube import extract_lc, DataCubeXMM
+from exod.processing.data_cube import extract_lc, DataCube
 from exod.processing.background_inference import calc_cube_mu
 from exod.processing.coordinates import get_regions_sky_position, calc_df_regions
 from exod.xmm.event_list import EventList
 from exod.xmm.observation import Observation
+from exod.xmm.wcs import wcs_from_eventlist_file
 
 import itertools
 from random import shuffle
@@ -48,8 +50,8 @@ class Pipeline:
         
         savedir (Path): Directory to save results to.
     """
-    def __init__(self, obsid, size_arcsec=20.0, time_interval=50, gti_only=False, remove_partial_ccd_frames=True,
-                 min_energy=0.2, max_energy=10.0, clobber=False, threshold_sigma=3):
+    def __init__(self, obsid='0724210501', size_arcsec=20.0, time_interval=50, gti_only=False, remove_partial_ccd_frames=True,
+                 min_energy=0.2, max_energy=10.0, clobber=False, threshold_sigma=3, **kwargs):
         self.obsid = obsid
         self.size_arcsec = size_arcsec
         self.time_interval = time_interval
@@ -79,9 +81,7 @@ class Pipeline:
         return runid
 
     def set_savedir(self):
-        """
-        Create the directory to save results to.
-        """
+        """Create the directory to save results to."""
         self.savedir = self.observation.path_results / self.generate_runid()
         self.savedir.mkdir(parents=True, exist_ok=True)
         logger.info(f'savedir set to: {self.savedir}')
@@ -94,45 +94,39 @@ class Pipeline:
         self.observation.create_images(clobber=self.clobber)
         self.observation.get_files()
         self.observation.get_events_overlapping_subsets()
-        self.total_subsets = len(self.observation.events_overlapping_subsets)
+        self.subsets       = self.observation.get_events_overlapping_subsets()
+        self.total_subsets = self.observation.get_number_of_overlapping_subsets()
 
     def run(self):
         self.pre_process()
-        for subset_number, subset_overlapping_exposures in enumerate(self.observation.events_overlapping_subsets):
-            self.run_subset(subset_number, subset_overlapping_exposures)
+        for i, s in enumerate(self.subsets):
+            self.run_subset(subset_number=i, subset_overlapping_exposures=s)
 
     def run_subset(self, subset_number, subset_overlapping_exposures):
-        """
-        Run the pipeline on a subset of overlapping exposures.
-
-        Parameters:
-            subset_number (int): The observation subset number.
-            subset_overlapping_exposures (list of EventList): The list of EventList objects that overlap.
-        """
         self.subset_number = subset_number
         self.set_savedir()
         self.generate_runid()
 
-        # Create the merged eventlist, calculate the bad time intervals then filter the eventlist.
         self.event_list = EventList.from_event_lists(subset_overlapping_exposures)
-        self.calculate_bti()  # This needs to be called first as the next step filters the eventlist.
+        self.calculate_bti()
         self.event_list.filter_by_energy(self.min_energy, self.max_energy)
 
-        # Create the data cube
-        self.data_cube = DataCubeXMM(self.event_list, self.size_arcsec, self.time_interval)
+        self.data_cube = DataCube(self.event_list, self.size_arcsec, self.time_interval)
         self.data_cube.calc_gti_bti_bins(bti=self.bti)
         self.data_cube.mask_frames_with_partial_ccd_exposure(mask_frames=self.remove_partial_ccd_frames)
         if self.gti_only:
             self.data_cube.mask_bti()
-
         cube_n = self.data_cube
-        cube_n.video()
-
-        img = self.observation.images[0]
-        img.read(wcs_only=True)
+        
+        if sas_is_installed():
+            img = self.observation.images[0]
+            img.read(wcs_only=True)
+            wcs = img.wcs
+        else:
+            wcs = wcs_from_eventlist_file(self.observation.events_raw[0].path)
 
         # Calculate Expectation Cube
-        cube_mu = calc_cube_mu(cube_n, wcs=img.wcs)
+        cube_mu = calc_cube_mu(cube_n, wcs=wcs)
         cube_mask_peaks, cube_mask_eclipses = self.precomputed_bayes_limit.get_cube_masks_peak_and_eclipse(cube_n=cube_n.data, cube_mu=cube_mu)
 
         # Extract information for each significant data cell (3D pixel)
@@ -152,7 +146,7 @@ class Pipeline:
 
         df_reg = calc_df_regions(image=image_n, image_mask=image_mask_combined)
         df_reg['detid'] = self.runid + '_' + df_reg['label'].astype('str') # Create detection id from runid_label
-        df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_reg, wcs=img.wcs)
+        df_sky = get_regions_sky_position(data_cube=cube_n, df_regions=df_reg, wcs=wcs)
         df_regions = pd.concat([df_reg, df_sky], axis=1).reset_index(drop=True)
         self.n_regions = len(df_regions)
 
@@ -203,8 +197,6 @@ class Pipeline:
             logger.info(r)
             logger.info(evt_subset)
             logger.info(f'N_events = {len(evt_subset)}')
-            if len(evt_subset) == 4:
-                input()
 
             """
             # Create an image of the significant cell.

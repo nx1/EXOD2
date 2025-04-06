@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from exod.processing.data_cube import DataCubeXMM
+from exod.processing.data_cube import DataCube
 from exod.xmm.event_list import EventList
 
 
@@ -223,7 +223,7 @@ def check_synthetic_peak_counts_diff(obsid):
 
     all_res = []
     for time_bin in tqdm(time_bins):
-        data_cube = DataCubeXMM(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_bin)
+        data_cube = DataCube(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_bin)
 
         for amplitude in tqdm(amplitudes):
             count_differences = []
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     savedir = observation.path_processed
     event_list = observation.events_processed_pn[0]
     event_list.read()
-    data_cube = DataCubeXMM(event_list, size_arcsec=20, time_interval=100)
+    data_cube = DataCube(event_list, size_arcsec=20, time_interval=100)
 
     create_fake_burst(data_cube, 10, 10, 0.5, 100, 1000)
     create_fake_onebin_burst(data_cube, 10, 10, 0.5, 1000)

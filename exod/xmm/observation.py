@@ -107,6 +107,10 @@ class Observation:
         self.events_overlapping_subsets = subsets
         return self.events_overlapping_subsets
 
+    
+    def get_number_of_overlapping_subsets(self):
+        return len(self.events_overlapping_subsets)
+
 
     @property
     def info(self):

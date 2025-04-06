@@ -9,7 +9,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from exod.processing.data_cube import DataCubeXMM
+from exod.processing.data_cube import DataCube
 from exod.processing.pipeline import Pipeline
 from exod.utils.path import data_plots
 from exod.xmm.observation import Observation
@@ -257,7 +257,7 @@ def bayes_rate_estimate(obsid='0886121001'):
     # We create two copies of DataCube()
     # The first (dl.datacube) will be used to create the original + synthetic data
     # we then set the data of the copied cube to this. This is extremely messy but it works for now.
-    data_cube = DataCubeXMM(event_list, size_arcsec=20, time_interval=timebin)
+    data_cube = DataCube(event_list, size_arcsec=20, time_interval=timebin)
     cube = data_cube.data
     rejected = data_cube.bti_bin_idx
     print('Creating copy of datacube (takes a second)...')
@@ -338,7 +338,7 @@ def bayes_successrate_spacebinning(obsid='0886121001'):
 
     tab_all_amplitudes = []
     for size_arcsec in spacebins:
-        data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=timebin)
+        data_cube = DataCube(event_list, size_arcsec=size_arcsec, time_interval=timebin)
         cube = data_cube.data
         rejected = data_cube.bti_bin_idx
         print('Creating copy of datacube (takes a second)...')
@@ -536,7 +536,7 @@ def bayes_successrate_timebinning(tab_obsids=['0886121001']):
             img.read(wcs_only=True)
 
             for ind_timebin, timebin in enumerate(timebins):
-                data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=timebin)
+                data_cube = DataCube(event_list, size_arcsec=size_arcsec, time_interval=timebin)
                 rejected = data_cube.bti_bin_idx
                 print('Creating copy of datacube (takes a second)...')
                 data_cube2 = data_cube.copy()
@@ -738,7 +738,7 @@ def bayes_false_positive_rate_timebinning(tab_obsids=['0886121001']):
             img.read(wcs_only=True)
 
             for ind_timebin, timebin in enumerate(timebins):
-                data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=timebin)
+                data_cube = DataCube(event_list, size_arcsec=size_arcsec, time_interval=timebin)
                 cube_mu = calc_cube_mu(data_cube=data_cube, wcs=img.wcs)
                 nbr_false_positives = 0
                 nbr_false_positives_3sig = 0
@@ -797,7 +797,7 @@ def bayes_eclipse_successrate_depth(base_rate=10., obsids=['0765080801'], time_i
         observation.get_events_overlapping_subsets()
         for ind_exp, subset_overlapping_exposures in enumerate(observation.events_overlapping_subsets):
             event_list = EventList.from_event_lists(subset_overlapping_exposures)
-            data_cube = DataCubeXMM(event_list, size_arcsec=size_arcsec, time_interval=time_interval)
+            data_cube = DataCube(event_list, size_arcsec=size_arcsec, time_interval=time_interval)
             cube = data_cube.data
             rejected = data_cube.bti_bin_idx
             print('Creating copy of datacube (takes a second)...')

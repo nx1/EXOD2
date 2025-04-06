@@ -1,6 +1,6 @@
 from exod.processing.bti import plot_bti, get_gti_threshold, get_bti
 from exod.processing.coordinates import get_regions_sky_position
-from exod.processing.data_cube import DataCubeXMM
+from exod.processing.data_cube import DataCube
 from exod.utils.logger import logger
 from exod.utils.plotting import cmap_image
 from exod.processing.coordinates import calc_df_regions
@@ -330,7 +330,7 @@ def run_pipeline(obsid, time_interval=1000, size_arcsec=10, gti_only=False, min_
     img.read(wcs_only=True)
 
     # Create Data Cube
-    data_cube = DataCubeXMM(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval)
+    data_cube = DataCube(event_list=event_list, size_arcsec=size_arcsec, time_interval=time_interval)
     data_cube.mask_frames_with_partial_ccd_exposure(mask_frames=remove_partial_ccd_frames)
     data_cube.video(savedir=None)
 
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     evt.read()
     img = obs.images[0]
     img.read(wcs_only=True)
-    data_cube = DataCubeXMM(event_list=evt, size_arcsec=20, time_interval=50)
+    data_cube = DataCube(event_list=evt, size_arcsec=20, time_interval=50)
     detector = Detector(data_cube=data_cube, wcs=img.wcs)
     detector.run()
     detector_info = detector.info

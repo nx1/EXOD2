@@ -8,50 +8,7 @@ from scipy.stats import binned_statistic_dd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-
 class DataCube:
-    """
-    Class to represent a 3D data cube.
-    """
-    def __init__(self, data):
-        self.data = data
-        self.shape = self.data.shape
-        self.memory_mb = self.data.nbytes / (1024 ** 2)  # Convert bytes to megabytes
-
-    def __repr__(self):
-        return (f"DataCube(shape={self.shape}, "
-                f"total_values={np.prod(self.shape)}, "
-                f"memory={self.memory_mb:.2f} MB)")
-
-    def copy(self):
-        """Return a copy of the datacube."""
-        return copy.deepcopy(self)
-
-    def video(self, savepath=None):
-        """Play each frame of the datacube sequentially in a matplotlib figure."""
-        if np.isnan(self.data[:, :, 0]).all():
-            logger.info('first frame all nan =no plot')
-            return None
-
-        fig, ax = plt.subplots()
-        img = ax.imshow(self.data[:, :, 0].T, cmap=cmap_image(), animated=True, interpolation='none',
-                        origin='lower')
-        colorbar = fig.colorbar(img, ax=ax)
-
-        def update(frame):
-            ax.set_title(f'{self}\n{frame}/{num_frames}')
-            img.set_array(self.data[:, :, frame].T)
-            return img,
-
-        num_frames = self.shape[2]
-        ani = FuncAnimation(fig, update, frames=num_frames, interval=20)
-        if savepath:
-            logger.info(f'Saving {self} to {savepath}')
-            ani.save(savepath)
-        plt.show()
-
-
-class DataCubeXMM(DataCube):
     """
     Class to represent a 3D data cube from XMM data.
 
@@ -111,8 +68,19 @@ class DataCubeXMM(DataCube):
         self.bbox_img = self.get_cube_bbox()
         self.crop_data_cube()
         self.relative_frame_exposures = np.ones(self.data.shape[2])
-        super().__init__(self.data)
+        self.shape = self.data.shape
+        self.memory_mb = self.data.nbytes / (1024 ** 2)
 
+
+    def __repr__(self):
+        return (f"DataCube(shape={self.shape}, "
+                f"total_values={np.prod(self.shape)}, "
+                f"memory={self.memory_mb:.2f} MB)")
+    
+    def copy(self):
+        """Return a copy of the datacube."""
+        return copy.deepcopy(self)
+        
     def calc_time_bins(self):
         t_lo = self.event_list.time_min
         t_hi = self.event_list.time_max
@@ -313,6 +281,29 @@ class DataCubeXMM(DataCube):
         self.relative_frame_exposures = np.array([np.sum(exp_frame_grp) for exp_frame_grp in frame_exposures_twoframegroups])
         self.shape = self.data.shape
 
+    def video(self, savepath=None):
+        """Play each frame of the datacube sequentially in a matplotlib figure."""
+        if np.isnan(self.data[:, :, 0]).all():
+            logger.info('first frame all nan =no plot')
+            return None
+
+        fig, ax = plt.subplots()
+        img = ax.imshow(self.data[:, :, 0].T, cmap=cmap_image(), animated=True, interpolation='none',
+                        origin='lower')
+        colorbar = fig.colorbar(img, ax=ax)
+
+        def update(frame):
+            ax.set_title(f'{self}\n{frame}/{num_frames}')
+            img.set_array(self.data[:, :, frame].T)
+            return img,
+
+        num_frames = self.shape[2]
+        ani = FuncAnimation(fig, update, frames=num_frames, interval=20)
+        if savepath:
+            logger.info(f'Saving {self} to {savepath}')
+            ani.save(savepath)
+        plt.show()
+
 
     @property
     def info(self):
@@ -341,10 +332,3 @@ def extract_lc(data_cube, xhi, xlo, yhi, ylo, dtype=np.int32):
     lc = np.nansum(data, axis=(0, 1), dtype=dtype)
     return lc
 
-if __name__ == "__main__":
-    data_array = np.random.rand(10, 10, 10)
-    data_array[:, :, 2] = np.zeros((10, 10))
-    data_cube = DataCube(data_array)
-    print(np.sum(data_cube.data, axis=(0, 1)))
-    data_cube.video()
-    print(data_cube)

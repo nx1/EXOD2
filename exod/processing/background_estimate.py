@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-from exod.processing.data_cube import DataCubeXMM
+from exod.processing.data_cube import DataCube
 from exod.xmm.observation import Observation
 from exod.utils.synthetic_data import create_fake_burst
 from cv2 import inpaint, INPAINT_NS, filter2D
@@ -267,7 +267,7 @@ if __name__=="__main__":
     lc_HE, time_HE = event_list.get_high_energy_lc(time_interval)
     lc_HE = lc_HE[:-1]
 
-    data_cube = DataCubeXMM(event_list, size_arcsec=10, time_interval=time_interval)
+    data_cube = DataCube(event_list, size_arcsec=10, time_interval=time_interval)
 
     background_images_new, background_withsource_new = compute_background_two_templates(data_cube.data, lc_HE, time_interval)
     background_images, background_withsource = compute_background(data_cube.data)

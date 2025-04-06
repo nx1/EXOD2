@@ -231,8 +231,6 @@ class EventList:
         lc_he = np.histogram(data_he, bins=t_bin_he)[0] / time_interval_gti  # Divide by the bin size to get in ct/s
         return t_bin_he, lc_he
 
-
-
     def unload_data(self):
         del(self.data)
         self.is_read = False

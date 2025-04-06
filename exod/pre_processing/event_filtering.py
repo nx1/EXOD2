@@ -4,10 +4,25 @@ Functions to filter events files and create images from the raw data.
 Requires having pre-run the sas task 'setsas' and the enviroment variable 'export CCFPATH=' in the terminal.
 """
 import os
+import subprocess
+import warnings
+
+from astropy.table import Table
+from astropy.units import UnitsWarning
 
 from exod.utils.path import data_raw, data_processed, read_observation_ids
 from exod.utils.logger import logger
 
+warnings.filterwarnings('ignore', category=UnitsWarning, message='0.05 arcsec')
+
+def sas_is_installed():
+    result = subprocess.run('evselect', shell=True, capture_output=True, text=True, check=False)
+    if result.returncode == 0:
+        logger.info('SAS is installed :)')
+        return True
+    else:
+        logger.warning('SAS is not installed! ---> using non-SAS mode (experimental)')
+        return False
 
 def run_cmd(cmd):
     logger.info('Running Command with os.system:')
@@ -32,9 +47,19 @@ def filter_PN_events_file(infile, outfile, min_energy=0.2, max_energy=12.0, clob
 
     logger.info(f'Filtering PN Events file:\nraw       : {infile}\nprocessed : {outfile}')
     min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-         f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
-    run_cmd(cmd)
+    if sas_is_installed():
+        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+             f'expression="#XMMEA_EP && (PATTERN<=4) && (PI in [{min_PI}:{max_PI}])" -V 0')
+        run_cmd(cmd)
+    else:
+        tab = Table.read(infile)
+        print(f'{len(tab):,} Rows Before Energy Filter')
+        tab = tab[(tab['PI'] >= min_PI) & (tab['PI'] <= max_PI)]
+        print(f'{len(tab):,} Rows After Energy Filter')
+        tab = tab[(tab['PATTERN'] <= 4)]
+        print(f'{len(tab):,} Rows After Pattern Filter')
+        tab.write(outfile)
+        
 
 
 def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
@@ -44,20 +69,44 @@ def filter_M1_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobb
 
     logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
     min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-         f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
-    run_cmd(cmd)
+    if sas_is_installed():
+        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+             f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
+        run_cmd(cmd)
+    else:
+        tab = Table.read(infile)
+        print(f'{len(tab):,} Rows Before Energy Filter')
+        tab = tab[(tab['PI'] >= min_PI) & (tab['PI'] <= max_PI)]
+        print(f'{len(tab):,} Rows After Energy Filter')
+        tab = tab[(tab['PATTERN'] <= 12)]
+        print(f'{len(tab):,} Rows After Pattern Filter')
+        tab.write(outfile)
+
+
 
 
 def filter_M2_events_file(infile, outfile, min_energy=0.2, max_energy=12., clobber=False):
     if outfile.exists() and clobber is False:
         logger.info(f'File {outfile} exists and clobber={clobber}!')
         return None
+
     logger.info(f'Filtering Events file:\nraw       : {infile}\nprocessed : {outfile}')
     min_PI, max_PI = int(min_energy*1000), int(max_energy*1000)
-    cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
-         f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
-    run_cmd(cmd)
+
+    if sas_is_installed():
+        cmd=(f'evselect table={infile} withfilteredset=Y filteredset={outfile} destruct=Y keepfilteroutput=T '
+             f'expression="#XMMEA_EM && (PATTERN<=12) && (PI in [{min_PI}:{max_PI}])" -V 0')
+        run_cmd(cmd)
+    else:
+        tab = Table.read(infile)
+        print(f'{len(tab):,} Rows Before Energy Filter')
+        tab = tab[(tab['PI'] >= min_PI) & (tab['PI'] <= max_PI)]
+        print(f'{len(tab):,} Rows After Energy Filter')
+        tab = tab[(tab['PATTERN'] <= 12)]
+        print(f'{len(tab):,} Rows After Pattern Filter')
+        tab.write(outfile)
+
+
 
 
 def filter_obsid_events(observation, min_energy=0.2, max_energy=12.0, clobber=False):
@@ -81,6 +130,10 @@ def filter_obsid_events(observation, min_energy=0.2, max_energy=12.0, clobber=Fa
 
 
 def create_image_file(infile, outfile, ximagebinsize=80, yimagebinsize=80, clobber=False):
+    if not sas_is_installed():
+        logger.warning('SAS Not installed, not creating image')
+        return None
+
     if (outfile.exists() and clobber is False):
         logger.info(f'File {outfile} exists and clobber={clobber}!')
         return None
@@ -88,7 +141,7 @@ def create_image_file(infile, outfile, ximagebinsize=80, yimagebinsize=80, clobb
     logger.info(f'Creating image file:\nraw       : {infile}\nprocessed : {outfile}')
     logger.info(f'ximagebinsize = {ximagebinsize} yimagebinsize = {yimagebinsize}')
     cmd = (f'evselect table={infile} imagebinning=binSize imageset={outfile} withimageset=yes xcolumn=X ycolumn=Y'
-           f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
+    f' ximagebinsize={ximagebinsize} yimagebinsize={yimagebinsize} -V 0')
     run_cmd(cmd)
 
 
