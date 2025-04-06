@@ -100,7 +100,7 @@ def precompute_bayes_limits(threshold_sigma):
     range_mu = np.concatenate((range_mu, range_mu_large))
 
     data = np.array([range_mu, tab_npeak, tab_neclipse])
-    savepath = path.utils / f'bayesfactorlimits_{threshold_sigma}.txt'
+    savepath = path.data_util / f'bayesfactorlimits_{threshold_sigma}.txt'
     logger.info(f'Saving to {savepath}')
     np.savetxt(savepath, data)
 
@@ -267,7 +267,7 @@ class PrecomputeBayesLimits:
         return f'PrecomputeBayesLimits(threshold_sigma={self.threshold_sigma})'
 
     def get_savepath(self):
-        self.savepath = path.utils / f'bayesfactorlimits_{self.threshold_sigma}.txt'
+        self.savepath = path.data_util / f'bayesfactorlimits_{self.threshold_sigma}.txt'
         if not self.savepath.exists():
             logger.info(f'{self.savepath} does not exist. Precomputing Bayes Factors...')
             precompute_bayes_limits(threshold_sigma=self.threshold_sigma)
