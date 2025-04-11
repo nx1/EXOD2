@@ -119,14 +119,14 @@ def precompute_bayes_1000():
     B_peaks    = B_peak_log(n=range_N, mu=1000)
     B_eclipses = B_eclipse_log(n=range_N, mu=1000)
     data = np.array([range_N, B_peaks, B_eclipses])
-    savepath = path.utils / f'bayesfactor_mu1000.txt'
+    savepath = path.data_util / f'bayesfactor_mu1000.txt'
     logger.info(f'Saving to {savepath}')
     np.savetxt(savepath, data)
 
 
 def load_precomputed_bayes1000():
     """Loads & interpolates the precomputed values of Bayes factors at mu=1000"""
-    data              = np.loadtxt(path.utils / f'bayesfactor_mu1000.txt')
+    data              = np.loadtxt(path.data_util / f'bayesfactor_mu1000.txt')
     range_N           = data[0]
     B_values_peaks    = interp1d(range_N, data[1])
     B_values_eclipses = interp1d(range_N, data[2])
@@ -135,7 +135,7 @@ def load_precomputed_bayes1000():
 
 def load_precomputed_bayes_limits(threshold_sigma):
     """Loads the precomputed Bayes factor limit numbers, for a chosen threshold."""
-    data = np.loadtxt(path.utils / f'bayesfactorlimits_{threshold_sigma}.txt')
+    data = np.loadtxt(path.data_util / f'bayesfactorlimits_{threshold_sigma}.txt')
     range_mu            = data[0]
     n_peak_threshold    = interp1d(range_mu, data[1])
     n_eclipse_threshold = interp1d(range_mu, data[2])
