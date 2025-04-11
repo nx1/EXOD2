@@ -672,8 +672,6 @@ def main(clobber=True):
     print('EXOD POST PROCESSING')
     print('====================')
     import matplotlib.pyplot as plt
-    import scienceplots
-    plt.style.use('science')
     use_scienceplots()
     check_results_shape()
     process_evt_info()
