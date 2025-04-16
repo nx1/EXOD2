@@ -1,3 +1,8 @@
+data/processed/
+data/raw/
+data/results/
+data/results_combined/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

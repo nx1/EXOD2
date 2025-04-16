@@ -3,11 +3,11 @@ from astropy.table import Table
 import matplotlib.pyplot as plt
 
 from exod.utils.plotting import use_scienceplots
-from exod.utils.path import data_util, data_plots
+from exod.utils.path import data_plots, savepaths_util
 
 if __name__ == "__main__":
     use_scienceplots()
-    tab = Table.read(data_util / '4XMM_DR14cat_v1.0.fits')
+    tab = Table.read(savepaths_util['4xmm_dr14_cat'])
     tab_var = tab[tab['SC_VAR_FLAG']]
     tab_var2 = tab[tab['VAR_FLAG']]
 

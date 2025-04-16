@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from astropy.table import Table
 
 from exod.processing.coordinates import rotate_XY
-from exod.utils.path import savepaths_combined, data_plots, data_combined, data_util
+from exod.utils.path import savepaths_combined, data_plots, data_combined, savepaths_util
 from exod.xmm.bad_obs import obsids_to_exclude
 from exod.post_processing.util import calc_detid_column
 
@@ -68,7 +68,6 @@ hot_regions = {'_5_'   : hot_regions_5s,
 def get_pointing_angle(obsid, tab_xmm_obslist):
     """
     Get the pointing angle for a given observation ID, reads from the xmm_obslist table.
-    http://xmmssc.irap.omp.eu/Catalogue/4XMM-DR14/4xmmdr14_obslist.fits
     """
     angle = tab_xmm_obslist[tab_xmm_obslist['OBS_ID'] == obsid]['PA_PNT'].value[0]
     return angle
@@ -82,7 +81,7 @@ def rotate_regions_to_detector_coords(df_regions, clobber=True):
         df_regions_rotated = pd.read_csv(savepath, dtype={'obsid':str})
         return df_regions_rotated
 
-    tab_xmm_obslist = Table.read(data_util / '4xmmdr14_obslist.fits')
+    tab_xmm_obslist = Table.read(savepaths_util['4xmm_dr14_obslist'])
     df_regions['obsid'] = df_regions['runid'].str.extract(r'(\d{10})')
     all_res = []
     for obsid in tqdm(df_regions['obsid'].unique()):

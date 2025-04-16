@@ -1,6 +1,6 @@
 from exod.post_processing.crossmatch import crossmatch_astropy_table_with_regions
 from exod.post_processing.results_manager import ResultsManager
-from exod.utils.path import data_util
+from exod.utils.path import data_util, savepaths_util
 
 import numpy as np
 from astropy.table import Table
@@ -8,7 +8,7 @@ from astropy.table import Table
 if __name__ == "__main__":
     rm = ResultsManager()
 
-    tab_extras = Table.read(data_util / 'ExtraS.fits')
+    tab_extras = Table.read(savepaths_util['ExtraS'])
     tab_extras_var = tab_extras[tab_extras['UB_LC500_CO_PVAL'] < 1e-5]
 
     tabs_extras = {'Full'     : tab_extras,

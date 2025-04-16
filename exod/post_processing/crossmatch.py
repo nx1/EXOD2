@@ -16,7 +16,7 @@ from astroquery.xmatch import XMatch
 
 from exod.processing.coordinates import calc_ra_offset, calc_dec_offset
 from exod.utils.logger import logger
-from exod.utils.path import data_util, savepaths_combined
+from exod.utils.path import data_util, savepaths_combined, savepaths_util
 from exod.post_processing.cluster_regions import ClusterRegions
 
 warnings.filterwarnings("ignore", category=BlankResponseWarning)
@@ -81,7 +81,7 @@ def crossmatch_dr14_slim(df_region, clobber=True):
     else:
         logger.info('Some crossmatch files are missing. Recreating...')
 
-    fits_path = data_util / '4xmmdr14slim_240411.fits'
+    fits_path = savepaths_util['4xmm_dr14_slim']
     tab_xmm_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='SC_RA', dec_col='SC_DEC')
     logger.info(f"Saving XMM DR14 crossmatch to {savepaths_combined['cmatch_dr14']}")
     tab_xmm_cmatch.write(savepaths_combined['cmatch_dr14'], format='csv', overwrite=True)
@@ -96,7 +96,7 @@ def crossmatch_glade(df_region, clobber=True):
     else:
         logger.info('Some crossmatch files are missing. Recreating...')
 
-    fits_path = data_util / 'GLADEP.fits'
+    fits_path = savepaths_util['GLADE+']
     tab_glade_cmatch = crossmatch_fits_table(fits_path, df_region, ra_col='RA', dec_col='Dec')
     logger.info(f"Saving GLADE crossmatch to {savepaths_combined['cmatch_glade']}")
     tab_glade_cmatch.write(savepaths_combined['cmatch_glade'], format='csv', overwrite=True)

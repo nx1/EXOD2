@@ -11,7 +11,7 @@ from exod.post_processing.hot_regions import rotate_regions_to_detector_coords, 
 from exod.post_processing.crossmatch import crossmatch_unique_regions
 import exod.post_processing.simbad_stats as simbad_stats
 from exod.processing.bayesian_computations import get_bayes_thresholds
-from exod.utils.path import savepaths_combined, data_plots, data_util
+from exod.utils.path import savepaths_combined, data_plots, savepaths_util
 from exod.utils.plotting import use_scienceplots, plot_aitoff, plot_aitoff_density
 from exod.post_processing.extract_lc_features import extract_lc_features, calc_df_lc_feat_filter_flags, \
     print_df_lc_feat_filter_flag_stats
@@ -458,7 +458,7 @@ def plot_xmm_dr14_flux_comparison(tab_xmm_cmatch):
     tab = tab_xmm_cmatch
     tab = tab[tab['SEP_ARCSEC'] < 30]
     v = tab['SC_EP_8_FLUX']
-    tab_xmm = Table.read(data_util / '4xmmdr14slim_240411.fits')
+    tab_xmm = Table.read(savepaths_util['4xmm_dr14_slim'])
     tab_xmm_var = tab_xmm[tab_xmm['SC_VAR_FLAG']]
 
     plt.figure()
@@ -578,7 +578,7 @@ def print_cmatch_numbers(dfs_cmatch):
     print('\n\n')
 
 def print_chime_frb_counts():
-    df_chime = Table.read(data_util / 'chimefrbcat1.fits').to_pandas()
+    df_chime = Table.read(savepaths_util['CHIME_FRB']).to_pandas()
     df_cmatch_chime = pd.read_csv(savepaths_combined['cmatch_chime'])
 
     n_chime_rows = len(df_chime)
@@ -672,8 +672,6 @@ def main(clobber=True):
     print('EXOD POST PROCESSING')
     print('====================')
     import matplotlib.pyplot as plt
-    import scienceplots
-    plt.style.use('science')
     use_scienceplots()
     check_results_shape()
     process_evt_info()

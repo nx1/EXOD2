@@ -30,6 +30,13 @@ all_paths = {
     'docs'           : docs
 }
 
+savepaths_util = {'4xmm_dr14_slim'    : data_util / '4xmmdr14slim_240411.fits',
+                  '4xmm_dr14_cat'     : data_util / '4XMM_DR14cat_v1.0.fits',
+                  'GLADE+'            : data_util / 'GLADEP.fits',
+                  'ExtraS'            : data_util / 'ExtraS.fits',
+                  '4xmm_dr14_obslist' : data_util / '4xmmdr14_obslist.fits',
+                  'CHIME_FRB'         : data_util / 'chimefrbcat1.fits'}
+
 # TODO Remove merged_with_dr14 from savepaths_combined when finalized!
 savepaths_combined = {'bti'             : data_combined / 'merged_with_dr14' / 'df_bti.csv',
                       'regions'         : data_combined / 'merged_with_dr14' / 'df_regions.csv',
